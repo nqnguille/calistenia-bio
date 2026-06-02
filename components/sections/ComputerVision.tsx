@@ -1,123 +1,102 @@
 "use client";
 import { motion } from "framer-motion";
-import { FadeIn, FadeInStagger, StaggerItem } from "@/components/ui/FadeIn";
+
+const C = { cream:"#F8F6F2", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6", dark:"#0E1117", dark2:"#161B24", cream2:"rgba(248,246,242,0.08)" };
 
 const detections = [
-  { label: "Postura", value: "Alineación cervical", score: 82, icon: "⊕" },
-  { label: "Equilibrio", value: "Centro de masa estable", score: 91, icon: "◎" },
-  { label: "Estabilidad", value: "Control lumbar activo", score: 74, icon: "◈" },
-  { label: "Movilidad", value: "Cadera 118° ROM", score: 88, icon: "◉" },
-  { label: "Técnica", value: "Patrón de movimiento", score: 79, icon: "⊗" },
+  { label:"Postura",    sub:"Alineación cervical",      score:82, icon:"⊕" },
+  { label:"Equilibrio", sub:"Centro de masa estable",   score:91, icon:"◎" },
+  { label:"Estabilidad",sub:"Control lumbar activo",    score:74, icon:"◈" },
+  { label:"Movilidad",  sub:"Cadera 118° ROM",          score:88, icon:"◉" },
+  { label:"Técnica",    sub:"Patrón de movimiento",     score:79, icon:"⊗" },
 ];
 
 export function ComputerVision() {
   return (
-    <section className="bg-dark py-32 px-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="grid md:grid-cols-2 gap-16 items-center">
-          {/* Body scan visualization */}
-          <FadeIn>
-            <div className="relative aspect-[3/4] bg-dark2 rounded-3xl border border-white/10 overflow-hidden">
-              {/* Background gradient */}
-              <div className="absolute inset-0 bg-gradient-to-b from-sage/5 to-transparent" />
+    <section style={{ backgroundColor:C.dark, position:"relative", overflow:"hidden" }} className="py-52 px-8">
+      <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)", backgroundSize:"56px 56px", pointerEvents:"none" }} />
 
-              {/* Body outline SVG */}
-              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 300 400" aria-hidden>
-                {/* Body silhouette */}
-                <ellipse cx="150" cy="45" rx="28" ry="32" fill="none" stroke="#6B7B6840" strokeWidth="1.5" />
-                <path d="M 115 75 L 95 130 L 85 190 L 80 220" fill="none" stroke="#6B7B6840" strokeWidth="1.5" strokeLinecap="round" />
-                <path d="M 185 75 L 205 130 L 215 190 L 220 220" fill="none" stroke="#6B7B6840" strokeWidth="1.5" strokeLinecap="round" />
-                <path d="M 115 75 L 185 75 L 190 160 L 150 175 L 110 160 Z" fill="none" stroke="#6B7B6840" strokeWidth="1.5" />
-                <path d="M 120 175 L 115 260 L 110 330" fill="none" stroke="#6B7B6840" strokeWidth="1.5" strokeLinecap="round" />
-                <path d="M 180 175 L 185 260 L 190 330" fill="none" stroke="#6B7B6840" strokeWidth="1.5" strokeLinecap="round" />
+      <div style={{ maxWidth:1152, margin:"0 auto", position:"relative" }}>
 
-                {/* Landmark dots — animated */}
-                {[
-                  [150,45],[150,80],[115,78],[185,78],
-                  [85,128],[215,128],[80,188],[220,188],
-                  [150,175],[120,175],[180,175],
-                  [115,258],[185,258],[110,328],[190,328],
-                ].map(([cx,cy], i) => (
-                  <motion.circle
-                    key={i}
-                    cx={cx} cy={cy} r="4"
-                    fill="#6B7B68"
-                    initial={{ scale:0, opacity:0 }}
-                    animate={{ scale:1, opacity:0.9 }}
-                    transition={{ delay: 0.05 * i, duration:0.3 }}
-                  />
-                ))}
+        {/* Centered header */}
+        <div style={{ textAlign:"center", marginBottom:104 }}>
+          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
+            <span style={{ width:24, height:1, background:C.sage }} />Visión por computadora<span style={{ width:24, height:1, background:C.sage }} />
+          </motion.div>
+          <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
+            style={{ fontSize:"clamp(2.8rem,5vw,4.5rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:28 }}>
+            Lo que la IA ve en tu cuerpo.
+          </motion.h2>
+          <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.2 }}
+            style={{ fontSize:"1.1rem", color:C.muted, lineHeight:1.7, fontWeight:300, maxWidth:480, margin:"0 auto" }}>
+            En cada evaluación, el sistema analiza más de 30 variables biomecánicas simultáneamente. Sin contacto. Sin sensores. Solo tu webcam.
+          </motion.p>
+        </div>
 
-                {/* Scanning beam */}
-                <motion.rect
-                  x="60" y="0" width="180" height="2" fill="#6B7B68" fillOpacity="0.5"
-                  initial={{ y: 20 }}
-                  animate={{ y: [20, 350, 20] }}
-                  transition={{ duration: 3.5, repeat: Infinity, ease: "linear" }}
-                />
-              </svg>
+        {/* 2-col: body scan + detections */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:64, alignItems:"start" }}>
 
-              {/* Floating detection badges */}
-              {[
-                { x: "right-4 top-16", label: "Postura", val: "82%" },
-                { x: "left-4 top-1/3", label: "ROM", val: "118°" },
-                { x: "right-4 bottom-1/3", label: "Centro", val: "Est." },
-              ].map((b, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: i % 2 === 0 ? 10 : -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 1 + i * 0.3 }}
-                  className={`absolute ${b.x} bg-dark/90 backdrop-blur border border-white/10 rounded-xl px-3 py-2`}
-                >
-                  <p className="text-muted text-xs">{b.label}</p>
-                  <p className="text-cream font-bold text-sm">{b.val}</p>
-                </motion.div>
+          {/* Body scan card */}
+          <motion.div initial={{ opacity:0,x:-24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }}
+            style={{ background:C.dark2, border:"1px solid rgba(255,255,255,0.08)", borderRadius:24, overflow:"hidden", position:"relative" }}>
+            <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 50% 30%, rgba(107,123,104,0.12) 0%, transparent 70%)", pointerEvents:"none" }} />
+            <svg viewBox="0 0 300 400" style={{ width:"100%", maxHeight:360 }} aria-hidden>
+              {/* Silhouette */}
+              <ellipse cx="150" cy="45" rx="28" ry="32" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" />
+              <path d="M 115 75 L 95 130 L 85 190" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 185 75 L 205 130 L 215 190" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 115 75 L 185 75 L 190 160 L 150 175 L 110 160 Z" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" />
+              <path d="M 120 175 L 115 260 L 110 330" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 180 175 L 185 260 L 190 330" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" strokeLinecap="round" />
+              {/* Landmark dots */}
+              {[[150,45],[150,80],[115,78],[185,78],[85,128],[215,128],[150,175],[120,175],[180,175],[115,258],[185,258],[110,328],[190,328]].map(([cx,cy],i) => (
+                <motion.circle key={i} cx={cx} cy={cy} r="4" fill="#6B7B68"
+                  initial={{ scale:0,opacity:0 }} animate={{ scale:1,opacity:0.9 }}
+                  transition={{ delay:0.05*i, duration:0.3 }} />
               ))}
-            </div>
-          </FadeIn>
+              {/* Scan beam */}
+              <motion.rect x="60" width="180" height="2" fill="#6B7B68" fillOpacity="0.5"
+                initial={{ y:30 }} animate={{ y:[30,350,30], opacity:[0,0.5,0] }}
+                transition={{ duration:3.5, repeat:Infinity, ease:"linear", delay:1 }} />
+            </svg>
+            {/* Floating badges */}
+            {[
+              { pos:"16px 16px auto auto", label:"Postura", val:"82%" },
+              { pos:"auto auto 80px 16px", label:"ROM",     val:"118°" },
+            ].map((b,i) => (
+              <motion.div key={i} initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:1.2+i*0.3 }}
+                style={{ position:"absolute", top:b.pos.split(" ")[0]!=="auto"?b.pos.split(" ")[0]:undefined, right:b.pos.split(" ")[1]!=="auto"?b.pos.split(" ")[1]:undefined, bottom:b.pos.split(" ")[2]!=="auto"?b.pos.split(" ")[2]:undefined, left:b.pos.split(" ")[3]!=="auto"?b.pos.split(" ")[3]:undefined, background:"rgba(14,17,23,0.9)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"8px 14px" }}>
+                <p style={{ color:C.muted, fontSize:"0.7rem" }}>{b.label}</p>
+                <p style={{ color:"#F8F6F2", fontWeight:700, fontSize:"0.9rem" }}>{b.val}</p>
+              </motion.div>
+            ))}
+          </motion.div>
 
-          {/* Detections list */}
-          <div className="flex flex-col gap-8">
-            <FadeIn>
-              <p className="text-sm font-medium text-sage tracking-widest uppercase mb-6">Visión por computadora</p>
-              <h2 className="text-4xl md:text-5xl font-semibold text-cream leading-tight tracking-tight mb-6">
-                Lo que la IA ve en tu cuerpo.
-              </h2>
-              <p className="text-muted leading-relaxed">
-                En cada evaluación, el sistema analiza más de 30 variables biomecánicas
-                simultáneamente. Sin contacto. Sin sensores. Solo tu webcam.
-              </p>
-            </FadeIn>
-
-            <FadeInStagger className="flex flex-col gap-4">
-              {detections.map((d) => (
-                <StaggerItem key={d.label}>
-                  <div className="bg-dark2 border border-white/8 rounded-2xl p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sage text-lg">{d.icon}</span>
-                        <div>
-                          <p className="text-cream font-medium text-sm">{d.label}</p>
-                          <p className="text-muted text-xs mt-0.5">{d.value}</p>
-                        </div>
-                      </div>
-                      <span className="text-sage font-bold">{d.score}</span>
-                    </div>
-                    <div className="h-1 bg-white/8 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        whileInView={{ width: `${d.score}%` }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                        className="h-full rounded-full bg-sage"
-                      />
+          {/* Detection bars */}
+          <motion.div initial={{ opacity:0,x:24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }} transition={{ delay:0.15 }}
+            style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            {detections.map((d,i) => (
+              <motion.div key={d.label} initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1+i*0.08 }}
+                style={{ background:C.dark2, border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"28px 32px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                    <span style={{ fontSize:"1.2rem", color:C.sage }}>{d.icon}</span>
+                    <div>
+                      <p style={{ color:"#F8F6F2", fontWeight:600, fontSize:"0.95rem" }}>{d.label}</p>
+                      <p style={{ color:C.muted, fontSize:"0.78rem", marginTop:2 }}>{d.sub}</p>
                     </div>
                   </div>
-                </StaggerItem>
-              ))}
-            </FadeInStagger>
-          </div>
+                  <span style={{ color:C.sage, fontWeight:700, fontSize:"1rem" }}>{d.score}</span>
+                </div>
+                <div style={{ height:5, background:"rgba(255,255,255,0.07)", borderRadius:3, overflow:"hidden" }}>
+                  <motion.div initial={{ width:0 }} whileInView={{ width:`${d.score}%` }} viewport={{ once:true }}
+                    transition={{ duration:0.9, ease:[0.16,1,0.3,1] }}
+                    style={{ height:"100%", background:C.sage, borderRadius:3 }} />
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </div>
     </section>

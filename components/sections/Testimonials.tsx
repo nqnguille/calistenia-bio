@@ -1,69 +1,49 @@
 "use client";
-import { FadeIn, FadeInStagger, StaggerItem } from "@/components/ui/FadeIn";
+import { motion } from "framer-motion";
+
+const C = { cream:"#F8F6F2", ink:"#1B1B1B", sage:"#6B7B68", muted:"#888880", dark:"#0E1117", dark2:"#161B24" };
 
 const testimonials = [
-  {
-    quote: "Tenía 52 años y pensaba que lo que sentía era 'normal para la edad'. La evaluación me mostró que mi cuerpo se movía como el de alguien de 64. En 4 meses bajé a 51. Por primera vez en años, subí escaleras sin pensar.",
-    name: "Marcela R.",
-    age: 52,
-    role: "Docente · Buenos Aires",
-    delta: "−13 años en Edad de Movimiento",
-  },
-  {
-    quote: "Soy médico. Me acerqué con escepticismo. Lo que me convenció no fue la tecnología sino la metodología: mide lo que importa, no lo que es fácil de medir. El equilibrio y la coordinación son predictores reales de longevidad.",
-    name: "Dr. Sebastián M.",
-    age: 48,
-    role: "Médico internista · Córdoba",
-    delta: "Usuario desde el beta",
-  },
-  {
-    quote: "Viajo mucho por trabajo. Lo que me enganchó es que funciona en cualquier lado: hotel, casa, aeropuerto. 4 minutos y tengo mi sesión. Llevo 6 meses sin saltear una semana de evaluación.",
-    name: "Fernando A.",
-    age: 44,
-    role: "Director comercial · Remoto",
-    delta: "26 semanas consecutivas",
-  },
-  {
-    quote: "No vengo del mundo fitness. Siempre me aburrieron los gimnasios. Esto es diferente porque el objetivo no es verme bien, es entender cómo funciona mi cuerpo. Eso sí me motiva.",
-    name: "Lucía T.",
-    age: 39,
-    role: "Diseñadora · Montevideo",
-    delta: "−6 años en Edad de Movimiento",
-  },
+  { quote:"Tenía 52 años y pensaba que lo que sentía era normal para la edad. La evaluación me mostró que mi cuerpo se movía como el de alguien de 64. En 4 meses bajé a 51. Por primera vez en años, subí escaleras sin pensar.", name:"Marcela R.", role:"Docente · Buenos Aires · 52 años", delta:"−13 años" },
+  { quote:"Soy médico y me acerqué con escepticismo. Lo que me convenció fue la metodología: mide lo que importa, no lo que es fácil de medir. El equilibrio y la coordinación son predictores reales de longevidad.", name:"Dr. Sebastián M.", role:"Médico internista · Córdoba · 48 años", delta:"Usuario beta" },
+  { quote:"Viajo mucho por trabajo. Lo que me enganchó es que funciona en cualquier lado. 4 minutos y tengo mi sesión. Llevo 6 meses sin saltear una semana de evaluación.", name:"Fernando A.", role:"Director comercial · Remoto · 44 años", delta:"26 semanas" },
+  { quote:"No vengo del mundo fitness. Siempre me aburrieron los gimnasios. Esto es diferente porque el objetivo no es verme bien, es entender cómo funciona mi cuerpo. Eso sí me motiva.", name:"Lucía T.", role:"Diseñadora · Montevideo · 39 años", delta:"−6 años" },
 ];
 
 export function Testimonials() {
   return (
-    <section className="bg-cream py-32 px-6">
-      <div className="max-w-5xl mx-auto">
-        <FadeIn className="mb-20">
-          <p className="text-sm font-medium text-sage tracking-widest uppercase mb-6">Personas reales</p>
-          <h2 className="text-4xl md:text-5xl font-semibold text-ink leading-tight tracking-tight max-w-xl">
-            Transformaciones de movimiento.
-            <span className="text-muted"> No de apariencia.</span>
-          </h2>
-        </FadeIn>
+    <section style={{ backgroundColor:C.dark, position:"relative", overflow:"hidden" }} className="py-52 px-8">
+      <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(107,123,104,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(107,123,104,0.04) 1px,transparent 1px)", backgroundSize:"48px 48px", pointerEvents:"none" }} />
+      <div style={{ maxWidth:1152, margin:"0 auto", position:"relative" }}>
 
-        <FadeInStagger className="grid md:grid-cols-2 gap-6">
-          {testimonials.map((t) => (
-            <StaggerItem key={t.name}>
-              <div className="bg-cream2 border border-border rounded-3xl p-8 h-full flex flex-col gap-6">
-                <p className="text-ink2 leading-relaxed text-[15px] flex-1">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div className="flex items-center justify-between pt-4 border-t border-border">
-                  <div>
-                    <p className="font-semibold text-ink text-sm">{t.name}</p>
-                    <p className="text-muted text-xs mt-0.5">{t.role} · {t.age} años</p>
-                  </div>
-                  <div className="bg-sage/10 rounded-full px-3 py-1.5">
-                    <p className="text-sage text-xs font-medium">{t.delta}</p>
-                  </div>
+        <div style={{ textAlign:"center", marginBottom:104 }}>
+          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
+            <span style={{ width:24, height:1, background:C.sage }} />Personas reales<span style={{ width:24, height:1, background:C.sage }} />
+          </motion.div>
+          <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
+            style={{ fontSize:"clamp(2.8rem,5vw,4.5rem)", fontWeight:900, color:C.cream, lineHeight:0.95, letterSpacing:"-0.03em" }}>
+            Transformaciones de movimiento. <span style={{ color:C.muted, fontWeight:300 }}>No de apariencia.</span>
+          </motion.h2>
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:16 }}>
+          {testimonials.map((t,i) => (
+            <motion.div key={t.name} initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:i*0.08 }}
+              style={{ background:C.dark2, border:"1px solid rgba(255,255,255,0.07)", borderRadius:20, padding:"44px", display:"flex", flexDirection:"column", gap:24 }}>
+              <p style={{ fontSize:"0.95rem", lineHeight:1.75, color:"rgba(248,246,242,0.75)", fontWeight:300, flex:1 }}>"{t.quote}"</p>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:"1px solid rgba(255,255,255,0.07)", paddingTop:20 }}>
+                <div>
+                  <p style={{ fontWeight:700, color:C.cream, fontSize:"0.9rem" }}>{t.name}</p>
+                  <p style={{ color:C.muted, fontSize:"0.75rem", marginTop:2 }}>{t.role}</p>
+                </div>
+                <div style={{ background:"rgba(107,123,104,0.15)", border:"1px solid rgba(107,123,104,0.3)", borderRadius:999, padding:"6px 14px" }}>
+                  <p style={{ fontSize:"0.75rem", color:C.sage, fontWeight:700 }}>{t.delta}</p>
                 </div>
               </div>
-            </StaggerItem>
+            </motion.div>
           ))}
-        </FadeInStagger>
+        </div>
       </div>
     </section>
   );

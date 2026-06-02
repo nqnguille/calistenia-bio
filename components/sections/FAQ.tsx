@@ -1,70 +1,35 @@
 "use client";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FadeIn } from "@/components/ui/FadeIn";
+
+const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#1B1B1B", ink2:"#3A3A3A", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6" };
 
 const faqs = [
-  {
-    q: "¿Necesito ser atleta o tener experiencia previa?",
-    a: "No. CALISTENIA.bio está diseñado para personas sedentarias, activas y todo lo que hay en el medio. El sistema se adapta a tu nivel actual y parte desde donde estás, no desde donde deberías estar.",
-  },
-  {
-    q: "¿Cómo funciona la evaluación con webcam?",
-    a: "Te posicionás frente a tu cámara y el sistema te guía a través de una serie de movimientos simples. La IA detecta 33 puntos en tu cuerpo y analiza cómo te movés. Toma entre 4 y 8 minutos. Sin ropa especial, sin equipamiento.",
-  },
-  {
-    q: "¿Qué tan precisa es la Edad de Movimiento?",
-    a: "La métrica es una estimación basada en patrones biomecánicos reales. No es un diagnóstico médico. Es una herramienta de seguimiento de tu evolución funcional. Lo que importa es la tendencia a lo largo del tiempo, no el número aislado.",
-  },
-  {
-    q: "¿Con qué frecuencia tengo que hacer la evaluación?",
-    a: "Una vez por semana. La evaluación semanal es el núcleo del producto: es lo que genera datos longitudinales y te permite ver cómo evoluciona tu cuerpo de forma objetiva.",
-  },
-  {
-    q: "¿Las sesiones diarias son muy largas?",
-    a: "No. El mínimo es 4 minutos. El promedio es 12 minutos. Tenemos sesiones de 4, 8, 15, 20 y 45 minutos. Vos elegís según tu día. El sistema toma en cuenta tu adherencia real, no la ideal.",
-  },
-  {
-    q: "¿Mis datos están seguros?",
-    a: "Tus datos biomecánicos son tuyos. Los datos anonimizados que contribuyen al modelo global requieren tu consentimiento explícito. Podés revocar ese consentimiento en cualquier momento. No vendemos datos a terceros.",
-  },
-  {
-    q: "¿Cuánto tiempo hasta ver resultados?",
-    a: "La mayoría de usuarios nota cambios perceptibles en su Edad de Movimiento en las primeras 4-6 semanas. Los cambios más significativos ocurren entre las semanas 8 y 16, cuando el efecto compuesto empieza a ser visible.",
-  },
+  { q:"¿Necesito ser atleta o tener experiencia previa?", a:"No. CALISTENIA.bio está diseñado para personas sedentarias, activas y todo lo que hay en el medio. El sistema se adapta a tu nivel actual y parte desde donde estás." },
+  { q:"¿Cómo funciona la evaluación con webcam?", a:"Te posicionás frente a tu cámara y el sistema te guía a través de una serie de movimientos simples. La IA detecta 33 puntos en tu cuerpo y analiza cómo te movés. Toma entre 4 y 8 minutos." },
+  { q:"¿Qué tan precisa es la Edad de Movimiento?", a:"Es una estimación basada en patrones biomecánicos reales, no un diagnóstico médico. Lo que importa es la tendencia a lo largo del tiempo, no el número aislado." },
+  { q:"¿Con qué frecuencia tengo que hacer la evaluación?", a:"Una vez por semana. La evaluación semanal es el núcleo del producto: genera datos longitudinales y te permite ver cómo evoluciona tu cuerpo de forma objetiva." },
+  { q:"¿Las sesiones diarias son muy largas?", a:"No. El mínimo es 4 minutos. El promedio es 12 minutos. Tenemos sesiones de 4, 8, 15, 20 y 45 minutos. Vos elegís según tu día." },
+  { q:"¿Cuánto tiempo hasta ver resultados?", a:"La mayoría de usuarios nota cambios en las primeras 4-6 semanas. Los cambios más significativos ocurren entre las semanas 8 y 16, cuando el efecto compuesto empieza a ser visible." },
+  { q:"¿Mis datos están seguros?", a:"Tus datos biomecánicos son tuyos. Los datos anonimizados que contribuyen al modelo global requieren tu consentimiento explícito. Podés revocar ese consentimiento en cualquier momento." },
 ];
 
-function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
+function FAQItem({ q, a, i }: { q:string; a:string; i:number }) {
   const [open, setOpen] = useState(false);
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: index * 0.06 }}
-      className="border-b border-border"
-    >
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between py-6 text-left gap-4 cursor-pointer"
-      >
-        <span className="font-medium text-ink text-[15px] leading-snug">{q}</span>
-        <motion.span
-          animate={{ rotate: open ? 45 : 0 }}
-          transition={{ duration: 0.25 }}
-          className="text-muted text-xl shrink-0"
-        >+</motion.span>
+    <motion.div initial={{ opacity:0,y:12 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:i*0.06 }}
+      style={{ borderBottom:`1px solid ${C.border}` }}>
+      <button onClick={() => setOpen(!open)}
+        style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"24px 0", textAlign:"left", cursor:"pointer", gap:28, background:"transparent", border:"none" }}>
+        <span style={{ fontSize:"1rem", fontWeight:600, color:C.ink, lineHeight:1.4 }}>{q}</span>
+        <motion.span animate={{ rotate: open?45:0 }} transition={{ duration:0.2 }}
+          style={{ fontSize:"1.4rem", color:C.muted, flexShrink:0, fontWeight:300 }}>+</motion.span>
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden"
-          >
-            <p className="text-ink2 text-sm leading-relaxed pb-6 max-w-2xl">{a}</p>
+          <motion.div initial={{ height:0,opacity:0 }} animate={{ height:"auto",opacity:1 }} exit={{ height:0,opacity:0 }}
+            transition={{ duration:0.3, ease:[0.16,1,0.3,1] }} style={{ overflow:"hidden" }}>
+            <p style={{ fontSize:"0.95rem", color:C.ink2, lineHeight:1.75, fontWeight:300, paddingBottom:24, maxWidth:640 }}>{a}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -74,17 +39,20 @@ function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
 
 export function FAQ() {
   return (
-    <section className="bg-cream2 py-32 px-6" id="faq">
-      <div className="max-w-3xl mx-auto">
-        <FadeIn className="mb-16 text-center">
-          <h2 className="text-4xl md:text-5xl font-semibold text-ink leading-tight tracking-tight">
-            Preguntas frecuentes
-          </h2>
-        </FadeIn>
+    <section style={{ backgroundColor:C.cream2, borderTop:`1px solid ${C.border}` }} className="py-52 px-8" id="faq">
+      <div style={{ maxWidth:720, margin:"0 auto" }}>
+        <div style={{ textAlign:"center", marginBottom:96 }}>
+          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
+            <span style={{ width:24, height:1, background:C.sage }} />Preguntas frecuentes<span style={{ width:24, height:1, background:C.sage }} />
+          </motion.div>
+          <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
+            style={{ fontSize:"clamp(2.5rem,4vw,4rem)", fontWeight:900, color:C.ink, lineHeight:0.95, letterSpacing:"-0.03em" }}>
+            Todo lo que necesitás saber.
+          </motion.h2>
+        </div>
         <div>
-          {faqs.map((f, i) => (
-            <FAQItem key={f.q} q={f.q} a={f.a} index={i} />
-          ))}
+          {faqs.map((f,i) => <FAQItem key={f.q} q={f.q} a={f.a} i={i} />)}
         </div>
       </div>
     </section>

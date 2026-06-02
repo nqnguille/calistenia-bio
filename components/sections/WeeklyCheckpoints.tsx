@@ -1,130 +1,90 @@
 "use client";
 import { motion } from "framer-motion";
-import { FadeIn } from "@/components/ui/FadeIn";
+
+const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#1B1B1B", ink2:"#3A3A3A", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6" };
 
 const weeks = [
-  { week: "Sem 1", age: 54, label: "Inicio" },
-  { week: "Sem 4", age: 51, label: "+3 sem" },
-  { week: "Sem 8", age: 48, label: "+8 sem" },
-  { week: "Sem 12", age: 45, label: "+12 sem" },
-  { week: "Sem 16", age: 43, label: "+16 sem" },
-  { week: "Sem 20", age: 41, label: "+20 sem" },
+  { label:"Sem 1", val:54 }, { label:"Sem 4", val:51 }, { label:"Sem 8", val:48 },
+  { label:"Sem 12", val:45 }, { label:"Sem 16", val:43 }, { label:"Sem 20", val:41 },
 ];
-
-const MIN = 38; const MAX = 57; const RANGE = MAX - MIN;
+const W=520, H=200, PL=44, PR=16, PT=20, PB=30, MIN=38, MAX=57;
+const xOf = (i:number) => PL + (i/(weeks.length-1))*(W-PL-PR);
+const yOf = (v:number) => PT + ((MAX-v)/(MAX-MIN))*(H-PT-PB);
+const pts = weeks.map((_,i) => ({ x:xOf(i), y:yOf(weeks[i].val) }));
+const pathD = pts.map((p,i) => `${i===0?"M":"L"} ${p.x} ${p.y}`).join(" ");
+const areaD = `${pathD} L ${pts[pts.length-1].x} ${H-PB} L ${pts[0].x} ${H-PB} Z`;
 
 export function WeeklyCheckpoints() {
-  const pts = weeks.map((w, i) => ({
-    x: 60 + i * ((560 - 60) / (weeks.length - 1)),
-    y: 20 + ((w.age - MIN) / RANGE) * (180 - 20),
-  }));
-
-  const pathD = pts.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `C ${(pts[i-1].x + p.x)/2} ${pts[i-1].y} ${(pts[i-1].x + p.x)/2} ${p.y} ${p.x} ${p.y}`)).join(" ");
-  const areaD = `${pathD} L ${pts[pts.length-1].x} 200 L ${pts[0].x} 200 Z`;
-
   return (
-    <section className="bg-cream2 py-32 px-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="grid md:grid-cols-2 gap-16 items-center">
-          <FadeIn>
-            <p className="text-sm font-medium text-sage tracking-widest uppercase mb-6">Evaluaciones semanales</p>
-            <h2 className="text-4xl md:text-5xl font-semibold text-ink leading-tight tracking-tight mb-6">
-              Evolucionás.<br />
-              <span className="text-muted">Lo medimos cada semana.</span>
-            </h2>
-            <p className="text-lg text-ink2 leading-relaxed mb-8">
-              Cada 7 días, la misma evaluación. El mismo vos. Una nueva medición.
-              Observás en tiempo real cómo tu cuerpo responde al movimiento.
-            </p>
-            <div className="flex flex-col gap-4">
-              {[
-                "Evaluación de 5 minutos frente a tu webcam",
-                "Comparativa automática semana a semana",
-                "Gráfico de evolución de tu Edad de Movimiento",
-                "Ajuste del plan basado en tu progreso real",
-              ].map((t) => (
-                <div key={t} className="flex items-start gap-3 text-ink2">
-                  <span className="text-sage mt-0.5">—</span>
-                  <span className="text-sm leading-relaxed">{t}</span>
-                </div>
-              ))}
-            </div>
-          </FadeIn>
+    <section style={{ backgroundColor:C.cream2, borderTop:`1px solid ${C.border}` }} className="py-52 px-8">
+      <div style={{ maxWidth:1152, margin:"0 auto" }}>
 
-          {/* Chart */}
-          <FadeIn delay={0.2}>
-            <div className="bg-white rounded-3xl border border-border p-8">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <p className="text-xs text-muted uppercase tracking-wide mb-1">Edad de Movimiento</p>
-                  <p className="text-3xl font-bold text-ink">−13 años</p>
-                  <p className="text-sm text-sage mt-1">en 20 semanas</p>
-                </div>
-                <div className="bg-sage/10 rounded-xl px-3 py-1">
-                  <p className="text-xs text-sage font-medium">▼ Mejorando</p>
-                </div>
+        {/* Centered header */}
+        <div style={{ textAlign:"center", marginBottom:104 }}>
+          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
+            <span style={{ width:24, height:1, background:C.sage }} />Evaluaciones semanales<span style={{ width:24, height:1, background:C.sage }} />
+          </motion.div>
+          <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
+            style={{ fontSize:"clamp(2.8rem,5vw,4.5rem)", fontWeight:900, color:C.ink, lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:28 }}>
+            Evolucionás. <span style={{ color:C.muted, fontWeight:300 }}>Lo medimos cada semana.</span>
+          </motion.h2>
+          <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.2 }}
+            style={{ fontSize:"1.1rem", color:C.ink2, lineHeight:1.7, fontWeight:300, maxWidth:500, margin:"0 auto" }}>
+            Cada 7 días, la misma evaluación. Una nueva medición. Observás en tiempo real cómo tu cuerpo responde al movimiento.
+          </motion.p>
+        </div>
+
+        {/* 2-col: bullets + chart */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))", gap:72, alignItems:"center" }}>
+          <motion.div initial={{ opacity:0,x:-24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }}
+            style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            {["Evaluación biomecánica de 5 min con webcam","Edad de Movimiento actualizada cada 7 días","Comparativa automática semana a semana","Plan ajustado en base a tu progreso real"].map((b,i) => (
+              <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+                <span style={{ width:8, height:8, borderRadius:"50%", background:C.sage, marginTop:9, flexShrink:0 }} />
+                <span style={{ fontSize:"1.05rem", lineHeight:1.75, fontWeight:300, color:C.ink2 }}>{b}</span>
               </div>
+            ))}
+          </motion.div>
 
-              <svg viewBox="0 0 600 210" className="w-full">
-                <defs>
-                  <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6B7B68" stopOpacity="0.15" />
-                    <stop offset="100%" stopColor="#6B7B68" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
+          <motion.div initial={{ opacity:0,x:24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }} transition={{ delay:0.15 }}
+            style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:24, padding:"44px 40px", boxShadow:"0 16px 56px rgba(27,27,27,0.07)" }}>
+            <p style={{ fontSize:"0.7rem", fontWeight:600, color:C.muted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>Edad de Movimiento</p>
+            <p style={{ fontSize:"1.1rem", fontWeight:700, color:C.ink, marginBottom:24 }}>Progreso — 20 semanas</p>
 
-                {/* Grid lines */}
-                {[40, 44, 48, 52, 56].map((val) => {
-                  const y = 20 + ((val - MIN) / RANGE) * (180 - 20);
-                  return (
-                    <g key={val}>
-                      <line x1="40" y1={y} x2="580" y2={y} stroke="#E4E1DA" strokeWidth="1" />
-                      <text x="30" y={y + 4} fontSize="10" fill="#888880" textAnchor="end">{val}</text>
-                    </g>
-                  );
-                })}
+            <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", overflow:"visible" }} aria-hidden>
+              <defs>
+                <linearGradient id="wc-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={C.sage} stopOpacity="0.18" />
+                  <stop offset="100%" stopColor={C.sage} stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              {[41,45,48,51,54].map(v => (
+                <g key={v}>
+                  <line x1={PL} y1={yOf(v)} x2={W-PR} y2={yOf(v)} stroke={C.border} strokeWidth={1} strokeDasharray="4 4" />
+                  <text x={PL-6} y={yOf(v)+4} fontSize={9} fill={C.muted} textAnchor="end" fontWeight={500}>{v}</text>
+                </g>
+              ))}
+              {weeks.map((w,i) => (
+                <text key={i} x={xOf(i)} y={H-4} fontSize={9} fill={C.muted} textAnchor="middle" fontWeight={500}>{w.label}</text>
+              ))}
+              <motion.path d={areaD} fill="url(#wc-grad)" initial={{ opacity:0 }} whileInView={{ opacity:1 }} viewport={{ once:true }} transition={{ duration:1, delay:0.4 }} />
+              <motion.path d={pathD} fill="none" stroke={C.sage} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+                initial={{ pathLength:0 }} whileInView={{ pathLength:1 }} viewport={{ once:true }} transition={{ duration:1.6, ease:[0.16,1,0.3,1], delay:0.3 }} />
+              {pts.map((p,i) => (
+                <motion.g key={i} initial={{ scale:0,opacity:0 }} whileInView={{ scale:1,opacity:1 }} viewport={{ once:true }}
+                  transition={{ delay:0.5+i*0.14 }} style={{ transformOrigin:`${p.x}px ${p.y}px` }}>
+                  <circle cx={p.x} cy={p.y} r={5} fill="#fff" stroke={C.sage} strokeWidth={2.5} />
+                  <text x={p.x} y={p.y-10} fontSize={10} fill={C.sage} textAnchor="middle" fontWeight={700}>{weeks[i].val}</text>
+                </motion.g>
+              ))}
+            </svg>
 
-                {/* Area fill */}
-                <motion.path
-                  d={areaD}
-                  fill="url(#lineGrad)"
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 1, delay: 0.3 }}
-                />
-
-                {/* Line */}
-                <motion.path
-                  d={pathD}
-                  fill="none" stroke="#6B7B68" strokeWidth="2.5" strokeLinecap="round"
-                  initial={{ pathLength: 0 }}
-                  whileInView={{ pathLength: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 1.5, delay: 0.2, ease: "easeOut" }}
-                />
-
-                {/* Points */}
-                {pts.map((p, i) => (
-                  <motion.g key={i}
-                    initial={{ scale: 0, opacity: 0 }}
-                    whileInView={{ scale: 1, opacity: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.5 + i * 0.15 }}
-                    style={{ transformOrigin: `${p.x}px ${p.y}px` }}
-                  >
-                    <circle cx={p.x} cy={p.y} r="5" fill="white" stroke="#6B7B68" strokeWidth="2.5" />
-                    <text x={p.x} y={p.y - 10} fontSize="10" fill="#6B7B68" textAnchor="middle" fontWeight="600">
-                      {weeks[i].age}
-                    </text>
-                    <text x={p.x} y="205" fontSize="9" fill="#888880" textAnchor="middle">
-                      {weeks[i].week}
-                    </text>
-                  </motion.g>
-                ))}
-              </svg>
+            <div style={{ marginTop:24, paddingTop:20, borderTop:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:12 }}>
+              <span style={{ fontSize:"2rem", fontWeight:900, color:C.sage, letterSpacing:"-0.03em" }}>−13 años</span>
+              <span style={{ fontSize:"0.9rem", color:C.muted, fontWeight:300 }}>de Edad de Movimiento en 20 semanas</span>
             </div>
-          </FadeIn>
+          </motion.div>
         </div>
       </div>
     </section>

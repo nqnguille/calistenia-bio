@@ -1,145 +1,77 @@
 "use client";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FadeIn } from "@/components/ui/FadeIn";
+
+const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#1B1B1B", ink2:"#3A3A3A", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6", dark:"#0E1117", dark2:"#161B24" };
 
 const coaches = [
-  {
-    id: "scientist",
-    emoji: "🔬",
-    name: "El Científico",
-    style: "Preciso · Basado en datos · Objetivo",
-    color: "#203040",
-    sample: '"Tu ángulo de dorsiflexión mejoró 8° esta semana. Eso corresponde a una reducción de 2.3 años en tu Edad de Movimiento. Protocolo ajustado."',
-  },
-  {
-    id: "mentor",
-    emoji: "🧭",
-    name: "El Mentor",
-    style: "Guía · Experiencia · Paciencia",
-    color: "#6B7B68",
-    sample: '"Llevás tres semanas siendo consistente. Eso es más difícil de lo que parece. Ahora vamos a construir sobre eso y llevarte al siguiente nivel."',
-  },
-  {
-    id: "military",
-    emoji: "⚡",
-    name: "El Militar",
-    style: "Directo · Disciplinado · Sin excusas",
-    color: "#1B1B1B",
-    sample: '"Dos días sin sesión. No me interesa el porqué. Hoy hacés la evaluación y mañana estás de vuelta. Sin negociación."',
-  },
-  {
-    id: "friend",
-    emoji: "🤝",
-    name: "El Amigo",
-    style: "Cercano · Empático · Motivador",
-    color: "#8A9E87",
-    sample: '"¡Eso estuvo increíble! Sé que la semana estuvo pesada, pero igualmente lo hiciste. ¿Qué tal si mañana probamos algo nuevo?"',
-  },
-  {
-    id: "zen",
-    emoji: "🌿",
-    name: "El Zen",
-    style: "Calmo · Presencia · Proceso",
-    color: "#6B7B68",
-    sample: '"El cuerpo habla cuando lo escuchás. Hoy tu equilibrio mejoró sin que lo forzaras. Así es como funciona el cambio real."',
-  },
+  { id:"scientist", emoji:"🔬", name:"El Científico", style:"Preciso · Datos · Objetivo",     msg:'"Tu ángulo de dorsiflexión mejoró 8° esta semana. Eso corresponde a una reducción de 2.3 años en tu Edad de Movimiento. Protocolo ajustado."' },
+  { id:"mentor",    emoji:"🧭", name:"El Mentor",    style:"Guía · Experiencia · Paciencia",  msg:'"Llevás tres semanas siendo consistente. Eso es más difícil de lo que parece. Ahora construimos sobre eso."' },
+  { id:"military",  emoji:"⚡", name:"El Militar",   style:"Directo · Disciplinado · Claro",   msg:'"Dos días sin sesión. No me importa el porqué. Hoy hacés la evaluación. Sin negociación."' },
+  { id:"friend",    emoji:"🤝", name:"El Amigo",     style:"Cercano · Empático · Motivador",   msg:'"¡Eso estuvo increíble! Sé que la semana estuvo pesada pero igual lo hiciste. ¿Qué tal si mañana probamos algo nuevo?"' },
+  { id:"zen",       emoji:"🌿", name:"El Zen",       style:"Calmo · Presencia · Proceso",       msg:'"El cuerpo habla cuando lo escuchás. Hoy tu equilibrio mejoró sin que lo forzaras. Así funciona el cambio real."' },
 ];
 
 export function AICoaches() {
-  const [selected, setSelected] = useState(coaches[0]);
-
+  const [sel, setSel] = useState(coaches[0]);
   return (
-    <section className="bg-cream py-32 px-6" id="coaches">
-      <div className="max-w-5xl mx-auto">
-        <FadeIn className="mb-20 grid md:grid-cols-2 gap-12 items-end">
-          <div>
-            <p className="text-sm font-medium text-sage tracking-widest uppercase mb-6">Coaching con IA</p>
-            <h2 className="text-4xl md:text-5xl font-semibold text-ink leading-tight tracking-tight">
-              Misma inteligencia.<br />
-              <span className="text-muted">Tu estilo.</span>
-            </h2>
-          </div>
-          <p className="text-lg text-ink2 leading-relaxed">
-            El motor de IA es el mismo para todos. Lo que cambia es la personalidad
-            del coach. Elegís el estilo que mejor funciona para tu mente.
-          </p>
-        </FadeIn>
+    <section style={{ backgroundColor:C.cream, borderTop:`1px solid ${C.border}` }} className="py-52 px-8" id="coaches">
+      <div style={{ maxWidth:1152, margin:"0 auto" }}>
 
-        <div className="grid md:grid-cols-2 gap-8 items-start">
-          {/* Coach selector */}
-          <FadeIn>
-            <div className="flex flex-col gap-3">
-              {coaches.map((c) => (
-                <motion.button
-                  key={c.id}
-                  onClick={() => setSelected(c)}
-                  whileHover={{ x: 4 }}
-                  className={`flex items-center gap-4 p-5 rounded-2xl border text-left transition-all cursor-pointer ${
-                    selected.id === c.id
-                      ? "border-ink bg-ink text-cream"
-                      : "border-border bg-cream2 text-ink hover:border-ink/30"
-                  }`}
-                >
-                  <span className="text-2xl">{c.emoji}</span>
+        {/* Centered header */}
+        <div style={{ textAlign:"center", marginBottom:104 }}>
+          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
+            <span style={{ width:24, height:1, background:C.sage }} />Coaching con IA<span style={{ width:24, height:1, background:C.sage }} />
+          </motion.div>
+          <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
+            style={{ fontSize:"clamp(2.8rem,5vw,4.5rem)", fontWeight:900, color:C.ink, lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:28 }}>
+            Misma inteligencia. <span style={{ color:C.muted, fontWeight:300 }}>Tu estilo.</span>
+          </motion.h2>
+          <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.2 }}
+            style={{ fontSize:"1.1rem", color:C.ink2, lineHeight:1.7, fontWeight:300, maxWidth:460, margin:"0 auto" }}>
+            El motor de IA es el mismo para todos. Lo que cambia es la personalidad del coach. Elegís el estilo que mejor funciona para tu mente.
+          </motion.p>
+        </div>
+
+        {/* 2-col: selector + preview */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:64, alignItems:"start" }}>
+          <motion.div initial={{ opacity:0,x:-24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }}
+            style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            {coaches.map(c => (
+              <button key={c.id} onClick={() => setSel(c)}
+                style={{ display:"flex", alignItems:"center", gap:20, padding:"16px 20px", borderRadius:16, border:`1px solid ${sel.id===c.id ? C.ink : C.border}`, background: sel.id===c.id ? C.ink : C.cream2, cursor:"pointer", textAlign:"left", transition:"all 0.2s" }}>
+                <span style={{ fontSize:"1.4rem" }}>{c.emoji}</span>
+                <div>
+                  <p style={{ fontWeight:700, color: sel.id===c.id ? C.cream : C.ink, fontSize:"0.95rem" }}>{c.name}</p>
+                  <p style={{ fontSize:"0.75rem", color: sel.id===c.id ? "rgba(248,246,242,0.5)" : C.muted, marginTop:2 }}>{c.style}</p>
+                </div>
+                {sel.id===c.id && <span style={{ marginLeft:"auto", color:C.sage, fontWeight:700 }}>✓</span>}
+              </button>
+            ))}
+          </motion.div>
+
+          <div style={{ position:"sticky", top:96 }}>
+            <AnimatePresence mode="wait">
+              <motion.div key={sel.id} initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0,y:-12 }} transition={{ duration:0.3 }}
+                style={{ background:C.dark, borderRadius:24, padding:"36px" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:20, marginBottom:24 }}>
+                  <div style={{ width:48, height:48, borderRadius:"50%", background:"rgba(107,123,104,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.4rem" }}>{sel.emoji}</div>
                   <div>
-                    <p className={`font-semibold ${selected.id === c.id ? "text-cream" : "text-ink"}`}>
-                      {c.name}
-                    </p>
-                    <p className={`text-xs mt-0.5 ${selected.id === c.id ? "text-cream/60" : "text-muted"}`}>
-                      {c.style}
-                    </p>
+                    <p style={{ color:C.cream, fontWeight:700, fontSize:"1rem" }}>{sel.name}</p>
+                    <p style={{ color:C.muted, fontSize:"0.78rem", marginTop:2 }}>{sel.style}</p>
                   </div>
-                  {selected.id === c.id && (
-                    <motion.span
-                      layoutId="check"
-                      className="ml-auto text-cream/80"
-                    >✓</motion.span>
-                  )}
-                </motion.button>
-              ))}
-            </div>
-          </FadeIn>
-
-          {/* Sample message */}
-          <FadeIn delay={0.2}>
-            <div className="sticky top-24">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={selected.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -12 }}
-                  transition={{ duration: 0.35 }}
-                  className="bg-dark rounded-3xl p-8 flex flex-col gap-6"
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                      style={{ background: selected.color + "33" }}
-                    >
-                      {selected.emoji}
-                    </div>
-                    <div>
-                      <p className="text-cream font-semibold">{selected.name}</p>
-                      <p className="text-muted text-xs">{selected.style}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-dark2 rounded-2xl p-5">
-                    <p className="text-cream/80 text-sm leading-relaxed italic">
-                      {selected.sample}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-muted">
-                    <div className="w-2 h-2 rounded-full bg-sage animate-pulse" />
-                    Mismo motor de IA · Estilo diferente
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </FadeIn>
+                </div>
+                <div style={{ background:C.dark2, borderRadius:16, padding:"28px 32px" }}>
+                  <p style={{ color:"rgba(248,246,242,0.75)", fontSize:"0.95rem", lineHeight:1.7, fontStyle:"italic" }}>{sel.msg}</p>
+                </div>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:20, fontSize:"0.75rem", color:C.muted }}>
+                  <div style={{ width:8, height:8, borderRadius:"50%", background:C.sage, animation:"pulse 1.5s infinite" }} />
+                  Mismo motor de IA · Estilo diferente
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </section>

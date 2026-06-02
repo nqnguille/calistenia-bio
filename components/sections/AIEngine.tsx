@@ -1,76 +1,80 @@
 "use client";
 import { motion } from "framer-motion";
-import { FadeIn } from "@/components/ui/FadeIn";
+
+const C = { cream:"#F8F6F2", sage:"#6B7B68", muted:"#888880", dark:"#0E1117", dark2:"#161B24", border:"rgba(255,255,255,0.08)" };
 
 const pipeline = [
-  { step: "01", label: "Cuerpo humano", sub: "Webcam 30fps", color: "#6B7B68" },
-  { step: "02", label: "Landmarks", sub: "33 puntos anatómicos", color: "#8A9E87" },
-  { step: "03", label: "Modelo biomecánico", sub: "Ángulos · Velocidad · Simetría", color: "#203040" },
-  { step: "04", label: "Insights", sub: "Edad de Movimiento", color: "#6B7B68" },
+  { n:"01", label:"Cuerpo humano",   sub:"Webcam · 30fps",                icon:"◎" },
+  { n:"02", label:"33 landmarks",    sub:"Puntos anatómicos clave",       icon:"⊕" },
+  { n:"03", label:"Biomecánica",     sub:"Ángulos · Velocidad · Simetría", icon:"◈" },
+  { n:"04", label:"Insights",        sub:"Edad de Movimiento",            icon:"◉" },
 ];
 
 export function AIEngine() {
   return (
-    <section className="bg-dark py-32 px-6" id="science">
-      <div className="max-w-5xl mx-auto">
-        <FadeIn className="mb-20">
-          <p className="text-sm font-medium text-sage tracking-widest uppercase mb-6">Motor de IA</p>
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-semibold text-cream leading-tight tracking-tight max-w-2xl">
-            Tu cuerpo genera miles de señales.{" "}
-            <span className="text-sage">Nuestra IA las convierte en conocimiento.</span>
-          </h2>
-        </FadeIn>
+    <section style={{ background:C.dark, position:"relative", overflow:"hidden" }} className="py-52 px-8" id="ciencia">
+      {/* Glow */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background:"radial-gradient(ellipse 70% 50% at 50% 40%, rgba(107,123,104,0.14) 0%, transparent 70%)"
+      }} />
+      {/* Grid */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage:"linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px)",
+        backgroundSize:"64px 64px"
+      }} />
+
+      <div style={{ maxWidth:1152, margin:"0 auto" }}>
+
+        <div className="section-tag mb-8" style={{ color:C.sage }}>Motor de IA</div>
+
+        <motion.h2 initial={{ opacity:0,y:32 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+          style={{ color:C.cream, fontSize:"clamp(2.8rem,5vw,5rem)", fontWeight:900, lineHeight:0.95, letterSpacing:"-0.03em", maxWidth:"800px" }}
+          className="mb-6"
+        >
+          Tu cuerpo genera miles de señales.<br/>
+          <span className="grad-text">Nuestra IA las convierte en conocimiento.</span>
+        </motion.h2>
+
+        <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+          style={{ color:C.muted, fontSize:"1.1rem", lineHeight:1.7, maxWidth:"480px" }} className="mb-20">
+          En cada evaluación, el sistema analiza más de 30 variables biomecánicas simultáneamente. Sin contacto. Sin sensores. Solo tu cámara.
+        </motion.p>
 
         {/* Pipeline */}
-        <FadeIn delay={0.2}>
-          <div className="relative flex flex-col md:flex-row items-start md:items-center gap-0">
-            {pipeline.map((p, i) => (
-              <div key={p.step} className="flex flex-col md:flex-row items-start md:items-center flex-1">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.3 + i * 0.15, duration: 0.6 }}
-                  className="bg-dark2 border border-white/10 rounded-2xl p-6 w-full md:max-w-[180px]"
-                >
-                  <span className="text-xs font-mono text-muted mb-3 block">{p.step}</span>
-                  <p className="text-cream font-semibold mb-1">{p.label}</p>
-                  <p className="text-xs text-muted leading-relaxed">{p.sub}</p>
-                </motion.div>
-
-                {i < pipeline.length - 1 && (
-                  <motion.div
-                    initial={{ scaleX: 0 }}
-                    whileInView={{ scaleX: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.5 + i * 0.15, duration: 0.5 }}
-                    className="hidden md:block h-px flex-1 bg-gradient-to-r from-white/20 to-white/5 mx-3 origin-left"
-                  />
-                )}
-                {i < pipeline.length - 1 && (
-                  <div className="md:hidden w-px h-8 bg-gradient-to-b from-white/20 to-transparent ml-6 my-1" />
-                )}
+        <div className="grid md:grid-cols-4 gap-3 mb-6">
+          {pipeline.map((p,i) => (
+            <motion.div key={p.n}
+              initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }}
+              viewport={{ once:true }} transition={{ delay:i*0.1 }}
+              style={{ background:C.dark2, border:`1px solid ${C.border}`, borderRadius:"1.25rem", padding:"40px" }}
+            >
+              <div className="flex justify-between items-start mb-5">
+                <span style={{ fontSize:"1.6rem", color:C.sage }}>{p.icon}</span>
+                <span style={{ fontSize:"0.65rem", color:"rgba(255,255,255,0.25)", fontFamily:"monospace", fontWeight:600 }}>{p.n}</span>
               </div>
-            ))}
-          </div>
-        </FadeIn>
+              <p style={{ color:C.cream, fontWeight:700, fontSize:"1rem", marginBottom:4 }}>{p.label}</p>
+              <p style={{ color:C.muted, fontSize:"0.85rem", lineHeight:1.6 }}>{p.sub}</p>
+            </motion.div>
+          ))}
+        </div>
 
-        {/* Stats row */}
-        <FadeIn delay={0.4}>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5 rounded-2xl overflow-hidden mt-16">
-            {[
-              { num: "33", label: "Puntos anatómicos" },
-              { num: "30fps", label: "Análisis en tiempo real" },
-              { num: "5", label: "Dimensiones medidas" },
-              { num: "<5min", label: "Evaluación completa" },
-            ].map((s) => (
-              <div key={s.label} className="bg-dark2 p-8">
-                <p className="text-3xl font-bold text-cream mb-2">{s.num}</p>
-                <p className="text-sm text-muted">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </FadeIn>
+        {/* Stats */}
+        <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+          style={{ border:`1px solid ${C.border}`, borderRadius:"1.25rem", overflow:"hidden" }}
+          className="grid grid-cols-2 md:grid-cols-4"
+        >
+          {[
+            { n:"33",    l:"Puntos anatómicos" },
+            { n:"30fps", l:"Tiempo real" },
+            { n:"5",     l:"Dimensiones" },
+            { n:"<5min", l:"Evaluación" },
+          ].map((s,i) => (
+            <div key={s.l} style={{ background:C.dark2, borderLeft: i>0 ? `1px solid ${C.border}` : "none", padding:"44px 40px" }}>
+              <p style={{ color:C.cream, fontSize:"clamp(2rem,3vw,2.8rem)", fontWeight:900, letterSpacing:"-0.02em", lineHeight:1, marginBottom:8 }}>{s.n}</p>
+              <p style={{ color:C.muted, fontSize:"0.85rem" }}>{s.l}</p>
+            </div>
+          ))}
+        </motion.div>
       </div>
     </section>
   );
