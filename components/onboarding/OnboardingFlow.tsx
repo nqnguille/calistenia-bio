@@ -512,11 +512,10 @@ function StepCamera({ onNext }: { onNext: () => void }) {
     return () => { active = false; };
   }, [permission, onNext, stopRuntime]);
 
-  return (
-    <motion.div key="camera" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:24, padding:"0 20px" }}>
-
-      {permission === "idle" && (
+  if (permission === "idle") {
+    return (
+      <motion.div key="camera" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+        style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:24, padding:"0 20px" }}>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", gap:28, padding:"0 24px", maxWidth:560 }}>
           <div style={{ width:78, height:78, borderRadius:"50%", background:"rgba(122,143,116,0.15)", border:`2px solid rgba(122,143,116,0.4)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2rem" }}>
             📷
@@ -533,56 +532,77 @@ function StepCamera({ onNext }: { onNext: () => void }) {
           </button>
           <p style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.25)" }}>Nada se graba ni se sube. El análisis ocurre en el navegador.</p>
         </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div key="camera-live" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+      style={{ position:"fixed", inset:0, zIndex:4, background:C.dark, overflow:"hidden" }}>
+
+      <video ref={videoRef} autoPlay playsInline muted
+        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block", opacity: permission === "granted" ? 0.86 : 0.28 }} />
+      <canvas ref={canvasRef}
+        style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
+
+      <div style={{ position:"absolute", inset:0, pointerEvents:"none", background:"radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.10) 48%, rgba(8,11,15,0.72) 100%)" }} />
+      <div className="bio-grid" style={{ position:"absolute", inset:0, opacity:0.22, pointerEvents:"none" }} />
+      <div style={{ position:"absolute", inset:0, pointerEvents:"none", boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.04), inset 0 -160px 160px rgba(8,11,15,0.55), inset 0 120px 120px rgba(8,11,15,0.35)" }} />
+
+      <div style={{ position:"absolute", top:82, left:24, right:24, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:16, pointerEvents:"none" }}>
+        <div style={{ maxWidth:"min(560px, 58vw)", background:"rgba(8,11,15,0.56)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"10px 16px", display:"flex", alignItems:"center", gap:10, backdropFilter:"blur(16px)", boxShadow:"0 18px 60px rgba(0,0,0,0.28)" }}>
+          <motion.div animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.25, repeat:Infinity }}
+            style={{ width:9, height:9, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A", flexShrink:0 }} />
+          <span style={{ color:"rgba(248,246,242,0.86)", fontWeight:900, fontSize:"0.78rem", letterSpacing:"0.12em", textTransform:"uppercase", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            {detected ? "Cuerpo detectado · preparando evaluación…" : status}
+          </span>
+        </div>
+
+        <div style={{ minWidth:150, background:"rgba(8,11,15,0.58)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"16px 18px", backdropFilter:"blur(16px)", boxShadow:"0 18px 60px rgba(0,0,0,0.28)" }}>
+          <p style={{ fontSize:"0.62rem", color:"rgba(248,246,242,0.40)", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase", marginBottom:8 }}>Calidad pose</p>
+          <div style={{ display:"flex", alignItems:"end", gap:6 }}>
+            <span style={{ color:"#F8F6F2", fontSize:"2.35rem", fontWeight:900, lineHeight:1 }}>{Math.round(quality)}</span>
+            <span style={{ color:"rgba(248,246,242,0.38)", fontSize:"0.85rem", fontWeight:800, marginBottom:4 }}>%</span>
+          </div>
+        </div>
+      </div>
+
+      {permission === "requesting" && (
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16, background:"rgba(8,11,15,0.38)", pointerEvents:"none" }}>
+          <motion.div animate={{ rotate:360 }} transition={{ duration:1, repeat:Infinity, ease:"linear" }}
+            style={{ width:42, height:42, border:"3px solid rgba(122,143,116,0.22)", borderTopColor:C.sage, borderRadius:"50%" }} />
+          <p style={{ color:"rgba(248,246,242,0.72)", fontWeight:700 }}>{status}</p>
+        </div>
       )}
 
-      {permission !== "idle" && (
-        <div style={{ position:"relative", width:"min(92vw, 680px)", aspectRatio:"16/10", borderRadius:28, overflow:"hidden", border:"1px solid rgba(255,255,255,0.10)", boxShadow:"0 30px 90px rgba(0,0,0,0.42)", background:C.dark2 }}>
-          <video ref={videoRef} autoPlay playsInline muted
-            style={{ width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block", opacity: permission === "granted" ? 0.72 : 0.16 }} />
-          <canvas ref={canvasRef}
-            style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
-
-          <div className="bio-grid" style={{ position:"absolute", inset:0, opacity:0.35, pointerEvents:"none" }} />
-          <div style={{ position:"absolute", top:16, left:16, display:"flex", alignItems:"center", gap:10, background:"rgba(8,11,15,0.72)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"9px 14px", backdropFilter:"blur(12px)" }}>
-            <motion.div animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.25, repeat:Infinity }}
-              style={{ width:9, height:9, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A" }} />
-            <span style={{ color:"rgba(248,246,242,0.78)", fontWeight:800, fontSize:"0.78rem", letterSpacing:"0.08em", textTransform:"uppercase" }}>
-              {detected ? "Cuerpo detectado" : status}
-            </span>
+      {permission === "denied" && (
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+          <div style={{ width:"min(560px, 92vw)", background:"rgba(8,11,15,0.82)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"42px 32px", textAlign:"center", boxShadow:"0 30px 100px rgba(0,0,0,0.45)", backdropFilter:"blur(20px)" }}>
+            <p style={{ fontSize:"3rem", marginBottom:14 }}>🚫</p>
+            <h3 style={{ color:"#F8F6F2", fontSize:"1.5rem", fontWeight:900, marginBottom:14 }}>No pudimos iniciar la cámara</h3>
+            <p style={{ color:"rgba(248,246,242,0.58)", lineHeight:1.65, margin:"0 auto", maxWidth:420 }}>{status}. Revisá permisos del navegador y conexión a internet para cargar el modelo.</p>
+            <button onClick={requestCamera} style={{ marginTop:24, background:C.sage, color:"#fff", fontWeight:800, padding:"13px 30px", borderRadius:999, border:"none", cursor:"pointer" }}>Intentar de nuevo</button>
           </div>
-
-          <div style={{ position:"absolute", right:16, top:16, minWidth:150, background:"rgba(8,11,15,0.72)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:14, backdropFilter:"blur(12px)" }}>
-            <p style={{ fontSize:"0.62rem", color:"rgba(248,246,242,0.35)", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase", marginBottom:8 }}>Calidad pose</p>
-            <div style={{ display:"flex", alignItems:"end", gap:6 }}>
-              <span style={{ color:"#F8F6F2", fontSize:"2rem", fontWeight:900, lineHeight:1 }}>{Math.round(quality)}</span>
-              <span style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.78rem", fontWeight:700, marginBottom:3 }}>%</span>
-            </div>
-          </div>
-
-          {permission === "requesting" && (
-            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16, background:"rgba(8,11,15,0.62)" }}>
-              <motion.div animate={{ rotate:360 }} transition={{ duration:1, repeat:Infinity, ease:"linear" }}
-                style={{ width:42, height:42, border:"3px solid rgba(122,143,116,0.22)", borderTopColor:C.sage, borderRadius:"50%" }} />
-              <p style={{ color:"rgba(248,246,242,0.65)", fontWeight:600 }}>{status}</p>
-            </div>
-          )}
-
-          {permission === "denied" && (
-            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", textAlign:"center", gap:16, padding:28, background:"rgba(8,11,15,0.86)" }}>
-              <p style={{ fontSize:"3rem" }}>🚫</p>
-              <h3 style={{ color:"#F8F6F2", fontSize:"1.4rem", fontWeight:900 }}>No pudimos iniciar la cámara</h3>
-              <p style={{ color:"rgba(248,246,242,0.55)", maxWidth:420, lineHeight:1.65 }}>{status}. Revisá permisos del navegador y conexión a internet para cargar el modelo.</p>
-              <button onClick={requestCamera} style={{ background:C.sage, color:"#fff", fontWeight:800, padding:"12px 28px", borderRadius:999, border:"none", cursor:"pointer" }}>Intentar de nuevo</button>
-            </div>
-          )}
         </div>
       )}
 
       {permission === "granted" && !detected && (
-        <p style={{ color:"rgba(248,246,242,0.45)", fontSize:"0.9rem", textAlign:"center" }}>
-          Alejate un poco: necesitamos ver hombros y cadera completos.
-        </p>
+        <div style={{ position:"absolute", left:24, right:24, bottom:28, display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+          <div style={{ maxWidth:760, background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"12px 18px", color:"rgba(248,246,242,0.72)", fontSize:"0.95rem", textAlign:"center", backdropFilter:"blur(16px)", boxShadow:"0 20px 70px rgba(0,0,0,0.35)" }}>
+            Alejate hasta que se vea cuerpo completo: hombros, cadera y rodillas. La cámara ya está en modo fullscreen.
+          </div>
+        </div>
       )}
+
+      <style jsx>{`
+        @media (max-width: 720px) {
+          div[style*="top: 82px"] {
+            top: 72px !important;
+            left: 14px !important;
+            right: 14px !important;
+          }
+        }
+      `}</style>
     </motion.div>
   );
 }
