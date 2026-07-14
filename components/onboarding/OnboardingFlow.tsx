@@ -26,6 +26,278 @@ const MOVEMENTS: MovementTest[] = [
   { id: "balance",  title: "Equilibrio unipodal",  instruction: "Levantá la rodilla derecha y mantené el equilibrio.", emoji: "🦩", duration: 6, hint: "El equilibrio predice el envejecimiento neuromotor" },
 ];
 
+
+type Landmark = { x: number; y: number; z?: number; visibility?: number };
+type PoseAnalysis = { detected: boolean; score: number; feedback: string; detail: string };
+type PoseRuntime = { stop: () => void };
+
+declare global {
+  interface Window {
+    Pose?: new (config: { locateFile: (file: string) => string }) => {
+      setOptions: (options: Record<string, unknown>) => void;
+      onResults: (cb: (results: { poseLandmarks?: Landmark[] }) => void) => void;
+      send: (input: { image: HTMLVideoElement }) => Promise<void>;
+      close: () => void;
+    };
+    Camera?: new (video: HTMLVideoElement, config: {
+      onFrame: () => Promise<void>;
+      width: number;
+      height: number;
+      facingMode: "user" | "environment";
+    }) => { start: () => Promise<void>; stop: () => void };
+  }
+}
+
+const MP_SCRIPTS = [
+  "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js",
+  "https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js",
+];
+
+let mediaPipePromise: Promise<void> | null = null;
+
+function loadScript(src: string) {
+  return new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "true") resolve();
+      else existing.addEventListener("load", () => resolve(), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = src;
+    script.crossOrigin = "anonymous";
+    script.async = true;
+    script.dataset.loaded = "false";
+    script.onload = () => { script.dataset.loaded = "true"; resolve(); };
+    script.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
+    document.head.appendChild(script);
+  });
+}
+
+function loadMediaPipe() {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (window.Pose && window.Camera) return Promise.resolve();
+  mediaPipePromise ??= MP_SCRIPTS.reduce(
+    (chain, src) => chain.then(() => loadScript(src)),
+    Promise.resolve()
+  ).then(() => {
+    if (!window.Pose || !window.Camera) throw new Error("MediaPipe no quedó disponible");
+  });
+  return mediaPipePromise;
+}
+
+const LM = {
+  NOSE: 0,
+  L_SHOULDER: 11, R_SHOULDER: 12,
+  L_ELBOW: 13, R_ELBOW: 14,
+  L_WRIST: 15, R_WRIST: 16,
+  L_HIP: 23, R_HIP: 24,
+  L_KNEE: 25, R_KNEE: 26,
+  L_ANKLE: 27, R_ANKLE: 28,
+} as const;
+
+const CONNECTIONS: Array<[number, number]> = [
+  [LM.L_SHOULDER, LM.R_SHOULDER],
+  [LM.L_SHOULDER, LM.L_ELBOW], [LM.L_ELBOW, LM.L_WRIST],
+  [LM.R_SHOULDER, LM.R_ELBOW], [LM.R_ELBOW, LM.R_WRIST],
+  [LM.L_SHOULDER, LM.L_HIP], [LM.R_SHOULDER, LM.R_HIP],
+  [LM.L_HIP, LM.R_HIP],
+  [LM.L_HIP, LM.L_KNEE], [LM.L_KNEE, LM.L_ANKLE],
+  [LM.R_HIP, LM.R_KNEE], [LM.R_KNEE, LM.R_ANKLE],
+];
+
+function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
+function avg(nums: number[]) { return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0; }
+function visOk(lm?: Landmark, threshold = 0.42) { return !!lm && (lm.visibility ?? 1) >= threshold; }
+
+function angle(a: Landmark, b: Landmark, c: Landmark) {
+  const ab = { x: a.x - b.x, y: a.y - b.y };
+  const cb = { x: c.x - b.x, y: c.y - b.y };
+  const dot = ab.x * cb.x + ab.y * cb.y;
+  const mag = Math.hypot(ab.x, ab.y) * Math.hypot(cb.x, cb.y);
+  if (!mag) return 0;
+  return Math.acos(clamp(dot / mag, -1, 1)) * (180 / Math.PI);
+}
+
+function essentialVisible(lms: Landmark[]) {
+  return [LM.L_SHOULDER, LM.R_SHOULDER, LM.L_HIP, LM.R_HIP].every((i) => visOk(lms[i]));
+}
+
+function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAnalysis {
+  if (!lms || !essentialVisible(lms)) {
+    return { detected: false, score: 0, feedback: "Posicionate frente a la cámara", detail: "Necesitamos ver hombros y cadera" };
+  }
+
+  const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER];
+  const lh = lms[LM.L_HIP], rh = lms[LM.R_HIP];
+  const shoulderMid = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
+  const hipMid = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
+  const shoulderTilt = Math.abs(ls.y - rs.y);
+  const hipTilt = Math.abs(lh.y - rh.y);
+  const centerOffset = Math.abs(shoulderMid.x - hipMid.x);
+
+  if (testId === "posture") {
+    const raw = 100 - shoulderTilt * 560 - hipTilt * 480 - centerOffset * 260;
+    const score = Math.round(clamp(raw, 35, 100));
+    const feedback = shoulderTilt > 0.04 ? "Nivelá hombros" : centerOffset > 0.045 ? "Alineá torso y cadera" : "Postura estable detectada";
+    return { detected: true, score, feedback, detail: `Alineación ${score}%` };
+  }
+
+  if (testId === "arms") {
+    const lw = lms[LM.L_WRIST], rw = lms[LM.R_WRIST];
+    const le = lms[LM.L_ELBOW], re = lms[LM.R_ELBOW];
+    if (![lw, rw, le, re].every((lm) => visOk(lm))) {
+      return { detected: true, score: 45, feedback: "Mostrá manos y codos", detail: "Levantá ambos brazos dentro del encuadre" };
+    }
+    const leftLift = ls.y - lw.y;
+    const rightLift = rs.y - rw.y;
+    const liftScore = clamp(((leftLift + rightLift) / 2 + 0.03) / 0.34, 0, 1);
+    const asymmetry = Math.abs(leftLift - rightLift);
+    const leftElbow = angle(ls, le, lw);
+    const rightElbow = angle(rs, re, rw);
+    const elbowExtension = clamp((avg([leftElbow, rightElbow]) - 95) / 75, 0, 1);
+    const score = Math.round(clamp(38 + liftScore * 48 + elbowExtension * 18 - asymmetry * 70, 25, 100));
+    const feedback = liftScore > 0.75 ? "Buen rango sobre cabeza" : asymmetry > 0.10 ? "Un brazo sube menos" : "Subí las manos un poco más";
+    return { detected: true, score, feedback, detail: `Rango hombros ${score}%` };
+  }
+
+  const lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE], la = lms[LM.L_ANKLE], ra = lms[LM.R_ANKLE];
+  if (![lk, rk].every((lm) => visOk(lm))) {
+    return { detected: true, score: 45, feedback: "Necesitamos ver tus rodillas", detail: "Alejate un poco de la cámara" };
+  }
+  const leftLift = lh.y - lk.y;
+  const rightLift = rh.y - rk.y;
+  const kneeLift = Math.max(leftLift, rightLift);
+  const feetVisible = visOk(la, 0.28) || visOk(ra, 0.28);
+  const liftScore = clamp((kneeLift + 0.04) / 0.20, 0, 1);
+  const verticalControl = 1 - clamp((shoulderTilt + hipTilt) / 0.12, 0, 1);
+  const score = Math.round(clamp(42 + liftScore * 42 + verticalControl * 18 + (feetVisible ? 0 : -6), 25, 100));
+  const feedback = liftScore > 0.55 ? "Equilibrio unipodal detectado" : "Levantá una rodilla y sostené";
+  return { detected: true, score, feedback, detail: `Control ${score}%` };
+}
+
+function resizeCanvas(canvas: HTMLCanvasElement, video: HTMLVideoElement) {
+  const w = video.videoWidth || 1280;
+  const h = video.videoHeight || 720;
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+}
+
+function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landmark[] | null, quality = 80) {
+  resizeCanvas(canvas, video);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!lms) {
+    ctx.fillStyle = "rgba(248,246,242,0.55)";
+    ctx.font = "600 26px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Buscando cuerpo…", canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  const good = quality >= 68;
+  const color = good ? "#AFC3A5" : quality >= 48 ? "#F0C36A" : "#F17464";
+  const dim = good ? "rgba(175,195,165,0.28)" : "rgba(241,116,100,0.25)";
+  const toCanvas = (lm: Landmark) => ({ x: lm.x * canvas.width, y: lm.y * canvas.height });
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 14;
+
+  const armPointSet = new Set<number>([LM.L_ELBOW, LM.R_ELBOW, LM.L_WRIST, LM.R_WRIST]);
+  for (const [a, b] of CONNECTIONS) {
+    const la = lms[a], lb = lms[b];
+    if (!visOk(la, 0.32) || !visOk(lb, 0.32)) continue;
+    const pa = toCanvas(la), pb = toCanvas(lb);
+    const isArm = armPointSet.has(a) || armPointSet.has(b);
+    ctx.beginPath();
+    ctx.strokeStyle = isArm ? color : dim;
+    ctx.lineWidth = isArm ? 6 : 4;
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+  }
+
+  for (const i of Object.values(LM)) {
+    const lm = lms[i];
+    if (!visOk(lm, 0.32)) continue;
+    const p = toCanvas(lm);
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.arc(p.x, p.y, i === LM.NOSE ? 8 : 7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+async function startPoseTracking({
+  video,
+  canvas,
+  onStatus,
+  onResults,
+}: {
+  video: HTMLVideoElement;
+  canvas: HTMLCanvasElement;
+  onStatus?: (status: string) => void;
+  onResults: (landmarks: Landmark[] | null, analysis?: PoseAnalysis) => void;
+}): Promise<PoseRuntime> {
+  onStatus?.("Cargando modelo biomecánico…");
+  await loadMediaPipe();
+
+  const Pose = window.Pose!;
+  const Camera = window.Camera!;
+  let stopped = false;
+
+  const pose = new Pose({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}` });
+  pose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.55,
+    minTrackingConfidence: 0.55,
+  });
+
+  pose.onResults((results) => {
+    if (stopped) return;
+    const lms = results.poseLandmarks ?? null;
+    const genericAnalysis = lms ? analyzePose(lms, "posture") : undefined;
+    drawPose(canvas, video, lms, genericAnalysis?.score ?? 0);
+    onResults(lms, genericAnalysis);
+  });
+
+  const camera = new Camera(video, {
+    onFrame: async () => {
+      if (stopped) return;
+      resizeCanvas(canvas, video);
+      await pose.send({ image: video });
+    },
+    width: 1280,
+    height: 720,
+    facingMode: "user",
+  });
+
+  onStatus?.("Solicitando permiso de cámara…");
+  await camera.start();
+  onStatus?.("Cámara activa · buscando cuerpo…");
+
+  return {
+    stop: () => {
+      stopped = true;
+      try { camera.stop(); } catch {}
+      try { pose.close(); } catch {}
+      const stream = video.srcObject as MediaStream | null;
+      stream?.getTracks().forEach((track) => track.stop());
+      video.srcObject = null;
+    },
+  };
+}
+
 /* ─── Helpers ────────────────────────────── */
 function pad(n: number) { return String(n).padStart(2, "0"); }
 
@@ -48,12 +320,13 @@ function useCountdown(from: number, active: boolean, onDone: () => void) {
   return remaining;
 }
 
-/* ─── Score generation (simulated) ──────── */
-function generateScore(age: number): number {
-  // Simulate a realistic spread around chronological age
-  const offset = Math.floor(Math.random() * 18) - 4; // -4 to +14
-  const raw = age + offset;
-  return Math.max(22, Math.min(75, raw));
+/* ─── Score generation from real pose samples ─ */
+function movementAgeFromScores(age: number, scores: number[]): number {
+  const biomechScore = scores.length ? avg(scores) : 58;
+  // 72 is treated as a healthy baseline. Lower scores age the movement profile;
+  // higher scores make it younger. This is still an MVP heuristic, now fed by real landmarks.
+  const offset = Math.round((72 - biomechScore) * 0.58);
+  return Math.round(clamp(age + offset, 22, 75));
 }
 
 /* ─── Skeleton SVG overlay (simplified) ── */
@@ -161,188 +434,338 @@ function StepHook({ onNext }: { onNext: () => void }) {
 }
 
 /* ─── STEP: CAMERA ───────────────────── */
-function StepCamera({ videoRef, streamRef, onNext }: {
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-  streamRef: React.MutableRefObject<MediaStream | null>;
-  onNext: () => void;
-}) {
+function StepCamera({ onNext }: { onNext: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const runtimeRef = useRef<PoseRuntime | null>(null);
+  const detectedFrames = useRef(0);
+  const advancedRef = useRef(false);
+  const bootRef = useRef(false);
   const [permission, setPermission] = useState<"idle"|"requesting"|"granted"|"denied">("idle");
   const [detected, setDetected] = useState(false);
+  const [status, setStatus] = useState("Listo para activar cámara");
+  const [quality, setQuality] = useState(0);
 
-  const requestCamera = useCallback(async () => {
+  const stopRuntime = useCallback(() => {
+    runtimeRef.current?.stop();
+    runtimeRef.current = null;
+  }, []);
+
+  useEffect(() => () => stopRuntime(), [stopRuntime]);
+
+  const requestCamera = useCallback(() => {
+    stopRuntime();
+    setDetected(false);
+    setQuality(0);
+    setStatus("Preparando panel de cámara…");
+    detectedFrames.current = 0;
+    advancedRef.current = false;
+    bootRef.current = false;
     setPermission("requesting");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:"user", width:640, height:480 } });
-      // Store stream in the shared ref so StepMovement can reattach it
-      streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; }
-      setPermission("granted");
-      setTimeout(() => setDetected(true), 2000);
-    } catch {
-      setPermission("denied");
-    }
-  }, [videoRef, streamRef]);
+  }, [stopRuntime]);
 
-  // Auto-advance when detected
   useEffect(() => {
-    if (detected) { const t = setTimeout(onNext, 1800); return () => clearTimeout(t); }
-  }, [detected, onNext]);
+    if (permission !== "requesting" || bootRef.current) return;
+    if (!videoRef.current || !canvasRef.current) return;
+
+    bootRef.current = true;
+    let active = true;
+
+    const start = async () => {
+      try {
+        const runtime = await startPoseTracking({
+          video: videoRef.current!,
+          canvas: canvasRef.current!,
+          onStatus: (value) => active && setStatus(value),
+          onResults: (landmarks, analysis) => {
+            if (!active) return;
+            const ok = !!landmarks && essentialVisible(landmarks);
+            setDetected(ok);
+            setQuality(analysis?.score ?? 0);
+            if (ok) detectedFrames.current += 1;
+            else detectedFrames.current = 0;
+
+            if (detectedFrames.current > 22 && !advancedRef.current) {
+              advancedRef.current = true;
+              setStatus("Cuerpo detectado · preparando evaluación…");
+              setTimeout(() => {
+                if (!active) return;
+                stopRuntime();
+                onNext();
+              }, 900);
+            }
+          },
+        });
+        if (!active) { runtime.stop(); return; }
+        runtimeRef.current = runtime;
+        setPermission("granted");
+      } catch (err) {
+        console.error(err);
+        if (active) {
+          setPermission("denied");
+          setStatus("No pudimos iniciar la cámara o el modelo de pose");
+        }
+      }
+    };
+
+    start();
+    return () => { active = false; };
+  }, [permission, onNext, stopRuntime]);
 
   return (
     <motion.div key="camera" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:0 }}>
+      style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:24, padding:"0 20px" }}>
 
       {permission === "idle" && (
-        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", gap:28, padding:"0 24px", maxWidth:520 }}>
-          <div style={{ width:72, height:72, borderRadius:"50%", background:"rgba(122,143,116,0.15)", border:`2px solid rgba(122,143,116,0.4)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2rem" }}>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", gap:28, padding:"0 24px", maxWidth:560 }}>
+          <div style={{ width:78, height:78, borderRadius:"50%", background:"rgba(122,143,116,0.15)", border:`2px solid rgba(122,143,116,0.4)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2rem" }}>
             📷
           </div>
-          <h2 style={{ fontSize:"clamp(1.8rem,4vw,2.8rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em" }}>
+          <h2 style={{ fontSize:"clamp(1.9rem,4vw,3rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.04em" }}>
             Activá tu cámara
           </h2>
-          <p style={{ fontSize:"1rem", color:"rgba(248,246,242,0.55)", lineHeight:1.7, fontWeight:300 }}>
-            Solo necesitamos verte. Nada se graba ni se almacena. La IA analiza tu movimiento en tiempo real, en tu dispositivo.
+          <p style={{ fontSize:"1rem", color:"rgba(248,246,242,0.58)", lineHeight:1.75, fontWeight:300 }}>
+            Esta vez la demo usa detección corporal real: MediaPipe identifica tus landmarks en vivo y calcula señales biomecánicas básicas en tu dispositivo.
           </p>
           <button onClick={requestCamera}
-            style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"16px 40px", borderRadius:999, border:"none", cursor:"pointer" }}>
-            Activar cámara →
+            style={{ background:C.sage, color:"#fff", fontWeight:800, fontSize:"1rem", padding:"16px 40px", borderRadius:999, border:"none", cursor:"pointer" }}>
+            Activar cámara real →
           </button>
-          <p style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.25)" }}>Tu navegador pedirá permiso. Clic en "Permitir".</p>
+          <p style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.25)" }}>Nada se graba ni se sube. El análisis ocurre en el navegador.</p>
         </div>
       )}
 
-      {permission === "requesting" && (
-        <div style={{ textAlign:"center", color:"rgba(248,246,242,0.6)", fontSize:"1rem" }}>
-          <motion.div animate={{ rotate:360 }} transition={{ duration:1, repeat:Infinity, ease:"linear" }}
-            style={{ width:40, height:40, border:"3px solid rgba(122,143,116,0.2)", borderTopColor:C.sage, borderRadius:"50%", margin:"0 auto 20px" }} />
-          Activando cámara...
-        </div>
-      )}
-
-      {permission === "denied" && (
-        <div style={{ textAlign:"center", maxWidth:420, padding:"0 24px" }}>
-          <p style={{ fontSize:"3rem", marginBottom:16 }}>🚫</p>
-          <h3 style={{ color:"#F8F6F2", fontSize:"1.4rem", fontWeight:700, marginBottom:12 }}>Permiso denegado</h3>
-          <p style={{ color:"rgba(248,246,242,0.5)", fontSize:"0.95rem", lineHeight:1.65 }}>Habilitá el acceso a la cámara en la configuración de tu navegador e intentá de nuevo.</p>
-          <button onClick={requestCamera}
-            style={{ marginTop:20, background:C.sage, color:"#fff", fontWeight:700, fontSize:"0.95rem", padding:"12px 28px", borderRadius:999, border:"none", cursor:"pointer" }}>
-            Intentar de nuevo
-          </button>
-        </div>
-      )}
-
-      {permission === "granted" && (
-        <div style={{ position:"relative", width:"100%", maxWidth:480, aspectRatio:"4/3" }}>
+      {permission !== "idle" && (
+        <div style={{ position:"relative", width:"min(92vw, 680px)", aspectRatio:"16/10", borderRadius:28, overflow:"hidden", border:"1px solid rgba(255,255,255,0.10)", boxShadow:"0 30px 90px rgba(0,0,0,0.42)", background:C.dark2 }}>
           <video ref={videoRef} autoPlay playsInline muted
-            style={{ width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", borderRadius:20, display:"block" }} />
-          <SkeletonOverlay detected={detected} />
+            style={{ width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block", opacity: permission === "granted" ? 0.72 : 0.16 }} />
+          <canvas ref={canvasRef}
+            style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
 
-          <div style={{ position:"absolute", bottom:16, left:0, right:0, textAlign:"center" }}>
-            <motion.div animate={{ opacity:[0.5,1,0.5] }} transition={{ duration:1.5, repeat:Infinity }}
-              style={{ display:"inline-flex", alignItems:"center", gap:8, background:"rgba(14,17,23,0.85)", backdropFilter:"blur(8px)", borderRadius:20, padding:"8px 16px", fontSize:"0.8rem", color:"#F8F6F2", fontWeight:500 }}>
-              <div style={{ width:8, height:8, borderRadius:"50%", background:detected?C.sage:"#fbbf24", flexShrink:0 }} />
-              {detected ? "¡Cuerpo detectado! Comenzando..." : "Buscando tu cuerpo..."}
-            </motion.div>
+          <div className="bio-grid" style={{ position:"absolute", inset:0, opacity:0.35, pointerEvents:"none" }} />
+          <div style={{ position:"absolute", top:16, left:16, display:"flex", alignItems:"center", gap:10, background:"rgba(8,11,15,0.72)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"9px 14px", backdropFilter:"blur(12px)" }}>
+            <motion.div animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.25, repeat:Infinity }}
+              style={{ width:9, height:9, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A" }} />
+            <span style={{ color:"rgba(248,246,242,0.78)", fontWeight:800, fontSize:"0.78rem", letterSpacing:"0.08em", textTransform:"uppercase" }}>
+              {detected ? "Cuerpo detectado" : status}
+            </span>
           </div>
+
+          <div style={{ position:"absolute", right:16, top:16, minWidth:150, background:"rgba(8,11,15,0.72)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:14, backdropFilter:"blur(12px)" }}>
+            <p style={{ fontSize:"0.62rem", color:"rgba(248,246,242,0.35)", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase", marginBottom:8 }}>Calidad pose</p>
+            <div style={{ display:"flex", alignItems:"end", gap:6 }}>
+              <span style={{ color:"#F8F6F2", fontSize:"2rem", fontWeight:900, lineHeight:1 }}>{Math.round(quality)}</span>
+              <span style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.78rem", fontWeight:700, marginBottom:3 }}>%</span>
+            </div>
+          </div>
+
+          {permission === "requesting" && (
+            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16, background:"rgba(8,11,15,0.62)" }}>
+              <motion.div animate={{ rotate:360 }} transition={{ duration:1, repeat:Infinity, ease:"linear" }}
+                style={{ width:42, height:42, border:"3px solid rgba(122,143,116,0.22)", borderTopColor:C.sage, borderRadius:"50%" }} />
+              <p style={{ color:"rgba(248,246,242,0.65)", fontWeight:600 }}>{status}</p>
+            </div>
+          )}
+
+          {permission === "denied" && (
+            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", textAlign:"center", gap:16, padding:28, background:"rgba(8,11,15,0.86)" }}>
+              <p style={{ fontSize:"3rem" }}>🚫</p>
+              <h3 style={{ color:"#F8F6F2", fontSize:"1.4rem", fontWeight:900 }}>No pudimos iniciar la cámara</h3>
+              <p style={{ color:"rgba(248,246,242,0.55)", maxWidth:420, lineHeight:1.65 }}>{status}. Revisá permisos del navegador y conexión a internet para cargar el modelo.</p>
+              <button onClick={requestCamera} style={{ background:C.sage, color:"#fff", fontWeight:800, padding:"12px 28px", borderRadius:999, border:"none", cursor:"pointer" }}>Intentar de nuevo</button>
+            </div>
+          )}
         </div>
+      )}
+
+      {permission === "granted" && !detected && (
+        <p style={{ color:"rgba(248,246,242,0.45)", fontSize:"0.9rem", textAlign:"center" }}>
+          Alejate un poco: necesitamos ver hombros y cadera completos.
+        </p>
       )}
     </motion.div>
   );
 }
 
 /* ─── STEP: MOVEMENT ─────────────────── */
-function StepMovement({ videoRef, streamRef, onComplete }: {
-  videoRef: React.RefObject<HTMLVideoElement | null>;
-  streamRef: React.MutableRefObject<MediaStream | null>;
-  onComplete: (scores: number[]) => void;
-}) {
+function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const runtimeRef = useRef<PoseRuntime | null>(null);
+  const phaseRef = useRef<"intro"|"counting"|"done">("intro");
+  const currentIdRef = useRef<MovementTest["id"]>("posture");
+  const samplesRef = useRef<number[]>([]);
+  const collectedScoresRef = useRef<number[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [phase, setPhase] = useState<"intro"|"counting"|"done">("intro");
-  const [scores] = useState<number[]>([]);
-
-  // Reattach stream to the new <video> element when this step mounts
-  useEffect(() => {
-    if (videoRef.current && streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-    }
-  }, [videoRef, streamRef]);
+  const [status, setStatus] = useState("Iniciando cámara…");
+  const [detected, setDetected] = useState(false);
+  const [liveScore, setLiveScore] = useState(0);
+  const [feedback, setFeedback] = useState("Posicionate frente a la cámara");
+  const [detail, setDetail] = useState("Landmarks en vivo");
 
   const current = MOVEMENTS[currentIdx];
 
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => { currentIdRef.current = current.id; samplesRef.current = []; }, [current.id]);
+
+  const stopRuntime = useCallback(() => {
+    runtimeRef.current?.stop();
+    runtimeRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const init = async () => {
+      if (!videoRef.current || !canvasRef.current) return;
+      try {
+        const runtime = await startPoseTracking({
+          video: videoRef.current,
+          canvas: canvasRef.current,
+          onStatus: (s) => active && setStatus(s),
+          onResults: (landmarks) => {
+            if (!active) return;
+            const analysis = analyzePose(landmarks, currentIdRef.current);
+            setDetected(analysis.detected);
+            setLiveScore(analysis.score);
+            setFeedback(analysis.feedback);
+            setDetail(analysis.detail);
+            if (landmarks && videoRef.current && canvasRef.current) {
+              drawPose(canvasRef.current, videoRef.current, landmarks, analysis.score);
+            }
+            if (phaseRef.current === "counting" && analysis.detected && analysis.score > 0) {
+              samplesRef.current.push(analysis.score);
+            }
+          },
+        });
+        if (!active) { runtime.stop(); return; }
+        runtimeRef.current = runtime;
+        setStatus("Cámara activa");
+      } catch (err) {
+        console.error(err);
+        if (active) {
+          setStatus("No se pudo iniciar cámara/modelo");
+          setFeedback("Revisá permisos de cámara y conexión a internet");
+        }
+      }
+    };
+    init();
+    return () => { active = false; stopRuntime(); };
+  }, [stopRuntime]);
+
   const handleMoveDone = useCallback(() => {
-    scores.push(Math.floor(Math.random() * 25) + 60); // 60-85 range
+    const measured = samplesRef.current.length >= 6 ? Math.round(avg(samplesRef.current)) : Math.max(35, liveScore || 42);
+    collectedScoresRef.current.push(measured);
+    samplesRef.current = [];
+
     if (currentIdx < MOVEMENTS.length - 1) {
       setPhase("intro");
-      setCurrentIdx(i => i + 1);
+      setCurrentIdx((i) => i + 1);
     } else {
-      onComplete(scores);
+      setPhase("done");
+      stopRuntime();
+      onComplete(collectedScoresRef.current);
     }
-  }, [currentIdx, scores, onComplete]);
+  }, [currentIdx, liveScore, onComplete, stopRuntime]);
 
   const timer = useCountdown(current.duration, phase === "counting", handleMoveDone);
+  const progress = phase === "counting" ? ((current.duration - timer) / current.duration) * 100 : 0;
 
   return (
     <motion.div key="movement" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ display:"flex", flexDirection:"column", height:"100%", width:"100%" }}>
+      style={{ display:"flex", flexDirection:"column", height:"100%", width:"100%", paddingTop:56 }}>
 
-      {/* Progress */}
-      <div style={{ padding:"20px 24px 0", display:"flex", justifyContent:"center" }}>
+      <div style={{ padding:"14px 24px 0", display:"flex", justifyContent:"center" }}>
         <ProgressDots current={currentIdx} total={MOVEMENTS.length} />
       </div>
 
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:20, padding:"16px 24px" }}>
-
-        {/* Camera feed */}
-        <div style={{ position:"relative", width:"100%", maxWidth:400, aspectRatio:"4/3" }}>
+      <div className="eval-grid" style={{ flex:1, display:"grid", gridTemplateColumns:"minmax(0, 1.15fr) minmax(320px, .85fr)", gap:28, alignItems:"center", width:"min(1180px, 94vw)", margin:"0 auto", padding:"22px 0" }}>
+        <div style={{ position:"relative", aspectRatio:"16/10", borderRadius:30, overflow:"hidden", border:"1px solid rgba(255,255,255,0.10)", boxShadow:"0 32px 100px rgba(0,0,0,0.42)", background:C.dark2 }}>
           <video ref={videoRef} autoPlay playsInline muted
-            style={{ width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", borderRadius:16, display:"block" }} />
-          <SkeletonOverlay detected={true} />
+            style={{ width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block", opacity:0.72 }} />
+          <canvas ref={canvasRef}
+            style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
+          <div className="bio-grid" style={{ position:"absolute", inset:0, opacity:0.28, pointerEvents:"none" }} />
 
-          {/* Countdown overlay */}
+          <div style={{ position:"absolute", top:16, left:16, background:"rgba(8,11,15,0.76)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"9px 14px", display:"flex", alignItems:"center", gap:9, backdropFilter:"blur(12px)" }}>
+            <motion.span animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.2, repeat:Infinity }} style={{ width:8, height:8, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A" }} />
+            <span style={{ color:"rgba(248,246,242,0.74)", fontSize:"0.72rem", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase" }}>{detected ? "Landmarks activos" : status}</span>
+          </div>
+
           {phase === "counting" && (
-            <div style={{ position:"absolute", top:12, right:12, background:"rgba(14,17,23,0.85)", borderRadius:12, padding:"8px 16px", display:"flex", alignItems:"center", gap:8 }}>
-              <div style={{ width:8, height:8, borderRadius:"50%", background:C.sage, animation:"pulse 1s infinite" }} />
-              <span style={{ color:"#F8F6F2", fontWeight:700, fontFamily:"monospace", fontSize:"1rem" }}>0:{pad(timer)}</span>
+            <div style={{ position:"absolute", top:16, right:16, background:"rgba(8,11,15,0.76)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"12px 16px", backdropFilter:"blur(12px)", textAlign:"center" }}>
+              <p style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase", marginBottom:3 }}>Midiendo</p>
+              <p style={{ color:"#F8F6F2", fontWeight:900, fontFamily:"monospace", fontSize:"1.7rem", lineHeight:1 }}>0:{pad(timer)}</p>
             </div>
           )}
 
-          {/* Movement number */}
-          <div style={{ position:"absolute", top:12, left:12, background:"rgba(14,17,23,0.85)", borderRadius:8, padding:"4px 12px", fontSize:"0.72rem", color:C.sage, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase" }}>
-            {currentIdx+1}/{MOVEMENTS.length}
+          <div style={{ position:"absolute", left:18, right:18, bottom:18, background:"rgba(8,11,15,0.78)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:16, backdropFilter:"blur(14px)" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:14, marginBottom:10 }}>
+              <div>
+                <p style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase" }}>{detail}</p>
+                <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"0.95rem", marginTop:3 }}>{feedback}</p>
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <span style={{ color: liveScore >= 70 ? "#AFC3A5" : liveScore >= 50 ? "#F0C36A" : "#F17464", fontSize:"2rem", fontWeight:900, lineHeight:1 }}>{Math.round(liveScore)}</span>
+                <span style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.75rem", fontWeight:700 }}>%</span>
+              </div>
+            </div>
+            <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,0.12)", overflow:"hidden" }}>
+              <motion.div animate={{ width: phase === "counting" ? `${progress}%` : `${liveScore}%` }} transition={{ duration:0.25 }} style={{ height:"100%", borderRadius:999, background: liveScore >= 70 ? C.sage : liveScore >= 50 ? "#F0C36A" : C.red }} />
+            </div>
           </div>
         </div>
 
-        {/* Instruction */}
-        <div style={{ textAlign:"center", maxWidth:420 }}>
-          <div style={{ fontSize:"2.5rem", marginBottom:8 }}>{current.emoji}</div>
-          <h3 style={{ color:"#F8F6F2", fontSize:"1.4rem", fontWeight:800, letterSpacing:"-0.02em", marginBottom:8 }}>{current.title}</h3>
-          <p style={{ color:"rgba(248,246,242,0.65)", fontSize:"1rem", lineHeight:1.65, fontWeight:300, marginBottom:6 }}>{current.instruction}</p>
+        <div style={{ display:"flex", flexDirection:"column", gap:22 }}>
+          <motion.div key={current.id} initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.35 }}
+            style={{ background:"rgba(255,255,255,0.055)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:28, padding:28, backdropFilter:"blur(16px)" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, marginBottom:22 }}>
+              <div style={{ width:52, height:52, borderRadius:18, background:"rgba(122,143,116,0.16)", border:"1px solid rgba(122,143,116,0.26)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.8rem" }}>{current.emoji}</div>
+              <div style={{ color:C.sage, fontWeight:900, letterSpacing:"0.14em", fontSize:"0.72rem", textTransform:"uppercase" }}>Prueba {currentIdx + 1}/{MOVEMENTS.length}</div>
+            </div>
+            <h3 style={{ color:"#F8F6F2", fontSize:"clamp(1.8rem,3vw,2.7rem)", fontWeight:900, lineHeight:0.95, letterSpacing:"-0.05em", marginBottom:16 }}>{current.title}</h3>
+            <p style={{ color:"rgba(248,246,242,0.64)", fontSize:"1.04rem", lineHeight:1.7, fontWeight:300 }}>{current.instruction}</p>
+            <p style={{ color:C.sage, fontSize:"0.9rem", lineHeight:1.6, marginTop:16, fontWeight:600 }}>{current.hint}</p>
+          </motion.div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+            {collectedScoresRef.current.map((score, i) => (
+              <div key={i} style={{ background:"rgba(255,255,255,0.045)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16, padding:12, textAlign:"center" }}>
+                <p style={{ color:"rgba(248,246,242,0.30)", fontSize:"0.6rem", fontWeight:900, letterSpacing:"0.12em", textTransform:"uppercase" }}>Test {i+1}</p>
+                <p style={{ color:"#AFC3A5", fontWeight:900, fontSize:"1.4rem", lineHeight:1.2 }}>{score}%</p>
+              </div>
+            ))}
+          </div>
+
+          {phase === "intro" && (
+            <motion.button initial={{ opacity:0,y:10 }} animate={{ opacity:1,y:0 }}
+              disabled={!detected}
+              onClick={() => { samplesRef.current = []; setPhase("counting"); }}
+              whileHover={detected ? { scale:1.035 } : undefined} whileTap={detected ? { scale:0.98 } : undefined}
+              style={{ background:detected?C.sage:"rgba(255,255,255,0.12)", color:detected?"#fff":"rgba(248,246,242,0.32)", fontWeight:900, fontSize:"1rem", padding:"16px 34px", borderRadius:999, border:"none", cursor:detected?"pointer":"not-allowed" }}>
+              {detected ? "Empezar medición →" : "Esperando detección corporal"}
+            </motion.button>
+          )}
+
           {phase === "counting" && (
-            <p style={{ color:C.sage, fontSize:"0.8rem", fontWeight:500, fontStyle:"italic" }}>{current.hint}</p>
+            <div style={{ color:"rgba(248,246,242,0.46)", fontSize:"0.9rem", lineHeight:1.6 }}>
+              Quedate en la consigna. Estamos promediando señales reales de tus landmarks.
+            </div>
           )}
         </div>
-
-        {/* CTA or auto-count */}
-        {phase === "intro" && (
-          <motion.button initial={{ opacity:0,y:10 }} animate={{ opacity:1,y:0 }}
-            onClick={() => setPhase("counting")}
-            whileHover={{ scale:1.04 }} whileTap={{ scale:0.97 }}
-            style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"14px 36px", borderRadius:999, border:"none", cursor:"pointer" }}>
-            Listo →
-          </motion.button>
-        )}
-
-        {phase === "counting" && (
-          <div style={{ width:200, height:4, background:"rgba(255,255,255,0.1)", borderRadius:2, overflow:"hidden" }}>
-            <motion.div
-              initial={{ width:"100%" }}
-              animate={{ width:"0%" }}
-              transition={{ duration:current.duration, ease:"linear" }}
-              style={{ height:"100%", background:C.sage, borderRadius:2 }}
-            />
-          </div>
-        )}
       </div>
+
+      <style jsx>{`
+        @media (max-width: 860px) {
+          .eval-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            padding-bottom: 24px !important;
+            overflow-y: auto !important;
+          }
+        }
+      `}</style>
     </motion.div>
   );
 }
@@ -538,16 +961,12 @@ function StepSave({ movementAge }: { movementAge: number }) {
 export function OnboardingFlow() {
   const [step, setStep] = useState<Step>("hook");
   const [movementAge, setMovementAge] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  // We use chronoAge=40 as default; real app would ask after reveal
+  // We use chronoAge=40 as default; real app would ask before/after reveal
   const CHRONO_AGE = 40;
 
   const handleMovementsComplete = useCallback((scores: number[]) => {
     setStep("calculating");
-    const avg = scores.reduce((a,b) => a+b, 0) / scores.length;
-    const ma = generateScore(CHRONO_AGE);
+    const ma = movementAgeFromScores(CHRONO_AGE, scores);
     setTimeout(() => { setMovementAge(ma); }, 100);
   }, []);
 
@@ -581,9 +1000,9 @@ export function OnboardingFlow() {
       <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", marginTop:56 }}>
         <AnimatePresence mode="wait">
           {step === "hook" && <StepHook key="hook" onNext={() => setStep("camera")} />}
-          {step === "camera" && <StepCamera key="camera" videoRef={videoRef} streamRef={streamRef} onNext={() => setStep("movement")} />}
+          {step === "camera" && <StepCamera key="camera" onNext={() => setStep("movement")} />}
           {step === "movement" && (
-            <StepMovement key="movement" videoRef={videoRef} streamRef={streamRef} onComplete={handleMovementsComplete} />
+            <StepMovement key="movement" onComplete={handleMovementsComplete} />
           )}
           {step === "calculating" && (
             <StepCalculating key="calculating" onDone={() => setStep("reveal")} />
