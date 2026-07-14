@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#1B1B1B", ink2:"#3A3A3A", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6", dark:"#0E1117", dark2:"#161B24" };
+const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE", dark:"#080B0F", dark2:"#111821" };
 
 const coaches = [
   { id:"scientist", emoji:"🔬", name:"El Científico", style:"Preciso · Datos · Objetivo",     msg:'"Tu ángulo de dorsiflexión mejoró 8° esta semana. Eso corresponde a una reducción de 2.3 años en tu Edad de Movimiento. Protocolo ajustado."' },
@@ -56,7 +56,7 @@ export function AICoaches() {
               <motion.div key={sel.id} initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0,y:-12 }} transition={{ duration:0.3 }}
                 style={{ background:C.dark, borderRadius:24, padding:"36px" }}>
                 <div style={{ display:"flex", alignItems:"center", gap:20, marginBottom:24 }}>
-                  <div style={{ width:48, height:48, borderRadius:"50%", background:"rgba(107,123,104,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.4rem" }}>{sel.emoji}</div>
+                  <div style={{ width:48, height:48, borderRadius:"50%", background:"rgba(122,143,116,0.2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.4rem" }}>{sel.emoji}</div>
                   <div>
                     <p style={{ color:C.cream, fontWeight:700, fontSize:"1rem" }}>{sel.name}</p>
                     <p style={{ color:C.muted, fontSize:"0.78rem", marginTop:2 }}>{sel.style}</p>

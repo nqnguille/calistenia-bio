@@ -3,78 +3,77 @@ import { motion } from "framer-motion";
 
 export function FinalCTA() {
   return (
-    <section className="relative bg-dark min-h-[90vh] flex items-center justify-center px-6 py-36 overflow-hidden">
-      {/* Glow rings */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px]"
-          style={{ background:"radial-gradient(ellipse, rgba(107,123,104,0.15) 0%, transparent 60%)" }} />
-        {[300,500,700].map((size) => (
-          <motion.div key={size}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.04]"
-            style={{ width:size, height:size }}
-            animate={{ scale:[1,1.05,1], opacity:[0.4,0.7,0.4] }}
-            transition={{ duration:4+size/200, repeat:Infinity, ease:"easeInOut" }}
-          />
-        ))}
-      </div>
+    <section className="relative flex min-h-[92vh] items-center justify-center overflow-hidden px-6 py-36 text-cream" style={{ background: "radial-gradient(circle at 50% 34%, rgba(122,143,116,0.22), transparent 28rem), linear-gradient(145deg,#080B0F 0%,#111821 52%,#05070A 100%)" }}>
+      <div className="bio-grid absolute inset-0 opacity-80" />
+      <div className="grain absolute inset-0" />
 
-      {/* Grid */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{ backgroundImage:"linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)", backgroundSize:"60px 60px" }} />
+      <div className="absolute left-1/2 top-1/2 h-[900px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.035]" />
+      {[320, 520, 740].map((size, i) => (
+        <motion.div
+          key={size}
+          className="absolute left-1/2 top-1/2 rounded-full border border-white/[0.045]"
+          style={{ width: size, height: size, marginLeft: -size / 2, marginTop: -size / 2 }}
+          animate={{ scale: [1, 1.045, 1], opacity: [0.35, 0.72, 0.35] }}
+          transition={{ duration: 4.2 + i, repeat: Infinity, ease: "easeInOut", delay: i * .25 }}
+        />
+      ))}
 
-      <div className="relative max-w-4xl mx-auto text-center flex flex-col items-center gap-10">
-        <motion.div initial={{ opacity:0 }} whileInView={{ opacity:1 }} viewport={{ once:true }}
-          transition={{ duration:0.6 }}
-          className="section-label justify-center" style={{ color:"#6B7B68" }}
-        >
+      <div className="relative mx-auto flex max-w-5xl flex-col items-center text-center">
+        <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="section-label mb-9" style={{ color: "#AFC3A5" }}>
           CALISTENIA.bio
         </motion.div>
 
         <motion.h2
-          initial={{ opacity:0, y:40 }} whileInView={{ opacity:1, y:0 }}
-          viewport={{ once:true }}
-          transition={{ duration:1, ease:[0.16,1,0.3,1], delay:0.1 }}
-          className="text-[3.5rem] sm:text-[5rem] lg:text-[7rem] font-black text-cream leading-[0.9] tracking-[-0.04em]"
+          initial={{ opacity: 0, y: 42 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
+          className="text-[clamp(3.6rem,10vw,9rem)] font-black leading-[.82] tracking-[-.075em]"
         >
-          Tu cuerpo<br />
-          envejece<br />
-          todos los días.
+          El cuerpo cambia.
+          <span className="grad-text block">Ahora podés medirlo.</span>
         </motion.h2>
 
         <motion.p
-          initial={{ opacity:0, y:24 }} whileInView={{ opacity:1, y:0 }}
-          viewport={{ once:true }}
-          transition={{ duration:0.8, delay:0.3 }}
-          className="text-2xl md:text-3xl font-light text-cream/40 tracking-tight"
+          initial={{ opacity: 0, y: 22 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: .8, delay: .24 }}
+          className="mt-8 max-w-2xl text-xl font-light leading-9 text-cream/58 md:text-2xl"
         >
-          ¿Estás haciendo algo para rejuvenecerlo?
+          Empezá con una evaluación gratuita. En pocos minutos tenés una línea base y un motivo concreto para moverte mejor esta semana.
         </motion.p>
 
         <motion.div
-          initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }}
-          viewport={{ once:true }}
-          transition={{ duration:0.7, delay:0.45 }}
+          initial={{ opacity: 0, y: 22 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: .7, delay: .38 }}
+          className="mt-11 flex flex-col items-center gap-4 sm:flex-row"
         >
-          <motion.a href="/evaluacion"
-            whileHover={{ scale:1.04, boxShadow:"0 24px 64px rgba(248,246,242,0.2)" }}
-            whileTap={{ scale:0.97 }}
-            className="inline-flex items-center gap-3 bg-cream text-ink font-black text-xl px-10 py-5 rounded-full cursor-pointer tracking-[-0.02em]"
+          <motion.a
+            href="/evaluacion"
+            whileHover={{ scale: 1.04, boxShadow: "0 26px 80px rgba(248,246,242,0.20)" }}
+            whileTap={{ scale: .98 }}
+            className="inline-flex items-center gap-3 rounded-full bg-cream px-9 py-5 text-lg font-black tracking-[-.02em] text-ink md:text-xl"
           >
             Descubrir mi Edad de Movimiento
             <span className="text-sage">→</span>
           </motion.a>
+          <a href="#faq" className="rounded-full border border-white/12 bg-white/[0.04] px-8 py-5 text-base font-bold text-cream/58 backdrop-blur-xl transition hover:bg-white/[0.08]">
+            Tengo preguntas
+          </a>
         </motion.div>
 
         <motion.div
-          initial={{ opacity:0 }} whileInView={{ opacity:1 }}
-          viewport={{ once:true }} transition={{ delay:0.6 }}
-          className="flex flex-wrap justify-center gap-6 text-sm text-cream/25 font-medium"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: .55 }}
+          className="mt-8 flex flex-wrap justify-center gap-2 text-sm font-semibold text-cream/38"
         >
-          {["Evaluación gratuita","Sin tarjeta","5 minutos","Solo webcam"].map((t,i) => (
-            <span key={t} className="flex items-center gap-2">
-              {i>0 && <span className="w-1 h-1 rounded-full bg-cream/15" />}
-              {t}
-            </span>
+          {["Evaluación gratuita", "Sin tarjeta", "5 minutos", "Solo webcam"].map((t) => (
+            <span key={t} className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">{t}</span>
           ))}
         </motion.div>
       </div>

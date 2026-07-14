@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", ink:"#1B1B1B", sage:"#6B7B68", muted:"#888880", dark:"#0E1117", dark2:"#161B24" };
+const C = { cream:"#F8F6F2", ink:"#151716", sage:"#7A8F74", muted:"#8E9188", dark:"#080B0F", dark2:"#111821" };
 
 const testimonials = [
   { quote:"Tenía 52 años y pensaba que lo que sentía era normal para la edad. La evaluación me mostró que mi cuerpo se movía como el de alguien de 64. En 4 meses bajé a 51. Por primera vez en años, subí escaleras sin pensar.", name:"Marcela R.", role:"Docente · Buenos Aires · 52 años", delta:"−13 años" },
@@ -13,7 +13,7 @@ const testimonials = [
 export function Testimonials() {
   return (
     <section style={{ backgroundColor:C.dark, position:"relative", overflow:"hidden" }} className="py-52 px-8">
-      <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(107,123,104,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(107,123,104,0.04) 1px,transparent 1px)", backgroundSize:"48px 48px", pointerEvents:"none" }} />
+      <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(122,143,116,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(122,143,116,0.04) 1px,transparent 1px)", backgroundSize:"48px 48px", pointerEvents:"none" }} />
       <div style={{ maxWidth:1152, margin:"0 auto", position:"relative" }}>
 
         <div style={{ textAlign:"center", marginBottom:104 }}>
@@ -37,7 +37,7 @@ export function Testimonials() {
                   <p style={{ fontWeight:700, color:C.cream, fontSize:"0.9rem" }}>{t.name}</p>
                   <p style={{ color:C.muted, fontSize:"0.75rem", marginTop:2 }}>{t.role}</p>
                 </div>
-                <div style={{ background:"rgba(107,123,104,0.15)", border:"1px solid rgba(107,123,104,0.3)", borderRadius:999, padding:"6px 14px" }}>
+                <div style={{ background:"rgba(122,143,116,0.15)", border:"1px solid rgba(122,143,116,0.3)", borderRadius:999, padding:"6px 14px" }}>
                   <p style={{ fontSize:"0.75rem", color:C.sage, fontWeight:700 }}>{t.delta}</p>
                 </div>
               </div>

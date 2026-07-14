@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#1B1B1B", border:"#E0DDD6", sage:"#6B7B68", muted:"#888880", petrol:"#203040" };
+const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#151716", border:"#DED9CE", sage:"#7A8F74", muted:"#8E9188", petrol:"#203040" };
 
 export function Longevity() {
   return (

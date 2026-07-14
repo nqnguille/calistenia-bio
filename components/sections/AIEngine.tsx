@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", sage:"#6B7B68", muted:"#888880", dark:"#0E1117", dark2:"#161B24", border:"rgba(255,255,255,0.08)" };
+const C = { cream:"#F8F6F2", sage:"#7A8F74", muted:"#8E9188", dark:"#080B0F", dark2:"#111821", border:"rgba(255,255,255,0.08)" };
 
 const pipeline = [
   { n:"01", label:"Cuerpo humano",   sub:"Webcam · 30fps",                icon:"◎" },
@@ -15,7 +15,7 @@ export function AIEngine() {
     <section style={{ background:C.dark, position:"relative", overflow:"hidden" }} className="py-52 px-8" id="ciencia">
       {/* Glow */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        background:"radial-gradient(ellipse 70% 50% at 50% 40%, rgba(107,123,104,0.14) 0%, transparent 70%)"
+        background:"radial-gradient(ellipse 70% 50% at 50% 40%, rgba(122,143,116,0.14) 0%, transparent 70%)"
       }} />
       {/* Grid */}
       <div className="absolute inset-0 pointer-events-none" style={{

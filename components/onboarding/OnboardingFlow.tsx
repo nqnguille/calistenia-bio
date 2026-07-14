@@ -3,9 +3,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const C = {
-  cream: "#F8F6F2", ink: "#1B1B1B", ink2: "#3A3A3A",
-  sage: "#6B7B68", muted: "#888880", border: "#E0DDD6",
-  dark: "#0E1117", dark2: "#161B24", red: "#ef4444",
+  cream: "#F8F6F2", ink: "#151716", ink2: "#343A36",
+  sage: "#7A8F74", muted: "#8E9188", border: "#DED9CE",
+  dark: "#080B0F", dark2: "#111821", red: "#ef4444",
 };
 
 /* ─── Types ─────────────────────────────── */
@@ -129,7 +129,7 @@ function StepHook({ onNext }: { onNext: () => void }) {
       <motion.h1 initial={{ opacity:0, y:32 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.2, ease:[0.16,1,0.3,1] }}
         style={{ fontSize:"clamp(2.2rem,5vw,3.8rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em" }}>
         ¿Cuántos años tiene<br/>
-        <span style={{ background:"linear-gradient(135deg,#6B7B68,#9AAF97)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>
+        <span style={{ background:"linear-gradient(135deg,#7A8F74,#AFC3A5)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>
           realmente tu cuerpo?
         </span>
       </motion.h1>
@@ -141,7 +141,7 @@ function StepHook({ onNext }: { onNext: () => void }) {
 
       <motion.button initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.5 }}
         onClick={onNext}
-        whileHover={{ scale:1.04, boxShadow:"0 20px 50px rgba(107,123,104,0.4)" }}
+        whileHover={{ scale:1.04, boxShadow:"0 20px 50px rgba(122,143,116,0.4)" }}
         whileTap={{ scale:0.97 }}
         style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1.1rem", padding:"18px 44px", borderRadius:999, border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:12 }}>
         Descubrirlo — es gratis
@@ -194,7 +194,7 @@ function StepCamera({ videoRef, streamRef, onNext }: {
 
       {permission === "idle" && (
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", gap:28, padding:"0 24px", maxWidth:520 }}>
-          <div style={{ width:72, height:72, borderRadius:"50%", background:"rgba(107,123,104,0.15)", border:`2px solid rgba(107,123,104,0.4)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2rem" }}>
+          <div style={{ width:72, height:72, borderRadius:"50%", background:"rgba(122,143,116,0.15)", border:`2px solid rgba(122,143,116,0.4)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2rem" }}>
             📷
           </div>
           <h2 style={{ fontSize:"clamp(1.8rem,4vw,2.8rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em" }}>
@@ -214,7 +214,7 @@ function StepCamera({ videoRef, streamRef, onNext }: {
       {permission === "requesting" && (
         <div style={{ textAlign:"center", color:"rgba(248,246,242,0.6)", fontSize:"1rem" }}>
           <motion.div animate={{ rotate:360 }} transition={{ duration:1, repeat:Infinity, ease:"linear" }}
-            style={{ width:40, height:40, border:"3px solid rgba(107,123,104,0.2)", borderTopColor:C.sage, borderRadius:"50%", margin:"0 auto 20px" }} />
+            style={{ width:40, height:40, border:"3px solid rgba(122,143,116,0.2)", borderTopColor:C.sage, borderRadius:"50%", margin:"0 auto 20px" }} />
           Activando cámara...
         </div>
       )}
@@ -456,7 +456,7 @@ function StepReveal({ movementAge, chronoAge, onNext }: { movementAge: number; c
 
       <motion.button initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:1.5 }}
         onClick={onNext}
-        whileHover={{ scale:1.04, boxShadow:"0 20px 50px rgba(107,123,104,0.4)" }}
+        whileHover={{ scale:1.04, boxShadow:"0 20px 50px rgba(122,143,116,0.4)" }}
         whileTap={{ scale:0.97 }}
         style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"16px 40px", borderRadius:999, border:"none", cursor:"pointer" }}>
         Guardar mi resultado →

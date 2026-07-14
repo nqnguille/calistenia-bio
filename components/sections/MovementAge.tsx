@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#1B1B1B", ink2:"#3A3A3A", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6", red:"#ef4444" };
+const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE", red:"#ef4444" };
 
 export function MovementAge() {
   return (
@@ -71,7 +71,7 @@ export function MovementAge() {
                 </div>
               </div>
             ))}
-            <div style={{ background:"rgba(107,123,104,0.08)", border:"1px solid rgba(107,123,104,0.2)", borderRadius:12, padding:16 }}>
+            <div style={{ background:"rgba(122,143,116,0.08)", border:"1px solid rgba(122,143,116,0.2)", borderRadius:12, padding:16 }}>
               <p style={{ color:C.ink2, fontSize:"0.9rem", lineHeight:1.65 }}><strong style={{ color:C.ink }}>Buena noticia:</strong> En 8 semanas de práctica consistente, la mayoría de usuarios reduce su Edad de Movimiento entre 3 y 9 años.</p>
             </div>
           </motion.div>

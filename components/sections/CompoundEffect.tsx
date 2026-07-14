@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", ink:"#1B1B1B", ink2:"#3A3A3A", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6", dark:"#0E1117", dark2:"#161B24" };
+const C = { cream:"#F8F6F2", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE", dark:"#080B0F", dark2:"#111821" };
 
 const milestones = [
   { time:"1 semana",  pct:4,  label:"Primeros cambios perceptibles" },

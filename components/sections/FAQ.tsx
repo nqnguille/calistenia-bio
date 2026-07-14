@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#1B1B1B", ink2:"#3A3A3A", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6" };
+const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE" };
 
 const faqs = [
   { q:"¿Necesito ser atleta o tener experiencia previa?", a:"No. CALISTENIA.bio está diseñado para personas sedentarias, activas y todo lo que hay en el medio. El sistema se adapta a tu nivel actual y parte desde donde estás." },

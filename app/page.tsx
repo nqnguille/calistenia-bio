@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/sections/Hero";
 import { Problem } from "@/components/sections/Problem";
+import { Experience } from "@/components/sections/Experience";
 import { AIEngine } from "@/components/sections/AIEngine";
 import { MovementAge } from "@/components/sections/MovementAge";
 import { WeeklyCheckpoints } from "@/components/sections/WeeklyCheckpoints";
@@ -22,6 +23,7 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
+        <Experience />
         <Problem />
         <AIEngine />
         <MovementAge />

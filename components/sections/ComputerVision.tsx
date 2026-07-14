@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6", dark:"#0E1117", dark2:"#161B24", cream2:"rgba(248,246,242,0.08)" };
+const C = { cream:"#F8F6F2", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE", dark:"#080B0F", dark2:"#111821", cream2:"rgba(248,246,242,0.08)" };
 
 const detections = [
   { label:"Postura",    sub:"Alineación cervical",      score:82, icon:"⊕" },
@@ -40,23 +40,23 @@ export function ComputerVision() {
           {/* Body scan card */}
           <motion.div initial={{ opacity:0,x:-24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }}
             style={{ background:C.dark2, border:"1px solid rgba(255,255,255,0.08)", borderRadius:24, overflow:"hidden", position:"relative" }}>
-            <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 50% 30%, rgba(107,123,104,0.12) 0%, transparent 70%)", pointerEvents:"none" }} />
+            <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 50% 30%, rgba(122,143,116,0.12) 0%, transparent 70%)", pointerEvents:"none" }} />
             <svg viewBox="0 0 300 400" style={{ width:"100%", maxHeight:360 }} aria-hidden>
               {/* Silhouette */}
-              <ellipse cx="150" cy="45" rx="28" ry="32" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" />
-              <path d="M 115 75 L 95 130 L 85 190" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M 185 75 L 205 130 L 215 190" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M 115 75 L 185 75 L 190 160 L 150 175 L 110 160 Z" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" />
-              <path d="M 120 175 L 115 260 L 110 330" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M 180 175 L 185 260 L 190 330" fill="none" stroke="rgba(107,123,104,0.35)" strokeWidth="1.5" strokeLinecap="round" />
+              <ellipse cx="150" cy="45" rx="28" ry="32" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" />
+              <path d="M 115 75 L 95 130 L 85 190" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 185 75 L 205 130 L 215 190" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 115 75 L 185 75 L 190 160 L 150 175 L 110 160 Z" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" />
+              <path d="M 120 175 L 115 260 L 110 330" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M 180 175 L 185 260 L 190 330" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" strokeLinecap="round" />
               {/* Landmark dots */}
               {[[150,45],[150,80],[115,78],[185,78],[85,128],[215,128],[150,175],[120,175],[180,175],[115,258],[185,258],[110,328],[190,328]].map(([cx,cy],i) => (
-                <motion.circle key={i} cx={cx} cy={cy} r="4" fill="#6B7B68"
+                <motion.circle key={i} cx={cx} cy={cy} r="4" fill="#7A8F74"
                   initial={{ scale:0,opacity:0 }} animate={{ scale:1,opacity:0.9 }}
                   transition={{ delay:0.05*i, duration:0.3 }} />
               ))}
               {/* Scan beam */}
-              <motion.rect x="60" width="180" height="2" fill="#6B7B68" fillOpacity="0.5"
+              <motion.rect x="60" width="180" height="2" fill="#7A8F74" fillOpacity="0.5"
                 initial={{ y:30 }} animate={{ y:[30,350,30], opacity:[0,0.5,0] }}
                 transition={{ duration:3.5, repeat:Infinity, ease:"linear", delay:1 }} />
             </svg>

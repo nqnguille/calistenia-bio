@@ -1,36 +1,44 @@
 "use client";
-const C = { cream:"#F8F6F2", sage:"#6B7B68", muted:"#888880", dark:"#0E1117" };
+const C = { cream:"#F8F6F2", sage:"#7A8F74", sage2:"#AFC3A5", muted:"#8E9188", dark:"#05070A" };
+
+const cols = [
+  { title:"Producto", links:["Evaluación", "Edad de Movimiento", "Dashboard", "Coaches"] },
+  { title:"Ciencia", links:["Biomecánica", "Longevidad", "Evidencia", "FAQ"] },
+  { title:"Legal", links:["Privacidad", "Términos", "Cookies"] },
+];
 
 export function Footer() {
   return (
-    <footer style={{ backgroundColor:C.dark, borderTop:"1px solid rgba(255,255,255,0.06)" }} className="py-16 px-6">
-      <div style={{ maxWidth:1152, margin:"0 auto" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"auto 1fr auto", gap:64, alignItems:"start", borderBottom:"1px solid rgba(255,255,255,0.06)", paddingBottom:40, marginBottom:32 }}>
+    <footer style={{ backgroundColor:C.dark, borderTop:"1px solid rgba(255,255,255,0.07)" }} className="px-6 py-16 text-cream">
+      <div className="mx-auto max-w-6xl">
+        <div className="grid gap-10 border-b border-white/[0.07] pb-12 md:grid-cols-[1.1fr_1fr]">
           <div>
-            <p style={{ fontWeight:900, fontSize:"1.3rem", letterSpacing:"-0.03em", color:C.cream, marginBottom:8 }}>
-              CALISTENIA<span style={{ color:C.sage }}>.bio</span>
+            <a href="#" className="inline-flex items-center gap-3 font-black tracking-[-.04em] text-cream">
+              <span className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background:C.sage2 }} />
+                <span className="absolute inset-1 rounded-full border" style={{ borderColor:"rgba(175,195,165,.28)" }} />
+              </span>
+              <span className="text-2xl">CALISTENIA<span style={{ color:C.sage2 }}>.bio</span></span>
+            </a>
+            <p className="mt-5 max-w-sm text-base font-light leading-7" style={{ color:C.muted }}>
+              Una plataforma para medir, entender y mejorar la salud motora con IA.
             </p>
-            <p style={{ fontSize:"0.85rem", color:C.muted, lineHeight:1.65, maxWidth:200 }}>Construimos evidencia de que el movimiento rejuvenece.</p>
           </div>
-          <div />
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:40 }}>
-            {[
-              { title:"Producto", links:["Evaluación","Dashboard","Coaches","Precios"] },
-              { title:"Empresa",  links:["Nosotros","Ciencia","Blog","Prensa"] },
-              { title:"Legal",    links:["Privacidad","Términos","Cookies"] },
-            ].map(col => (
+
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+            {cols.map(col => (
               <div key={col.title}>
-                <p style={{ fontSize:"0.65rem", color:"rgba(248,246,242,0.3)", textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:700, marginBottom:14 }}>{col.title}</p>
+                <p className="mb-4 text-[.68rem] font-black uppercase tracking-[.16em] text-cream/28">{col.title}</p>
                 {col.links.map(l => (
-                  <a key={l} href="#" style={{ display:"block", fontSize:"0.85rem", color:C.muted, marginBottom:10, textDecoration:"none" }}>{l}</a>
+                  <a key={l} href="#" className="mb-3 block text-sm font-medium text-cream/44 transition hover:text-cream/80">{l}</a>
                 ))}
               </div>
             ))}
           </div>
         </div>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
-          <p style={{ fontSize:"0.8rem", color:"rgba(136,136,128,0.6)" }}>© 2025 CALISTENIA.bio — Todos los derechos reservados</p>
-          <p style={{ fontSize:"0.8rem", color:"rgba(136,136,128,0.6)" }}>Hecho con IA · Basado en evidencia · Para vivir más joven</p>
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-8 text-sm text-cream/28">
+          <p>© 2026 CALISTENIA.bio — Todos los derechos reservados</p>
+          <p>Hecho con IA · Basado en evidencia · Para vivir más joven</p>
         </div>
       </div>
     </footer>

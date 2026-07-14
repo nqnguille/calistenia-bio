@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#1B1B1B", ink2:"#3A3A3A", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6" };
+const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE" };
 const active = new Set([0,1,2,4,5,7,8,9,11,14,15,16,17,18,21,22,23,24,25,28,29,30,31,32,33,34]);
 const streak = new Set([21,22,23,24,25,28,29,30,31,32,33,34]);
 const days = Array.from({ length:35 },(_,i) => ({ active:active.has(i), streak:streak.has(i) }));

@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", cream2:"#F1EEE8", cream3:"#E8E4DC", ink:"#1B1B1B", ink2:"#3A3A3A", sage:"#6B7B68", muted:"#888880", border:"#E0DDD6" };
+const C = { cream:"#F8F6F2", cream2:"#F1EEE8", cream3:"#E8E4DC", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE" };
 
 export function Dashboard() {
   return (
@@ -34,7 +34,7 @@ export function Dashboard() {
               <p style={{ fontSize:"0.65rem", color:C.muted, textTransform:"uppercase", letterSpacing:"0.12em", fontWeight:600, marginBottom:4 }}>Hola, Martina</p>
               <p style={{ fontSize:"1.3rem", fontWeight:900, color:C.ink, letterSpacing:"-0.02em" }}>Semana 8 de tu plan</p>
             </div>
-            <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(107,123,104,0.1)", border:"1px solid rgba(107,123,104,0.25)", borderRadius:999, padding:"8px 16px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(122,143,116,0.1)", border:"1px solid rgba(122,143,116,0.25)", borderRadius:999, padding:"8px 16px" }}>
               <div style={{ width:8, height:8, borderRadius:"50%", background:C.sage }} />
               <span style={{ fontSize:"0.85rem", color:C.sage, fontWeight:600 }}>Mejorando</span>
             </div>
@@ -72,7 +72,7 @@ export function Dashboard() {
                     fill="none" stroke={C.border} strokeWidth="1" />
                 ))}
                 <polygon points="110,30 172,65 163,130 110,155 57,130 48,65"
-                  fill="rgba(107,123,104,0.15)" stroke={C.sage} strokeWidth="1.5" />
+                  fill="rgba(122,143,116,0.15)" stroke={C.sage} strokeWidth="1.5" />
                 {["Movilidad","Estabilidad","Equilibrio","Fuerza","Coordinación","Técnica"].map((l,j) => {
                   const a=(j*60-90)*Math.PI/180;
                   return <text key={l} x={110+Math.cos(a)*100} y={100+Math.sin(a)*92} fontSize="9" fill={C.muted} textAnchor="middle" fontWeight="500">{l}</text>;
