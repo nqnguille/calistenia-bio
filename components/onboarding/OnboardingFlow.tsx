@@ -8,6 +8,8 @@ const C = {
   dark: "#080B0F", dark2: "#111821", red: "#ef4444",
 };
 
+const EVAL_BUILD = "v8 · feed único + monitor";
+
 /* ─── Types ─────────────────────────────── */
 type Step = "hook" | "camera" | "movement" | "calculating" | "reveal" | "save";
 
@@ -33,10 +35,10 @@ const MOVEMENT_CUES: Record<MovementTest["id"], string> = {
   balance: "Levantá una rodilla y aguantá ahí.",
 };
 
-
 type Landmark = { x: number; y: number; z?: number; visibility?: number };
 type PoseAnalysis = { detected: boolean; score: number; feedback: string; detail: string };
 type PoseRuntime = { stop: () => void };
+type PoseHandler = (landmarks: Landmark[] | null, quality: number) => void;
 
 declare global {
   interface Window {
@@ -55,6 +57,44 @@ declare global {
   }
 }
 
+/* ─── Monitor de eventos ─────────────────── */
+// Registro liviano de todo lo que pasa en el front: errores JS, fases, voz,
+// detección. Visible en pantalla (panel chico abajo a la derecha) y persistido
+// en localStorage("calistenia_evlog") para poder reportar sin capturas.
+type EvEntry = { t: number; tag: string; msg: string };
+const EVLOG: EvEntry[] = [];
+let evSubscribers: Array<() => void> = [];
+
+function logEvent(tag: string, msg: string) {
+  EVLOG.push({ t: Date.now(), tag, msg });
+  if (EVLOG.length > 300) EVLOG.splice(0, EVLOG.length - 300);
+  try { localStorage.setItem("calistenia_evlog", JSON.stringify(EVLOG.slice(-120))); } catch {}
+  // eslint-disable-next-line no-console
+  console.log(`[ev:${tag}]`, msg);
+  evSubscribers.forEach((f) => f());
+}
+
+function EventMonitor() {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const f = () => force((x) => x + 1);
+    evSubscribers.push(f);
+    return () => { evSubscribers = evSubscribers.filter((x) => x !== f); };
+  }, []);
+  const last = EVLOG.slice(-7);
+  if (!last.length) return null;
+  return (
+    <div style={{ position:"absolute", right:12, bottom:10, zIndex:30, width:330, maxWidth:"44vw", background:"rgba(8,11,15,0.72)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:12, padding:"8px 10px", pointerEvents:"none", backdropFilter:"blur(10px)" }}>
+      {last.map((e, i) => (
+        <p key={`${e.t}-${i}`} style={{ margin:0, fontSize:"0.6rem", lineHeight:1.5, fontFamily:"monospace", color: e.tag === "error" || e.tag === "promise" ? "#F17464" : "rgba(248,246,242,0.55)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+          {new Date(e.t).toLocaleTimeString("es-AR", { hour12: false })} <b style={{ color: e.tag === "error" ? "#F17464" : C.sage }}>{e.tag}</b> {e.msg}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Carga de MediaPipe ─────────────────── */
 const MP_SCRIPTS = [
   "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js",
   "https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js",
@@ -119,7 +159,6 @@ const FULL_CONNECTIONS: Array<[number, number]> = [
   [24, 26], [26, 28], [28, 30], [30, 32], [28, 32],
 ];
 
-// Articulaciones grandes (se dibujan más gruesas que cara/manos/pies).
 const CORE_POINTS = new Set<number>([11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]);
 const isDetailPoint = (i: number) => !CORE_POINTS.has(i) && i !== LM.NOSE;
 
@@ -142,19 +181,17 @@ function essentialVisible(lms: Landmark[]) {
   return [LM.L_SHOULDER, LM.R_SHOULDER, LM.L_HIP, LM.R_HIP].every((i) => visOk(lms[i], 0.22));
 }
 
-// Gate tolerante: si el modelo devuelve un esqueleto coherente, hay un cuerpo.
-// La visibilidad por punto castiga demasiado la luz tenue, así que aceptamos
-// también un promedio razonable aunque algún punto individual quede bajo.
-function bodyPresent(lms: Landmark[] | null): lms is Landmark[] {
-  if (!lms || lms.length < 33) return false;
-  return essentialVisible(lms) || poseQuality(lms) >= 28;
-}
-
 // Confianza de detección 0-100: promedio de visibilidad de hombros, cadera y rodillas.
 function poseQuality(lms: Landmark[] | null) {
   if (!lms) return 0;
   const pts = [LM.L_SHOULDER, LM.R_SHOULDER, LM.L_HIP, LM.R_HIP, LM.L_KNEE, LM.R_KNEE];
   return Math.round(clamp(avg(pts.map((i) => lms[i]?.visibility ?? 0)) * 100, 0, 100));
+}
+
+// Gate tolerante: si el modelo devuelve un esqueleto coherente, hay un cuerpo.
+function bodyPresent(lms: Landmark[] | null): lms is Landmark[] {
+  if (!lms || lms.length < 33) return false;
+  return essentialVisible(lms) || poseQuality(lms) >= 28;
 }
 
 function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAnalysis {
@@ -180,7 +217,7 @@ function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAn
   if (testId === "arms") {
     const lw = lms[LM.L_WRIST], rw = lms[LM.R_WRIST];
     const le = lms[LM.L_ELBOW], re = lms[LM.R_ELBOW];
-    if (![lw, rw, le, re].every((lm) => visOk(lm))) {
+    if (![lw, rw, le, re].every((lm) => visOk(lm, 0.3))) {
       return { detected: true, score: 45, feedback: "Mostrá manos y codos", detail: "Levantá ambos brazos dentro del encuadre" };
     }
     const leftLift = ls.y - lw.y;
@@ -196,7 +233,7 @@ function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAn
   }
 
   const lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE], la = lms[LM.L_ANKLE], ra = lms[LM.R_ANKLE];
-  if (![lk, rk].every((lm) => visOk(lm))) {
+  if (![lk, rk].every((lm) => visOk(lm, 0.3))) {
     return { detected: true, score: 45, feedback: "Necesitamos ver tus rodillas", detail: "Alejate un poco de la cámara" };
   }
   const leftLift = lh.y - lk.y;
@@ -206,14 +243,10 @@ function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAn
   const liftScore = clamp((kneeLift + 0.04) / 0.20, 0, 1);
   const verticalControl = 1 - clamp((shoulderTilt + hipTilt) / 0.12, 0, 1);
   const score = Math.round(clamp(42 + liftScore * 42 + verticalControl * 18 + (feetVisible ? 0 : -6), 25, 100));
-  const feedback = liftScore > 0.55 ? "Equilibrio unipodal detectado" : "Levantá una rodilla y sostené";
+  const feedback = liftScore > 0.55 ? "Equilibrio detectado, sostené" : "Levantá una rodilla y sostené";
   return { detected: true, score, feedback, detail: `Control ${score}%` };
 }
 
-// El canvas replica el tamaño REAL en pantalla (no el del video): así el dibujo
-// nunca se estira. El video se muestra con object-fit: cover, por eso los
-// landmarks (normalizados sobre el frame completo) se mapean con el mismo
-// recorte centrado que aplica el navegador al video.
 /* ─── Validación de movimiento real ──────── */
 // Un frame solo cuenta para la medición si el usuario está HACIENDO el
 // movimiento pedido — sin esto, caminar frente a la cámara "aprueba" el test.
@@ -226,8 +259,6 @@ function armsRaised(lms: Landmark[]) {
 function kneeRaised(lms: Landmark[]) {
   const lh = lms[LM.L_HIP], rh = lms[LM.R_HIP], lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE];
   if (!lh || !rh || !lk || !rk) return false;
-  // Parado: la rodilla queda ~0.2 (normalizado) por debajo de la cadera.
-  // Rodilla levantada: se acerca a la altura de la cadera.
   return Math.max(lh.y - lk.y, rh.y - rk.y) > -0.06;
 }
 
@@ -236,6 +267,7 @@ function shoulderMidpoint(lms: Landmark[]) {
   return { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
 }
 
+/* ─── Canvas / dibujo del esqueleto ──────── */
 function resizeCanvas(canvas: HTMLCanvasElement) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = Math.round((canvas.clientWidth || 1) * dpr);
@@ -260,16 +292,13 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landm
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Sin cuerpo no se dibuja nada: el estado lo comunica la UI (el canvas está
-  // espejado, cualquier texto acá saldría al revés).
   if (!lms) return;
 
   const good = quality >= 68;
   const color = good ? "#AFC3A5" : quality >= 48 ? "#F0C36A" : "#F17464";
   const dim = good ? "rgba(175,195,165,0.28)" : "rgba(241,116,100,0.25)";
   const toCanvas = coverMapper(canvas, video);
-  const u = clamp(Math.max(canvas.width, canvas.height) / 1400, 0.6, 2.4); // unidad de grosor según resolución
+  const u = clamp(Math.max(canvas.width, canvas.height) / 1400, 0.6, 2.4);
 
   ctx.save();
   ctx.lineCap = "round";
@@ -277,8 +306,6 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landm
   ctx.shadowColor = color;
   ctx.shadowBlur = 14 * u;
 
-  // Umbral de dibujo bien bajo: preferimos mostrar el esqueleto completo
-  // (33 puntos) aunque tirite, a que el usuario crea que no lo vemos.
   const DRAW_VIS = 0.15;
   for (const [a, b] of FULL_CONNECTIONS) {
     const la = lms[a], lb = lms[b];
@@ -305,6 +332,7 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landm
   ctx.restore();
 }
 
+/* ─── Runtime de pose (se crea UNA vez por journey) ─ */
 async function startPoseTracking({
   video,
   canvas,
@@ -314,7 +342,7 @@ async function startPoseTracking({
   video: HTMLVideoElement;
   canvas: HTMLCanvasElement;
   onStatus?: (status: string) => void;
-  onResults: (landmarks: Landmark[] | null, analysis: PoseAnalysis | undefined, quality: number) => void;
+  onResults: (landmarks: Landmark[] | null, quality: number) => void;
 }): Promise<PoseRuntime> {
   onStatus?.("Cargando modelo biomecánico…");
   await loadMediaPipe();
@@ -328,7 +356,7 @@ async function startPoseTracking({
     modelComplexity: 2, // máxima precisión de landmarks (desktop lo banca)
     smoothLandmarks: true,
     enableSegmentation: false,
-    minDetectionConfidence: 0.4, // más tolerante con luz tenue
+    minDetectionConfidence: 0.4,
     minTrackingConfidence: 0.4,
   });
 
@@ -336,9 +364,8 @@ async function startPoseTracking({
     if (stopped) return;
     const lms = results.poseLandmarks ?? null;
     const quality = poseQuality(lms);
-    const genericAnalysis = lms ? analyzePose(lms, "posture") : undefined;
     drawPose(canvas, video, lms, quality);
-    onResults(lms, genericAnalysis, quality);
+    onResults(lms, quality);
   });
 
   const camera = new Camera(video, {
@@ -355,10 +382,12 @@ async function startPoseTracking({
   onStatus?.("Solicitando permiso de cámara…");
   await camera.start();
   onStatus?.("Cámara activa · buscando cuerpo…");
+  logEvent("camara", "stream iniciado");
 
   return {
     stop: () => {
       stopped = true;
+      logEvent("camara", "stream detenido");
       try { camera.stop(); } catch {}
       try { pose.close(); } catch {}
       const stream = video.srcObject as MediaStream | null;
@@ -369,10 +398,6 @@ async function startPoseTracking({
 }
 
 /* ─── Voz (guía conversacional) ──────────── */
-// A 2-3 metros de la pantalla no se lee nada: la guía principal es hablada.
-// Web Speech API: corre en el navegador, sin costo ni red (la primera
-// utterance ocurre después de un click, así que las políticas de autoplay
-// no la bloquean).
 const speechState = { lastKey: "", lastAt: 0 };
 
 function warmVoices() {
@@ -381,9 +406,7 @@ function warmVoices() {
   window.speechSynthesis.addEventListener?.("voiceschanged", () => {}, { once: true });
 }
 
-// Devuelve una Promise que se resuelve cuando la locución TERMINA de decirse
-// (con timeout de respaldo si el navegador no dispara onend). Crítico para no
-// arrancar mediciones mientras el trainer todavía está explicando.
+// Devuelve una Promise que se resuelve cuando la locución TERMINA de decirse.
 function speak(text: string, opts: { key?: string; minGap?: number } = {}): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window === "undefined") return resolve();
@@ -395,6 +418,7 @@ function speak(text: string, opts: { key?: string; minGap?: number } = {}): Prom
     speechState.lastKey = key;
     speechState.lastAt = now;
     synth.cancel();
+    logEvent("voz", text.slice(0, 64));
     const u = new SpeechSynthesisUtterance(text);
     const voices = synth.getVoices();
     const v =
@@ -409,7 +433,6 @@ function speak(text: string, opts: { key?: string; minGap?: number } = {}): Prom
     const finish = () => { if (!done) { done = true; resolve(); } };
     u.onend = finish;
     u.onerror = finish;
-    // Respaldo por si onend nunca llega (~11 caracteres/seg + margen).
     setTimeout(finish, Math.max(1800, text.length * 105));
     synth.speak(u);
   });
@@ -420,8 +443,6 @@ function stopSpeaking() {
 }
 
 /* ─── Reconocimiento de voz (órdenes del usuario) ── */
-// A distancia el usuario no puede tocar nada: puede decir "listo", "dale",
-// "avanzar", etc. para forzar el paso siguiente si la detección no engancha.
 const ADVANCE_WORDS = ["listo", "lista", "avanzar", "avanza", "continuar", "continua", "seguir", "empezar", "empeza", "dale", "vamos", "ya estoy"];
 
 function matchesAdvance(text: string) {
@@ -449,11 +470,14 @@ function useVoiceCommands(enabled: boolean, onAdvance: () => void) {
     rec.interimResults = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => {
-      // Evita que la app se responda a sí misma por los parlantes.
-      if (window.speechSynthesis?.speaking) return;
+      if (window.speechSynthesis?.speaking) return; // no escucharse a sí misma
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const text: string = e.results[i]?.[0]?.transcript ?? "";
-        if (matchesAdvance(text)) { cbRef.current(); break; }
+        if (matchesAdvance(text)) {
+          logEvent("mic", `orden reconocida: "${text.trim().slice(0, 40)}"`);
+          cbRef.current();
+          break;
+        }
       }
     };
     rec.onend = () => { if (alive) { try { rec.start(); } catch {} } };
@@ -466,28 +490,34 @@ function useVoiceCommands(enabled: boolean, onAdvance: () => void) {
   }, [enabled]);
 }
 
-const EVAL_BUILD = "v7 · voz sin cortes";
-
-/* ─── Helpers ────────────────────────────── */
-function pad(n: number) { return String(n).padStart(2, "0"); }
-
+/* ─── Countdown sin efectos dentro del updater ── */
+// El onDone se dispara desde un efecto que observa remaining===0 — NUNCA desde
+// adentro del updater de setState (React lo ejecuta dos veces en dev y eso
+// hacía avanzar dos pruebas por cada fin de conteo).
 function useCountdown(from: number, active: boolean, onDone: () => void) {
   const [remaining, setRemaining] = useState(from);
-  const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const firedRef = useRef(false);
   const onDoneRef = useRef(onDone);
   useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
   useEffect(() => {
+    firedRef.current = false;
     if (!active) { setRemaining(from); return; }
     setRemaining(from);
-    ref.current = setInterval(() => {
-      setRemaining(r => {
-        if (r <= 1) { clearInterval(ref.current!); onDoneRef.current(); return 0; }
-        return r - 1;
-      });
+    intervalRef.current = setInterval(() => {
+      setRemaining((r) => (r > 0 ? r - 1 : 0));
     }, 1000);
-    return () => clearInterval(ref.current!);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [active, from]);
+
+  useEffect(() => {
+    if (active && remaining === 0 && !firedRef.current) {
+      firedRef.current = true;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      onDoneRef.current();
+    }
+  }, [remaining, active]);
 
   return remaining;
 }
@@ -495,54 +525,8 @@ function useCountdown(from: number, active: boolean, onDone: () => void) {
 /* ─── Score generation from real pose samples ─ */
 function movementAgeFromScores(age: number, scores: number[]): number {
   const biomechScore = scores.length ? avg(scores) : 58;
-  // 72 is treated as a healthy baseline. Lower scores age the movement profile;
-  // higher scores make it younger. This is still an MVP heuristic, now fed by real landmarks.
   const offset = Math.round((72 - biomechScore) * 0.58);
   return Math.round(clamp(age + offset, 22, 75));
-}
-
-/* ─── Skeleton SVG overlay (simplified) ── */
-function SkeletonOverlay({ detected }: { detected: boolean }) {
-  const color = detected ? C.sage : "rgba(248,246,242,0.3)";
-  return (
-    <svg viewBox="0 0 300 480" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} aria-hidden>
-      <defs>
-        <filter id="glow">
-          <feGaussianBlur stdDeviation="2" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
-      </defs>
-      {detected && (
-        <motion.g filter="url(#glow)" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }}>
-          {/* skeleton lines */}
-          {[
-            [[150,65],[130,90],[120,130],[110,170]],
-            [[150,65],[170,90],[180,130],[190,170]],
-            [[130,90],[170,90]],
-            [[150,65],[150,180]],
-            [[150,180],[135,260],[130,340]],
-            [[150,180],[165,260],[170,340]],
-          ].map((seg, si) => seg.slice(0,-1).map(([x1,y1],pi) => {
-            const [x2,y2] = seg[pi+1];
-            return <line key={`${si}-${pi}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth="2.5" strokeLinecap="round" />;
-          }))}
-          {/* joints */}
-          {[[150,65],[130,90],[170,90],[110,170],[190,170],[150,180],[135,260],[165,260],[130,340],[170,340]].map(([cx,cy],i) => (
-            <motion.circle key={i} cx={cx} cy={cy} r={i<3?6:4} fill={color}
-              initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: i*0.05 }} />
-          ))}
-          {/* head */}
-          <circle cx="150" cy="45" r="20" fill="none" stroke={color} strokeWidth="2" />
-        </motion.g>
-      )}
-      {!detected && (
-        <motion.text x="150" y="240" textAnchor="middle" fill="rgba(248,246,242,0.4)"
-          fontSize="14" fontWeight="500" animate={{ opacity:[0.4,0.8,0.4] }} transition={{ duration:2, repeat:Infinity }}>
-          Buscando tu cuerpo...
-        </motion.text>
-      )}
-    </svg>
-  );
 }
 
 /* ─── Progress dots ───────────────────── */
@@ -564,7 +548,7 @@ function ProgressDots({ current, total }: { current: number; total: number }) {
 function StepHook({ onNext }: { onNext: () => void }) {
   return (
     <motion.div key="hook" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -20 }}
-      style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", textAlign: "center", padding: "0 24px", gap: 32, maxWidth: 600, margin: "0 auto" }}>
+      style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 24px", gap: 32 }}>
 
       <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.1 }}
         style={{ display:"inline-flex", alignItems:"center", gap:10, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage }}>
@@ -572,7 +556,7 @@ function StepHook({ onNext }: { onNext: () => void }) {
       </motion.div>
 
       <motion.h1 initial={{ opacity:0, y:32 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.2, ease:[0.16,1,0.3,1] }}
-        style={{ fontSize:"clamp(2.2rem,5vw,3.8rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em" }}>
+        style={{ fontSize:"clamp(2.2rem,5vw,3.8rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em", maxWidth:600 }}>
         ¿Cuántos años tiene<br/>
         <span style={{ background:"linear-gradient(135deg,#7A8F74,#AFC3A5)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>
           realmente tu cuerpo?
@@ -605,135 +589,92 @@ function StepHook({ onNext }: { onNext: () => void }) {
   );
 }
 
-/* ─── STEP: CAMERA ───────────────────── */
-function StepCamera({ onNext }: { onNext: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const runtimeRef = useRef<PoseRuntime | null>(null);
+/* ─── STEP: CAMERA (overlay sobre el feed único) ── */
+function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNext }: {
+  cameraState: "idle" | "starting" | "on" | "error";
+  camStatus: string;
+  startCamera: () => void;
+  setPoseHandler: (fn: PoseHandler | null) => void;
+  onNext: () => void;
+}) {
   const detectedFrames = useRef(0);
   const presentFrames = useRef(0);
   const advancedRef = useRef(false);
-  const bootRef = useRef(false);
-  const [permission, setPermission] = useState<"idle"|"requesting"|"granted"|"denied">("idle");
   const [detected, setDetected] = useState(false);
   const [partial, setPartial] = useState(false);
-  const [status, setStatus] = useState("Listo para activar cámara");
   const [quality, setQuality] = useState(0);
-  const [hud, setHud] = useState("iniciando…");
-
-  const stopRuntime = useCallback(() => {
-    runtimeRef.current?.stop();
-    runtimeRef.current = null;
-  }, []);
-
-  useEffect(() => () => stopRuntime(), [stopRuntime]);
 
   const forceAdvance = useCallback((phrase: string) => {
     if (advancedRef.current) return;
     advancedRef.current = true;
-    setStatus("Cuerpo detectado · preparando evaluación…");
-    // Espera a que la frase termine de decirse antes de cambiar de paso,
-    // así la siguiente locución no la pisa a mitad de camino.
-    speak(phrase, { key: "cam-advance", minGap: 0 }).then(() => {
-      stopRuntime();
-      onNext();
-    });
-  }, [onNext, stopRuntime]);
+    logEvent("fase", "cámara → pruebas");
+    // Espera a que la frase termine antes de cambiar de paso (no se pisa).
+    speak(phrase, { key: "cam-advance", minGap: 0 }).then(() => onNext());
+  }, [onNext]);
 
-  // Orden por voz: "listo", "dale", "avanzar"… destraba el paso a mano.
-  useVoiceCommands(permission === "granted", () => forceAdvance("Dale, seguimos."));
-
-  const requestCamera = useCallback(() => {
-    stopRuntime();
-    setDetected(false);
-    setQuality(0);
-    setStatus("Preparando panel de cámara…");
-    detectedFrames.current = 0;
-    presentFrames.current = 0;
-    advancedRef.current = false;
-    bootRef.current = false;
-    setPermission("requesting");
-    warmVoices();
-    speak("Activando tu cámara. Ponete a dos o tres metros, de frente, que se vea tu cuerpo entero.", { key: "cam-on", minGap: 4000 });
-  }, [stopRuntime]);
+  useVoiceCommands(cameraState === "on", () => forceAdvance("Dale, seguimos."));
 
   useEffect(() => {
-    if (permission !== "requesting" || bootRef.current) return;
-    if (!videoRef.current || !canvasRef.current) return;
+    if (cameraState !== "on") return;
+    setPoseHandler((landmarks, poseConfidence) => {
+      const ok = bodyPresent(landmarks);
+      setDetected(ok);
+      setPartial(!!landmarks && !ok);
+      setQuality(poseConfidence);
+      if (ok) detectedFrames.current += 1;
+      else detectedFrames.current = 0;
+      if (landmarks) presentFrames.current += 1;
 
-    bootRef.current = true;
-    let active = true;
+      if (detectedFrames.current === 1) logEvent("pose", `cuerpo detectado (vis ${poseConfidence}%)`);
 
-    const start = async () => {
-      try {
-        const runtime = await startPoseTracking({
-          video: videoRef.current!,
-          canvas: canvasRef.current!,
-          onStatus: (value) => active && setStatus(value),
-          onResults: (landmarks, _analysis, poseConfidence) => {
-            if (!active) return;
-            const ok = bodyPresent(landmarks);
-            setDetected(ok);
-            setPartial(!!landmarks && !ok);
-            setQuality(poseConfidence);
-            setHud(`${EVAL_BUILD} · ${videoRef.current?.videoWidth ?? 0}×${videoRef.current?.videoHeight ?? 0} · ${landmarks?.length ?? 0} pts · vis ${(poseConfidence / 100).toFixed(2)}`);
-            if (ok) detectedFrames.current += 1;
-            else detectedFrames.current = 0;
-            if (landmarks) presentFrames.current += 1;
-
-            if (!ok && landmarks) {
-              speak("Casi. Necesito ver tus hombros y tu cadera. Si no avanzo, decime: listo.", { key: "cam-partial", minGap: 10000 });
-            }
-            if (!landmarks && presentFrames.current === 0) {
-              speak("No logro verte. Prendé una luz de frente y ponete a dos o tres metros.", { key: "cam-nobody", minGap: 12000 });
-            }
-
-            if (detectedFrames.current > 20) {
-              forceAdvance("¡Te veo! Arrancamos con la primera prueba.");
-            }
-            // Red de seguridad: si hay esqueleto hace ~8 segundos aunque la
-            // confianza sea baja (luz mala), avanzamos igual — trabarse es
-            // peor que medir con menos precisión.
-            if (presentFrames.current > 200) {
-              forceAdvance("La luz no ayuda, pero te veo lo suficiente. Seguimos.");
-            }
-          },
-        });
-        if (!active) { runtime.stop(); return; }
-        runtimeRef.current = runtime;
-        setPermission("granted");
-      } catch (err) {
-        console.error(err);
-        if (active) {
-          setPermission("denied");
-          setStatus("No pudimos iniciar la cámara o el modelo de pose");
-        }
+      if (!ok && landmarks) {
+        speak("Casi. Necesito ver tus hombros y tu cadera. Si no avanzo, decime: listo.", { key: "cam-partial", minGap: 10000 });
       }
-    };
+      if (!landmarks && presentFrames.current === 0) {
+        speak("No logro verte. Prendé una luz de frente y ponete a dos o tres metros.", { key: "cam-nobody", minGap: 12000 });
+      }
 
-    start();
-    return () => { active = false; };
-  }, [permission, onNext, stopRuntime]);
+      if (detectedFrames.current > 20) {
+        forceAdvance("¡Te veo! Arrancamos con la primera prueba.");
+      }
+      if (presentFrames.current > 200) {
+        forceAdvance("La luz no ayuda, pero te veo lo suficiente. Seguimos.");
+      }
+    });
+    return () => setPoseHandler(null);
+  }, [cameraState, setPoseHandler, forceAdvance]);
 
-  if (permission === "idle") {
+  if (cameraState === "idle" || cameraState === "starting" || cameraState === "error") {
     return (
-      <motion.div key="camera" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-        style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:24, padding:"0 20px" }}>
-        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", gap:28, padding:"0 24px", maxWidth:560 }}>
-          <div style={{ width:78, height:78, borderRadius:"50%", background:"rgba(122,143,116,0.15)", border:`2px solid rgba(122,143,116,0.4)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2rem" }}>
-            📷
-          </div>
-          <h2 style={{ fontSize:"clamp(1.9rem,4vw,3rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.04em" }}>
-            Activá tu cámara
-          </h2>
-          <p style={{ fontSize:"1rem", color:"rgba(248,246,242,0.58)", lineHeight:1.75, fontWeight:300 }}>
-            Esta vez la demo usa detección corporal real: MediaPipe identifica tus landmarks en vivo y calcula señales biomecánicas básicas en tu dispositivo.
-          </p>
-          <button onClick={requestCamera}
-            style={{ background:C.sage, color:"#fff", fontWeight:800, fontSize:"1rem", padding:"16px 40px", borderRadius:999, border:"none", cursor:"pointer" }}>
-            Activar cámara real →
-          </button>
-          <p style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.25)" }}>Nada se graba ni se sube. El análisis ocurre en el navegador.</p>
+      <motion.div key="camera-gate" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+        style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 20px" }}>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center", gap:26, maxWidth:560 }}>
+          {cameraState === "starting" ? (
+            <>
+              <motion.div animate={{ rotate:360 }} transition={{ duration:1, repeat:Infinity, ease:"linear" }}
+                style={{ width:46, height:46, border:"3px solid rgba(122,143,116,0.22)", borderTopColor:C.sage, borderRadius:"50%" }} />
+              <p style={{ color:"rgba(248,246,242,0.72)", fontWeight:700, fontSize:"1.1rem" }}>{camStatus}</p>
+            </>
+          ) : (
+            <>
+              <div style={{ width:78, height:78, borderRadius:"50%", background:"rgba(122,143,116,0.15)", border:`2px solid rgba(122,143,116,0.4)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2rem" }}>
+                {cameraState === "error" ? "🚫" : "📷"}
+              </div>
+              <h2 style={{ fontSize:"clamp(1.9rem,4vw,3rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.04em" }}>
+                {cameraState === "error" ? "No pudimos iniciar la cámara" : "Activá tu cámara"}
+              </h2>
+              <p style={{ fontSize:"1rem", color:"rgba(248,246,242,0.58)", lineHeight:1.75, fontWeight:300 }}>
+                {cameraState === "error"
+                  ? `${camStatus}. Revisá permisos del navegador y conexión a internet para cargar el modelo.`
+                  : "La cámara se prende UNA sola vez y te acompaña todo el journey. Te guío por voz: no vas a tener que tocar nada más."}
+              </p>
+              <button onClick={startCamera}
+                style={{ background:C.sage, color:"#fff", fontWeight:800, fontSize:"1rem", padding:"16px 40px", borderRadius:999, border:"none", cursor:"pointer" }}>
+                {cameraState === "error" ? "Intentar de nuevo" : "Activar cámara →"}
+              </button>
+              <p style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.25)" }}>Nada se graba ni se sube. El análisis ocurre en el navegador.</p>
+            </>
+          )}
         </div>
       </motion.div>
     );
@@ -741,27 +682,18 @@ function StepCamera({ onNext }: { onNext: () => void }) {
 
   return (
     <motion.div key="camera-live" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ position:"fixed", inset:0, zIndex:4, background:C.dark, overflow:"hidden" }}>
+      style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
 
-      <video ref={videoRef} autoPlay playsInline muted
-        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block", opacity: permission === "granted" ? 0.86 : 0.28 }} />
-      <canvas ref={canvasRef}
-        style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
-
-      <div style={{ position:"absolute", inset:0, pointerEvents:"none", background:"radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.10) 48%, rgba(8,11,15,0.72) 100%)" }} />
-      <div className="bio-grid" style={{ position:"absolute", inset:0, opacity:0.22, pointerEvents:"none" }} />
-      <div style={{ position:"absolute", inset:0, pointerEvents:"none", boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.04), inset 0 -160px 160px rgba(8,11,15,0.55), inset 0 120px 120px rgba(8,11,15,0.35)" }} />
-
-      <div style={{ position:"absolute", top:82, left:24, right:24, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:16, pointerEvents:"none" }}>
-        <div style={{ maxWidth:"min(560px, 58vw)", background:"rgba(8,11,15,0.56)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"10px 16px", display:"flex", alignItems:"center", gap:10, backdropFilter:"blur(16px)", boxShadow:"0 18px 60px rgba(0,0,0,0.28)" }}>
+      <div style={{ position:"absolute", top:74, left:20, right:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:16 }}>
+        <div style={{ maxWidth:"min(560px, 58vw)", background:"rgba(8,11,15,0.56)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"10px 16px", display:"flex", alignItems:"center", gap:10, backdropFilter:"blur(16px)" }}>
           <motion.div animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.25, repeat:Infinity }}
             style={{ width:9, height:9, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A", flexShrink:0 }} />
           <span style={{ color:"rgba(248,246,242,0.86)", fontWeight:900, fontSize:"0.78rem", letterSpacing:"0.12em", textTransform:"uppercase", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-            {detected ? "Cuerpo detectado · preparando evaluación…" : status}
+            {detected ? "Cuerpo detectado" : camStatus}
           </span>
         </div>
 
-        <div style={{ minWidth:150, background:"rgba(8,11,15,0.58)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"16px 18px", backdropFilter:"blur(16px)", boxShadow:"0 18px 60px rgba(0,0,0,0.28)" }}>
+        <div style={{ minWidth:150, background:"rgba(8,11,15,0.58)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"16px 18px", backdropFilter:"blur(16px)" }}>
           <p style={{ fontSize:"0.62rem", color:"rgba(248,246,242,0.40)", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase", marginBottom:8 }}>Calidad pose</p>
           <div style={{ display:"flex", alignItems:"end", gap:6 }}>
             <span style={{ color:"#F8F6F2", fontSize:"2.35rem", fontWeight:900, lineHeight:1 }}>{Math.round(quality)}</span>
@@ -770,28 +702,9 @@ function StepCamera({ onNext }: { onNext: () => void }) {
         </div>
       </div>
 
-      {permission === "requesting" && (
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:16, background:"rgba(8,11,15,0.38)", pointerEvents:"none" }}>
-          <motion.div animate={{ rotate:360 }} transition={{ duration:1, repeat:Infinity, ease:"linear" }}
-            style={{ width:42, height:42, border:"3px solid rgba(122,143,116,0.22)", borderTopColor:C.sage, borderRadius:"50%" }} />
-          <p style={{ color:"rgba(248,246,242,0.72)", fontWeight:700 }}>{status}</p>
-        </div>
-      )}
-
-      {permission === "denied" && (
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
-          <div style={{ width:"min(560px, 92vw)", background:"rgba(8,11,15,0.82)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"42px 32px", textAlign:"center", boxShadow:"0 30px 100px rgba(0,0,0,0.45)", backdropFilter:"blur(20px)" }}>
-            <p style={{ fontSize:"3rem", marginBottom:14 }}>🚫</p>
-            <h3 style={{ color:"#F8F6F2", fontSize:"1.5rem", fontWeight:900, marginBottom:14 }}>No pudimos iniciar la cámara</h3>
-            <p style={{ color:"rgba(248,246,242,0.58)", lineHeight:1.65, margin:"0 auto", maxWidth:420 }}>{status}. Revisá permisos del navegador y conexión a internet para cargar el modelo.</p>
-            <button onClick={requestCamera} style={{ marginTop:24, background:C.sage, color:"#fff", fontWeight:800, padding:"13px 30px", borderRadius:999, border:"none", cursor:"pointer" }}>Intentar de nuevo</button>
-          </div>
-        </div>
-      )}
-
-      {permission === "granted" && !detected && (
-        <div style={{ position:"absolute", left:24, right:24, bottom:36, display:"flex", flexDirection:"column", alignItems:"center", gap:12, pointerEvents:"none" }}>
-          <div style={{ maxWidth:900, background:"rgba(8,11,15,0.68)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"22px 34px", color:"#F8F6F2", fontSize:"clamp(1.3rem,3vw,2.1rem)", fontWeight:700, lineHeight:1.35, letterSpacing:"-0.01em", textAlign:"center", backdropFilter:"blur(16px)", boxShadow:"0 20px 70px rgba(0,0,0,0.35)" }}>
+      {!detected && (
+        <div style={{ position:"absolute", left:24, right:24, bottom:60, display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}>
+          <div style={{ maxWidth:900, background:"rgba(8,11,15,0.68)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"22px 34px", color:"#F8F6F2", fontSize:"clamp(1.3rem,3vw,2.1rem)", fontWeight:700, lineHeight:1.35, letterSpacing:"-0.01em", textAlign:"center", backdropFilter:"blur(16px)" }}>
             {partial
               ? "Casi: que entren hombros y cadera en el cuadro"
               : "Ponete a 2-3 metros, de frente y con luz"}
@@ -802,15 +715,8 @@ function StepCamera({ onNext }: { onNext: () => void }) {
         </div>
       )}
 
-      {/* HUD de diagnóstico */}
-      {permission === "granted" && (
-        <div style={{ position:"absolute", left:16, bottom:10, color:"rgba(248,246,242,0.38)", fontSize:"0.68rem", fontFamily:"monospace", pointerEvents:"none" }}>
-          {hud}
-        </div>
-      )}
-
-      {permission === "granted" && detected && (
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none" }}>
+      {detected && (
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
           <motion.div initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }}
             style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.6)" }}>
             <p style={{ fontSize:"clamp(3.5rem,9vw,6.5rem)", lineHeight:1 }}>✓</p>
@@ -818,27 +724,17 @@ function StepCamera({ onNext }: { onNext: () => void }) {
           </motion.div>
         </div>
       )}
-
-      <style jsx>{`
-        @media (max-width: 720px) {
-          div[style*="top: 82px"] {
-            top: 72px !important;
-            left: 14px !important;
-            right: 14px !important;
-          }
-        }
-      `}</style>
     </motion.div>
   );
 }
 
-/* ─── STEP: MOVEMENT ─────────────────── */
+/* ─── STEP: MOVEMENT (overlay sobre el feed único) ── */
 type MovPhase = "intro" | "prep" | "counting" | "done";
 
-function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const runtimeRef = useRef<PoseRuntime | null>(null);
+function StepMovement({ setPoseHandler, onComplete }: {
+  setPoseHandler: (fn: PoseHandler | null) => void;
+  onComplete: (scores: number[]) => void;
+}) {
   const phaseRef = useRef<MovPhase>("intro");
   const currentIdRef = useRef<MovementTest["id"]>("posture");
   const samplesRef = useRef<number[]>([]);
@@ -847,22 +743,21 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
   const introAtRef = useRef(0);
   const attemptRef = useRef(0);
   const prevMidRef = useRef<{ x: number; y: number } | null>(null);
-  const introReadyRef = useRef(false); // true recién cuando la voz TERMINÓ la consigna
+  const introReadyRef = useRef(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [phase, setPhase] = useState<MovPhase>("intro");
   const [prepLeft, setPrepLeft] = useState(3);
-  const [status, setStatus] = useState("Iniciando cámara…");
   const [detected, setDetected] = useState(false);
   const [liveScore, setLiveScore] = useState(0);
   const [feedback, setFeedback] = useState("Posicionate frente a la cámara");
-  const [detail, setDetail] = useState("Landmarks en vivo");
 
-  const current = MOVEMENTS[currentIdx];
+  // Clamp defensivo: currentIdx jamás debe indexar fuera del array.
+  const current = MOVEMENTS[Math.min(currentIdx, MOVEMENTS.length - 1)];
 
-  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useEffect(() => { phaseRef.current = phase; logEvent("fase", `prueba ${currentIdx + 1} · ${phase}`); }, [phase, currentIdx]);
 
   // Cada prueba se anuncia por voz y arranca sola cuando el cuerpo está
-  // estable — a 3 metros de la pantalla no hay botones que valgan.
+  // estable Y la consigna terminó de decirse.
   useEffect(() => {
     currentIdRef.current = current.id;
     samplesRef.current = [];
@@ -873,26 +768,9 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
     speak(`Prueba ${currentIdx + 1}. ${current.title}. ${current.instruction}`, { key: `mov-${currentIdx}`, minGap: 0 })
       .then(() => {
         introReadyRef.current = true;
-        introAtRef.current = Date.now(); // el margen corre desde que terminó de hablar
+        introAtRef.current = Date.now();
       });
   }, [current.id, current.title, current.instruction, currentIdx]);
-
-  // Orden por voz para destrabar la intro ("listo", "dale", "vamos"…).
-  useVoiceCommands(phase === "intro", () => setPhase("prep"));
-
-  // Red de seguridad: si a los 20 s la detección no enganchó, recordamos la
-  // orden por voz; a los 35 s arrancamos igual.
-  useEffect(() => {
-    if (phase !== "intro") return;
-    const remind = setTimeout(() => {
-      speak("Si estás en posición, decime: listo. Y arrancamos.", { key: `mov-remind-${currentIdx}`, minGap: 0 });
-    }, 20000);
-    const force = setTimeout(() => {
-      speak("Arrancamos igual. Hacé el movimiento lo mejor que puedas.", { key: `mov-force-${currentIdx}`, minGap: 0 });
-      setPhase("prep");
-    }, 35000);
-    return () => { clearTimeout(remind); clearTimeout(force); };
-  }, [phase, currentIdx]);
 
   // Cuenta regresiva hablada de 3 antes de medir.
   useEffect(() => {
@@ -915,84 +793,70 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
     return () => clearInterval(t);
   }, [phase, currentIdx]);
 
-  const stopRuntime = useCallback(() => {
-    runtimeRef.current?.stop();
-    runtimeRef.current = null;
-  }, []);
+  // Orden por voz para destrabar la intro.
+  useVoiceCommands(phase === "intro", () => setPhase("prep"));
 
+  // Red de seguridad de la intro.
   useEffect(() => {
-    let active = true;
-    const init = async () => {
-      if (!videoRef.current || !canvasRef.current) return;
-      try {
-        const runtime = await startPoseTracking({
-          video: videoRef.current,
-          canvas: canvasRef.current,
-          onStatus: (s) => active && setStatus(s),
-          onResults: (landmarks) => {
-            if (!active) return;
-            // El esqueleto ya lo dibuja el runtime (y limpia el canvas si se
-            // pierde el cuerpo); acá solo analizamos el movimiento actual.
-            const analysis = analyzePose(landmarks, currentIdRef.current);
-            setDetected(analysis.detected);
-            setLiveScore(analysis.score);
-            setFeedback(analysis.feedback);
-            setDetail(analysis.detail);
+    if (phase !== "intro") return;
+    const remind = setTimeout(() => {
+      speak("Si estás en posición, decime: listo. Y arrancamos.", { key: `mov-remind-${currentIdx}`, minGap: 0 });
+    }, 20000);
+    const force = setTimeout(() => {
+      speak("Arrancamos igual. Hacé el movimiento lo mejor que puedas.", { key: `mov-force-${currentIdx}`, minGap: 0 });
+      setPhase("prep");
+    }, 35000);
+    return () => { clearTimeout(remind); clearTimeout(force); };
+  }, [phase, currentIdx]);
 
-            // Un frame cuenta solo si el movimiento pedido está pasando.
-            let doingIt = analysis.detected;
-            if (doingIt && landmarks) {
-              const id = currentIdRef.current;
-              if (id === "arms") doingIt = armsRaised(landmarks);
-              else if (id === "balance") doingIt = kneeRaised(landmarks);
-              else if (id === "posture") {
-                const mid = shoulderMidpoint(landmarks);
-                const prev = prevMidRef.current;
-                const motion = prev ? Math.hypot(mid.x - prev.x, mid.y - prev.y) : 1;
-                prevMidRef.current = mid;
-                doingIt = motion < 0.012; // quieto de verdad, no caminando
-              }
-            }
-            if (phaseRef.current === "counting" && doingIt && analysis.score > 0) {
-              samplesRef.current.push(analysis.score);
-            }
-            // Arranque manos libres: SOLO cuando la voz terminó la consigna
-            // (introReadyRef) + 1s de aire + cuerpo estable.
-            if (phaseRef.current === "intro") {
-              if (introReadyRef.current && analysis.detected && Date.now() - introAtRef.current > 1000) {
-                stableRef.current += 1;
-                if (stableRef.current > 20) {
-                  stableRef.current = 0;
-                  setPhase("prep");
-                }
-              } else if (!analysis.detected) {
-                stableRef.current = 0;
-              }
-            }
-          },
-        });
-        if (!active) { runtime.stop(); return; }
-        runtimeRef.current = runtime;
-        setStatus("Cámara activa");
-      } catch (err) {
-        console.error(err);
-        if (active) {
-          setStatus("No se pudo iniciar cámara/modelo");
-          setFeedback("Revisá permisos de cámara y conexión a internet");
+  // Suscripción al feed de pose compartido.
+  useEffect(() => {
+    setPoseHandler((landmarks) => {
+      const analysis = analyzePose(landmarks, currentIdRef.current);
+      setDetected(analysis.detected);
+      setLiveScore(analysis.score);
+      setFeedback(analysis.feedback);
+
+      // Un frame cuenta solo si el movimiento pedido está pasando.
+      let doingIt = analysis.detected;
+      if (doingIt && landmarks) {
+        const id = currentIdRef.current;
+        if (id === "arms") doingIt = armsRaised(landmarks);
+        else if (id === "balance") doingIt = kneeRaised(landmarks);
+        else if (id === "posture") {
+          const mid = shoulderMidpoint(landmarks);
+          const prev = prevMidRef.current;
+          const motion = prev ? Math.hypot(mid.x - prev.x, mid.y - prev.y) : 1;
+          prevMidRef.current = mid;
+          doingIt = motion < 0.012;
         }
       }
-    };
-    init();
-    return () => { active = false; stopRuntime(); };
-  }, [stopRuntime]);
+      if (phaseRef.current === "counting" && doingIt && analysis.score > 0) {
+        samplesRef.current.push(analysis.score);
+      }
+
+      // Arranque manos libres: consigna terminada + 1s de aire + cuerpo estable.
+      if (phaseRef.current === "intro") {
+        if (introReadyRef.current && analysis.detected && Date.now() - introAtRef.current > 1000) {
+          stableRef.current += 1;
+          if (stableRef.current > 20) {
+            stableRef.current = 0;
+            setPhase("prep");
+          }
+        } else if (!analysis.detected) {
+          stableRef.current = 0;
+        }
+      }
+    });
+    return () => setPoseHandler(null);
+  }, [setPoseHandler]);
 
   const MIN_VALID_FRAMES = 15; // ~1 segundo de movimiento real detectado
 
   const handleMoveDone = useCallback(() => {
     const validSamples = samplesRef.current;
+    logEvent("test", `fin prueba ${currentIdx + 1}: ${validSamples.length} frames válidos`);
 
-    // Si no vimos el movimiento de verdad, NO inventamos un resultado:
-    // el trainer lo dice y repite la prueba (hasta 2 reintentos).
     if (validSamples.length < MIN_VALID_FRAMES && attemptRef.current < 2) {
       attemptRef.current += 1;
       samplesRef.current = [];
@@ -1000,6 +864,7 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
       introReadyRef.current = false;
       introAtRef.current = Date.now();
       setPhase("intro");
+      logEvent("test", `reintento ${attemptRef.current} de prueba ${currentIdx + 1}`);
       speak(`No llegué a ver el movimiento. Va de nuevo. ${current.instruction}`, { key: `retry-${currentIdx}-${attemptRef.current}`, minGap: 0 })
         .then(() => {
           introReadyRef.current = true;
@@ -1017,26 +882,25 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
     }
     collectedScoresRef.current.push(measured);
     samplesRef.current = [];
+    logEvent("test", `score prueba ${currentIdx + 1}: ${measured}%`);
 
     if (currentIdx < MOVEMENTS.length - 1) {
       if (validSamples.length >= MIN_VALID_FRAMES) {
         speak("¡Muy bien! Vamos con la siguiente.", { key: `done-${currentIdx}`, minGap: 0 });
       }
       setPhase("intro");
-      setCurrentIdx((i) => i + 1);
+      setCurrentIdx((i) => Math.min(i + 1, MOVEMENTS.length - 1));
     } else {
       speak("¡Excelente! Terminamos. Estoy analizando tus movimientos.", { key: "done-all", minGap: 0 });
       setPhase("done");
-      stopRuntime();
       onComplete(collectedScoresRef.current);
     }
-  }, [currentIdx, current.instruction, onComplete, stopRuntime]);
+  }, [currentIdx, current.instruction, onComplete]);
 
   const timer = useCountdown(current.duration, phase === "counting", handleMoveDone);
   const progress = phase === "counting" ? ((current.duration - timer) / current.duration) * 100 : 0;
 
-  // Coaching en vivo: a mitad de prueba, si todavía no vimos el movimiento,
-  // el trainer repite la indicación corta.
+  // Coaching en vivo a mitad de prueba si no hay señal del movimiento.
   useEffect(() => {
     if (phase !== "counting") return;
     if (timer === Math.ceil(current.duration / 2) && samplesRef.current.length < 5) {
@@ -1046,20 +910,13 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
 
   return (
     <motion.div key="movement" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ position:"fixed", inset:0, zIndex:4, background:C.dark, overflow:"hidden" }}>
-
-      {/* Video fullscreen, igual que el paso 1: la cámara ES la pantalla */}
-      <video ref={videoRef} autoPlay playsInline muted
-        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block", opacity:0.85 }} />
-      <canvas ref={canvasRef}
-        style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
-      <div style={{ position:"absolute", inset:0, pointerEvents:"none", background:"radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.08) 50%, rgba(8,11,15,0.72) 100%)" }} />
+      style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
 
       {/* Barra superior: qué prueba es + señal en vivo */}
-      <div style={{ position:"absolute", top:74, left:20, right:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:14, pointerEvents:"none" }}>
+      <div style={{ position:"absolute", top:74, left:20, right:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:14 }}>
         <div style={{ background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"14px 22px", backdropFilter:"blur(14px)" }}>
           <p style={{ color:C.sage, fontWeight:900, letterSpacing:"0.14em", fontSize:"0.72rem", textTransform:"uppercase", marginBottom:6 }}>
-            Prueba {currentIdx + 1} de {MOVEMENTS.length}{!detected && ` · ${status}`}
+            Prueba {currentIdx + 1} de {MOVEMENTS.length}
           </p>
           <p style={{ color:"#F8F6F2", fontWeight:900, fontSize:"clamp(1.3rem,3vw,2.2rem)", letterSpacing:"-0.02em", lineHeight:1 }}>
             {current.emoji} {current.title}
@@ -1075,7 +932,7 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
 
       {/* INTRO: consigna gigante en el centro */}
       {phase === "intro" && (
-        <div style={{ position:"absolute", left:0, right:0, top:"50%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", pointerEvents:"none", padding:"0 24px" }}>
+        <div style={{ position:"absolute", left:0, right:0, top:"50%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", padding:"0 24px" }}>
           <div style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.75)" }}>
             <p style={{ fontSize:"clamp(3rem,8vw,5.5rem)", lineHeight:1, marginBottom:16 }}>{current.emoji}</p>
             <p style={{ color:"#F8F6F2", fontSize:"clamp(1.9rem,4.8vw,3.6rem)", fontWeight:900, letterSpacing:"-0.02em", lineHeight:1.2, maxWidth:900 }}>
@@ -1090,7 +947,7 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
 
       {/* PREP: cuenta regresiva gigante */}
       {phase === "prep" && (
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none", background:"rgba(8,11,15,0.28)" }}>
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(8,11,15,0.28)" }}>
           <motion.p key={prepLeft} initial={{ opacity:0, scale:1.6 }} animate={{ opacity:1, scale:1 }} transition={{ duration:0.35 }}
             style={{ fontSize:"clamp(9rem,30vw,20rem)", fontWeight:900, color:"#F8F6F2", lineHeight:1, textShadow:"0 10px 60px rgba(0,0,0,0.7)" }}>
             {prepLeft}
@@ -1100,7 +957,7 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
 
       {/* COUNTING: timer gigante centrado */}
       {phase === "counting" && (
-        <div style={{ position:"absolute", left:0, right:0, top:"46%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+        <div style={{ position:"absolute", left:0, right:0, top:"46%", transform:"translateY(-50%)", display:"flex", justifyContent:"center" }}>
           <p style={{ fontSize:"clamp(7rem,24vw,16rem)", fontWeight:900, fontFamily:"monospace", color:"rgba(248,246,242,0.55)", lineHeight:1, textShadow:"0 8px 50px rgba(0,0,0,0.6)" }}>
             {timer}
           </p>
@@ -1108,8 +965,8 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
       )}
 
       {/* Abajo: feedback del trainer GIGANTE + barra + progreso */}
-      <div style={{ position:"absolute", left:20, right:20, bottom:24, display:"flex", flexDirection:"column", alignItems:"center", gap:14, pointerEvents:"none" }}>
-        <div style={{ maxWidth:1000, background:"rgba(8,11,15,0.70)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"18px 34px", textAlign:"center", backdropFilter:"blur(16px)", boxShadow:"0 20px 70px rgba(0,0,0,0.4)" }}>
+      <div style={{ position:"absolute", left:20, right:20, bottom:40, display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
+        <div style={{ maxWidth:1000, background:"rgba(8,11,15,0.70)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"18px 34px", textAlign:"center", backdropFilter:"blur(16px)" }}>
           <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"clamp(1.4rem,3.4vw,2.4rem)", lineHeight:1.3, letterSpacing:"-0.01em" }}>
             {feedback}
           </p>
@@ -1136,19 +993,22 @@ function StepCalculating({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     const t = setInterval(() => {
-      setIdx(i => {
-        if (i >= steps.length - 1) { clearInterval(t); setTimeout(onDone, 600); return i; }
-        return i + 1;
-      });
+      setIdx(i => (i >= steps.length - 1 ? i : i + 1));
     }, 700);
     return () => clearInterval(t);
   }, []); // eslint-disable-line
 
+  useEffect(() => {
+    if (idx >= steps.length - 1) {
+      const t = setTimeout(onDone, 1300);
+      return () => clearTimeout(t);
+    }
+  }, [idx]); // eslint-disable-line
+
   return (
     <motion.div key="calculating" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:32, textAlign:"center", padding:"0 24px" }}>
+      style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:32, textAlign:"center", padding:"0 24px" }}>
 
-      {/* Animated rings */}
       <div style={{ position:"relative", width:120, height:120 }}>
         {[0,1,2].map(i => (
           <motion.div key={i}
@@ -1198,7 +1058,7 @@ function StepReveal({ movementAge, chronoAge, onNext }: { movementAge: number; c
 
   return (
     <motion.div key="reveal" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:28, textAlign:"center", padding:"0 24px" }}>
+      style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28, textAlign:"center", padding:"0 24px" }}>
 
       <motion.div initial={{ opacity:0,y:20 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.2 }}
         style={{ fontSize:"0.75rem", fontWeight:700, color:C.sage, letterSpacing:"0.2em", textTransform:"uppercase" }}>
@@ -1221,9 +1081,8 @@ function StepReveal({ movementAge, chronoAge, onNext }: { movementAge: number; c
         </motion.p>
       </motion.div>
 
-      {/* Comparison */}
       <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ delay:1.1 }}
-        style={{ display:"flex", gap:32, padding:"20px 32px", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16 }}>
+        style={{ display:"flex", gap:32, padding:"20px 32px", background:"rgba(8,11,15,0.5)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16, backdropFilter:"blur(10px)" }}>
         <div style={{ textAlign:"center" }}>
           <p style={{ fontSize:"2rem", fontWeight:900, color:"rgba(248,246,242,0.3)", lineHeight:1 }}>{chronoAge}</p>
           <p style={{ fontSize:"0.7rem", color:"rgba(248,246,242,0.35)", textTransform:"uppercase", letterSpacing:"0.1em", marginTop:4 }}>Edad real</p>
@@ -1271,7 +1130,7 @@ function StepSave({ movementAge }: { movementAge: number }) {
   if (sent) {
     return (
       <motion.div initial={{ opacity:0,scale:0.95 }} animate={{ opacity:1,scale:1 }}
-        style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:24, textAlign:"center", padding:"0 24px" }}>
+        style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:24, textAlign:"center", padding:"0 24px" }}>
         <motion.div animate={{ scale:[1,1.2,1] }} transition={{ duration:0.5 }}
           style={{ fontSize:"4rem" }}>🎉</motion.div>
         <h2 style={{ fontSize:"1.8rem", fontWeight:900, color:"#F8F6F2", letterSpacing:"-0.02em" }}>¡Listo!</h2>
@@ -1287,9 +1146,9 @@ function StepSave({ movementAge }: { movementAge: number }) {
 
   return (
     <motion.div key="save" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:28, textAlign:"center", padding:"0 24px", maxWidth:480, margin:"0 auto" }}>
+      style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28, textAlign:"center", padding:"0 24px" }}>
 
-      <div>
+      <div style={{ maxWidth:480 }}>
         <p style={{ fontSize:"0.75rem", color:C.sage, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:8 }}>Guardá tu resultado</p>
         <h2 style={{ fontSize:"clamp(1.8rem,4vw,2.4rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:12 }}>
           Tu Edad de Movimiento es <span style={{ color:C.sage }}>{movementAge}</span>
@@ -1299,7 +1158,7 @@ function StepSave({ movementAge }: { movementAge: number }) {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ width:"100%", display:"flex", flexDirection:"column", gap:12 }}>
+      <form onSubmit={handleSubmit} style={{ width:"min(480px, 92vw)", display:"flex", flexDirection:"column", gap:12 }}>
         <input type="number" placeholder="Tu edad cronológica" value={age} onChange={e => setAge(e.target.value)} required min={16} max={80}
           style={{ width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"14px 18px", color:"#F8F6F2", fontSize:"1rem", outline:"none" }} />
         <input type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} required
@@ -1321,19 +1180,72 @@ function StepSave({ movementAge }: { movementAge: number }) {
 }
 
 /* ─── MAIN FLOW ───────────────────────── */
+// Arquitectura de feed único: la cámara y el modelo de pose se crean UNA vez
+// y viven a nivel del flow. Los pasos son overlays (slides) que se suscriben
+// al stream de landmarks — la página nunca se recarga y la cámara nunca se
+// apaga/prende entre pasos (adiós popup de Windows en medio del journey).
 export function OnboardingFlow() {
   const [step, setStep] = useState<Step>("hook");
   const [movementAge, setMovementAge] = useState(0);
-  // We use chronoAge=40 as default; real app would ask before/after reveal
   const CHRONO_AGE = 40;
 
-  // Precarga las voces del navegador y corta cualquier locución al salir.
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const runtimeRef = useRef<PoseRuntime | null>(null);
+  const poseSubRef = useRef<PoseHandler | null>(null);
+  const [cameraState, setCameraState] = useState<"idle"|"starting"|"on"|"error">("idle");
+  const [camStatus, setCamStatus] = useState("Listo para activar cámara");
+  const [hud, setHud] = useState("");
+
+  const setPoseHandler = useCallback((fn: PoseHandler | null) => {
+    poseSubRef.current = fn;
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    if (runtimeRef.current || cameraState === "starting") return;
+    setCameraState("starting");
+    warmVoices();
+    logEvent("camara", "activación solicitada");
+    speak("Activando tu cámara. Ponete a dos o tres metros, de frente, que se vea tu cuerpo entero.", { key: "cam-on", minGap: 4000 });
+    try {
+      const runtime = await startPoseTracking({
+        video: videoRef.current!,
+        canvas: canvasRef.current!,
+        onStatus: setCamStatus,
+        onResults: (lms, quality) => {
+          setHud(`${EVAL_BUILD} · ${videoRef.current?.videoWidth ?? 0}×${videoRef.current?.videoHeight ?? 0} · ${lms?.length ?? 0} pts · vis ${(quality / 100).toFixed(2)}`);
+          poseSubRef.current?.(lms, quality);
+        },
+      });
+      runtimeRef.current = runtime;
+      setCameraState("on");
+    } catch (err) {
+      console.error(err);
+      logEvent("error", `cámara/modelo: ${err instanceof Error ? err.message : String(err)}`);
+      setCameraState("error");
+      setCamStatus("No pudimos iniciar la cámara o el modelo de pose");
+    }
+  }, [cameraState]);
+
+  // Captura global de errores + limpieza al desmontar.
   useEffect(() => {
     warmVoices();
-    return () => stopSpeaking();
+    logEvent("app", `journey iniciado (${EVAL_BUILD})`);
+    const onErr = (e: ErrorEvent) => logEvent("error", `${e.message} @ ${e.filename?.split("/").pop() ?? "?"}:${e.lineno}`);
+    const onRej = (e: PromiseRejectionEvent) => logEvent("promise", String(e.reason).slice(0, 140));
+    window.addEventListener("error", onErr);
+    window.addEventListener("unhandledrejection", onRej);
+    return () => {
+      window.removeEventListener("error", onErr);
+      window.removeEventListener("unhandledrejection", onRej);
+      runtimeRef.current?.stop();
+      runtimeRef.current = null;
+      stopSpeaking();
+    };
   }, []);
 
   const handleMovementsComplete = useCallback((scores: number[]) => {
+    logEvent("fase", `pruebas completas: [${scores.join(", ")}]`);
     setStep("calculating");
     const ma = movementAgeFromScores(CHRONO_AGE, scores);
     setTimeout(() => { setMovementAge(ma); }, 100);
@@ -1341,8 +1253,24 @@ export function OnboardingFlow() {
 
   const stepIndex = ["hook","camera","movement","calculating","reveal","save"].indexOf(step);
 
+  // El feed queda visible todo el journey; se atenúa en las etapas de resultado.
+  const feedOpacity =
+    cameraState !== "on" ? 0
+    : step === "camera" || step === "movement" ? 0.85
+    : step === "calculating" ? 0.22
+    : 0.14;
+
   return (
-    <div style={{ position:"fixed", inset:0, background:C.dark, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ position:"fixed", inset:0, background:C.dark, overflow:"hidden" }}>
+
+      {/* ── Feed único de video + esqueleto (persistente) ── */}
+      <div style={{ position:"absolute", inset:0, opacity: feedOpacity, transition:"opacity 0.7s ease" }}>
+        <video ref={videoRef} autoPlay playsInline muted
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block" }} />
+        <canvas ref={canvasRef}
+          style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
+        <div style={{ position:"absolute", inset:0, pointerEvents:"none", background:"radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.10) 48%, rgba(8,11,15,0.72) 100%)" }} />
+      </div>
 
       {/* Top bar */}
       <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px 24px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -1365,16 +1293,23 @@ export function OnboardingFlow() {
         )}
       </div>
 
-      {/* Step content */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", justifyContent:"center", marginTop:56 }}>
+      {/* ── Slides encima del feed ── */}
+      <div style={{ position:"absolute", inset:0, zIndex:5 }}>
         <AnimatePresence mode="wait">
-          {step === "hook" && <StepHook key="hook" onNext={() => setStep("camera")} />}
-          {step === "camera" && <StepCamera key="camera" onNext={() => setStep("movement")} />}
+          {step === "hook" && <StepHook key="hook" onNext={() => { logEvent("fase", "hook → cámara"); setStep("camera"); }} />}
+          {step === "camera" && (
+            <StepCamera key="camera"
+              cameraState={cameraState}
+              camStatus={camStatus}
+              startCamera={startCamera}
+              setPoseHandler={setPoseHandler}
+              onNext={() => setStep("movement")} />
+          )}
           {step === "movement" && (
-            <StepMovement key="movement" onComplete={handleMovementsComplete} />
+            <StepMovement key="movement" setPoseHandler={setPoseHandler} onComplete={handleMovementsComplete} />
           )}
           {step === "calculating" && (
-            <StepCalculating key="calculating" onDone={() => setStep("reveal")} />
+            <StepCalculating key="calculating" onDone={() => { logEvent("fase", "→ reveal"); setStep("reveal"); }} />
           )}
           {step === "reveal" && (
             <StepReveal key="reveal" movementAge={movementAge} chronoAge={CHRONO_AGE} onNext={() => setStep("save")} />
@@ -1383,9 +1318,17 @@ export function OnboardingFlow() {
         </AnimatePresence>
       </div>
 
+      {/* HUD de diagnóstico + monitor de eventos */}
+      {cameraState === "on" && (
+        <div style={{ position:"absolute", left:16, bottom:10, zIndex:30, color:"rgba(248,246,242,0.38)", fontSize:"0.68rem", fontFamily:"monospace", pointerEvents:"none" }}>
+          {hud}
+        </div>
+      )}
+      <EventMonitor />
+
       {/* Bottom progress bar */}
       {step !== "hook" && (
-        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(255,255,255,0.06)" }}>
+        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(255,255,255,0.06)", zIndex:20 }}>
           <motion.div
             initial={{ width: `${(stepIndex/5)*100}%` }}
             animate={{ width: `${(stepIndex/5)*100}%` }}
