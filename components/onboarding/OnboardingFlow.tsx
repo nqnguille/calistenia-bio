@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { movementAgeV2, type TestId, type TestResults, type MovementAgeResult } from "@/lib/movementAge";
+import { OLS_SOURCE, STS_SOURCE, PUSHUP_SOURCE, type Sex } from "@/lib/norms";
 
 const C = {
   cream: "#F8F6F2", ink: "#151716", ink2: "#343A36",
@@ -8,35 +10,59 @@ const C = {
   dark: "#080B0F", dark2: "#111821", red: "#ef4444",
 };
 
-const EVAL_BUILD = "v10 · plan FLORA";
+const EVAL_BUILD = "v11 · normas científicas";
+const IS_DEV = process.env.NODE_ENV !== "production";
 
 /* ─── Types ─────────────────────────────── */
-type Step = "hook" | "camera" | "movement" | "calculating" | "reveal" | "plan" | "save";
+type Step = "hook" | "intake" | "camera" | "movement" | "calculating" | "reveal" | "plan" | "save";
+
+type TestMode = "maxHold" | "timedReps" | "amrap";
 
 interface MovementTest {
-  id: string;
+  id: TestId;
   title: string;
   instruction: string;
   emoji: string;
-  duration: number; // seconds
+  mode: TestMode;
+  duration: number; // segundos: tope (maxHold/amrap) o duración fija (timedReps)
   hint: string;
+  metricLabel: string;
 }
 
 const MOVEMENTS: MovementTest[] = [
-  { id: "posture",  title: "Postura en reposo",   instruction: "Quedate quieto, brazos al costado, mirada al frente.", emoji: "🧍", duration: 7,  hint: "Estamos midiendo tu alineación natural" },
-  { id: "arms",     title: "Movilidad de hombros", instruction: "Levantá ambos brazos sobre la cabeza, lo más alto que puedas, y sostenelos.", emoji: "🙆", duration: 8, hint: "La movilidad del hombro es clave para la edad funcional" },
-  { id: "balance",  title: "Equilibrio a una pierna",  instruction: "Levantá una rodilla bien alto y mantené el equilibrio.", emoji: "🦩", duration: 8, hint: "El equilibrio predice el envejecimiento neuromotor" },
+  {
+    id: "ols", title: "Equilibrio a una pierna", emoji: "🦩", mode: "maxHold", duration: 45,
+    instruction: "Levantá un pie del piso y sostenete parado en la otra pierna, sin apoyarte en nada.",
+    hint: "Predictor validado de salud a largo plazo (Araujo 2022, BJSM)",
+    metricLabel: "segundos sostenidos",
+  },
+  {
+    id: "sts", title: "Fuerza de piernas — 30 segundos", emoji: "🪑", mode: "timedReps", duration: 30,
+    instruction: "Sentate en el borde de una silla firme, brazos cruzados sobre el pecho. Parate del todo y sentate, tantas veces como puedas.",
+    hint: "Test estándar de fuerza funcional (Rikli & Jones)",
+    metricLabel: "repeticiones",
+  },
+  {
+    id: "pushup", title: "Flexiones de brazos", emoji: "💪", mode: "amrap", duration: 60,
+    instruction: "Hacé flexiones completas, bajando hasta noventa grados de codo. Las que puedas con buena técnica. Decime listo cuando termines.",
+    hint: "Predictor de salud cardiovascular (Yang 2019, JAMA)",
+    metricLabel: "repeticiones",
+  },
 ];
 
-// Frase corta que el trainer dice a mitad de prueba si no ve el movimiento.
-const MOVEMENT_CUES: Record<MovementTest["id"], string> = {
-  posture: "Quedate bien quieto, mirando al frente.",
-  arms: "Subí los brazos, bien arriba de la cabeza.",
-  balance: "Levantá una rodilla y aguantá ahí.",
+const MOVEMENT_CUES: Record<TestId, string> = {
+  ols: "Fijá la mirada en un punto quieto, eso ayuda a sostener el equilibrio.",
+  sts: "Sin usar las manos. Parate del todo cada vez.",
+  pushup: "Bajá completo y estirá los brazos arriba. Cuando quieras parar, decime listo.",
+};
+
+const TEST_META: Record<TestId, { label: string; source: string; fmt: (v: number) => string }> = {
+  ols: { label: "Equilibrio", source: OLS_SOURCE, fmt: (v) => `${Math.round(v)} s` },
+  sts: { label: "Fuerza de piernas", source: STS_SOURCE, fmt: (v) => `${Math.round(v)} reps` },
+  pushup: { label: "Flexiones", source: PUSHUP_SOURCE, fmt: (v) => `${Math.round(v)} reps` },
 };
 
 type Landmark = { x: number; y: number; z?: number; visibility?: number };
-type PoseAnalysis = { detected: boolean; score: number; feedback: string; detail: string };
 type PoseRuntime = { stop: () => void };
 type PoseHandler = (landmarks: Landmark[] | null, quality: number) => void;
 
@@ -59,8 +85,8 @@ declare global {
 
 /* ─── Monitor de eventos ─────────────────── */
 // Registro liviano de todo lo que pasa en el front: errores JS, fases, voz,
-// detección. Visible en pantalla (panel chico abajo a la derecha) y persistido
-// en localStorage("calistenia_evlog") para poder reportar sin capturas.
+// detección. Visible en pantalla en desarrollo (panel abajo a la derecha) y
+// persistido en localStorage("calistenia_evlog") para poder reportar sin capturas.
 type EvEntry = { t: number; tag: string; msg: string };
 const EVLOG: EvEntry[] = [];
 let evSubscribers: Array<() => void> = [];
@@ -69,8 +95,7 @@ function logEvent(tag: string, msg: string) {
   EVLOG.push({ t: Date.now(), tag, msg });
   if (EVLOG.length > 300) EVLOG.splice(0, EVLOG.length - 300);
   try { localStorage.setItem("calistenia_evlog", JSON.stringify(EVLOG.slice(-120))); } catch {}
-  // eslint-disable-next-line no-console
-  console.log(`[ev:${tag}]`, msg);
+  if (IS_DEV) console.log(`[ev:${tag}]`, msg);
   evSubscribers.forEach((f) => f());
 }
 
@@ -81,6 +106,7 @@ function EventMonitor() {
     evSubscribers.push(f);
     return () => { evSubscribers = evSubscribers.filter((x) => x !== f); };
   }, []);
+  if (!IS_DEV) return null;
   const last = EVLOG.slice(-7);
   if (!last.length) return null;
   return (
@@ -145,17 +171,11 @@ const LM = {
 
 // Esqueleto COMPLETO de BlazePose: 33 landmarks (cara, torso, manos y pies).
 const FULL_CONNECTIONS: Array<[number, number]> = [
-  // cara
   [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], [9, 10],
-  // torso
   [11, 12], [11, 23], [12, 24], [23, 24],
-  // brazo izquierdo + mano
   [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19],
-  // brazo derecho + mano
   [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20],
-  // pierna izquierda + pie
   [23, 25], [25, 27], [27, 29], [29, 31], [27, 31],
-  // pierna derecha + pie
   [24, 26], [26, 28], [28, 30], [30, 32], [28, 32],
 ];
 
@@ -194,77 +214,69 @@ function bodyPresent(lms: Landmark[] | null): lms is Landmark[] {
   return essentialVisible(lms) || poseQuality(lms) >= 28;
 }
 
-function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAnalysis {
-  if (!bodyPresent(lms)) {
-    return { detected: false, score: 0, feedback: "Posicionate frente a la cámara", detail: "Necesitamos ver hombros y cadera" };
-  }
-
-  const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER];
-  const lh = lms[LM.L_HIP], rh = lms[LM.R_HIP];
-  const shoulderMid = { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
-  const hipMid = { x: (lh.x + rh.x) / 2, y: (lh.y + rh.y) / 2 };
-  const shoulderTilt = Math.abs(ls.y - rs.y);
-  const hipTilt = Math.abs(lh.y - rh.y);
-  const centerOffset = Math.abs(shoulderMid.x - hipMid.x);
-
-  if (testId === "posture") {
-    const raw = 100 - shoulderTilt * 560 - hipTilt * 480 - centerOffset * 260;
-    const score = Math.round(clamp(raw, 35, 100));
-    const feedback = shoulderTilt > 0.04 ? "Nivelá hombros" : centerOffset > 0.045 ? "Alineá torso y cadera" : "Postura estable detectada";
-    return { detected: true, score, feedback, detail: `Alineación ${score}%` };
-  }
-
-  if (testId === "arms") {
-    const lw = lms[LM.L_WRIST], rw = lms[LM.R_WRIST];
-    const le = lms[LM.L_ELBOW], re = lms[LM.R_ELBOW];
-    if (![lw, rw, le, re].every((lm) => visOk(lm, 0.3))) {
-      return { detected: true, score: 45, feedback: "Mostrá manos y codos", detail: "Levantá ambos brazos dentro del encuadre" };
-    }
-    const leftLift = ls.y - lw.y;
-    const rightLift = rs.y - rw.y;
-    const liftScore = clamp(((leftLift + rightLift) / 2 + 0.03) / 0.34, 0, 1);
-    const asymmetry = Math.abs(leftLift - rightLift);
-    const leftElbow = angle(ls, le, lw);
-    const rightElbow = angle(rs, re, rw);
-    const elbowExtension = clamp((avg([leftElbow, rightElbow]) - 95) / 75, 0, 1);
-    const score = Math.round(clamp(38 + liftScore * 48 + elbowExtension * 18 - asymmetry * 70, 25, 100));
-    const feedback = liftScore > 0.75 ? "Buen rango sobre cabeza" : asymmetry > 0.10 ? "Un brazo sube menos" : "Subí las manos un poco más";
-    return { detected: true, score, feedback, detail: `Rango hombros ${score}%` };
-  }
-
-  const lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE], la = lms[LM.L_ANKLE], ra = lms[LM.R_ANKLE];
-  if (![lk, rk].every((lm) => visOk(lm, 0.3))) {
-    return { detected: true, score: 45, feedback: "Necesitamos ver tus rodillas", detail: "Alejate un poco de la cámara" };
-  }
-  const leftLift = lh.y - lk.y;
-  const rightLift = rh.y - rk.y;
-  const kneeLift = Math.max(leftLift, rightLift);
-  const feetVisible = visOk(la, 0.28) || visOk(ra, 0.28);
-  const liftScore = clamp((kneeLift + 0.04) / 0.20, 0, 1);
-  const verticalControl = 1 - clamp((shoulderTilt + hipTilt) / 0.12, 0, 1);
-  const score = Math.round(clamp(42 + liftScore * 42 + verticalControl * 18 + (feetVisible ? 0 : -6), 25, 100));
-  const feedback = liftScore > 0.55 ? "Equilibrio detectado, sostené" : "Levantá una rodilla y sostené";
-  return { detected: true, score, feedback, detail: `Control ${score}%` };
-}
-
-/* ─── Validación de movimiento real ──────── */
-// Un frame solo cuenta para la medición si el usuario está HACIENDO el
-// movimiento pedido — sin esto, caminar frente a la cámara "aprueba" el test.
-function armsRaised(lms: Landmark[]) {
-  const lw = lms[LM.L_WRIST], rw = lms[LM.R_WRIST], ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER];
-  if (!lw || !rw || !ls || !rs) return false;
-  return lw.y < ls.y - 0.02 && rw.y < rs.y - 0.02; // ambas muñecas por encima de los hombros
-}
-
-function kneeRaised(lms: Landmark[]) {
-  const lh = lms[LM.L_HIP], rh = lms[LM.R_HIP], lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE];
-  if (!lh || !rh || !lk || !rk) return false;
-  return Math.max(lh.y - lk.y, rh.y - rk.y) > -0.06;
-}
-
 function shoulderMidpoint(lms: Landmark[]) {
   const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER];
   return { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
+}
+
+/* ─── Motores de medición por test (Fase 1) ──
+   Cada uno es una función pura de estado: (landmarks, estado previo) → nuevo
+   estado. Miden un CONTEO o un TIEMPO — nunca un ángulo absoluto — que es
+   donde MediaPipe es confiable. */
+
+interface OlsState { legUp: boolean; upSince: number | null; heldMs: number; attempted: boolean; done: boolean; }
+const OLS_INIT: OlsState = { legUp: false, upSince: null, heldMs: 0, attempted: false, done: false };
+
+function stepOLS(lms: Landmark[] | null, prev: OlsState, capMs: number): OlsState {
+  if (prev.done || !lms) return prev;
+  const la = lms[LM.L_ANKLE], ra = lms[LM.R_ANKLE], lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE], lh = lms[LM.L_HIP], rh = lms[LM.R_HIP];
+  if (![la, ra, lk, rk, lh, rh].every((p) => visOk(p, 0.3))) return prev;
+
+  const ankleDiff = Math.abs(la.y - ra.y);
+  const oneKneeBent = Math.min(angle(lh, lk, la), angle(rh, rk, ra)) < 150;
+  const legIsUp = ankleDiff > 0.06 && oneKneeBent;
+  const now = performance.now();
+
+  if (legIsUp && !prev.legUp) return { ...prev, legUp: true, upSince: now, attempted: true };
+  if (legIsUp && prev.legUp && prev.upSince != null) {
+    const heldMs = now - prev.upSince;
+    if (heldMs >= capMs) return { ...prev, heldMs: capMs, done: true };
+    return { ...prev, heldMs };
+  }
+  if (!legIsUp && prev.legUp) {
+    // El pie volvió a tocar el piso: se termina el intento (mínimo 0.5s para contar).
+    return { ...prev, legUp: false, upSince: null, done: prev.heldMs > 500 };
+  }
+  return prev;
+}
+
+interface RepState { phase: "up" | "down" | "unknown"; reps: number; }
+const REP_INIT: RepState = { phase: "unknown", reps: 0 };
+
+function stepSTS(lms: Landmark[] | null, prev: RepState): RepState {
+  if (!lms) return prev;
+  const lh = lms[LM.L_HIP], rh = lms[LM.R_HIP], lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE], la = lms[LM.L_ANKLE], ra = lms[LM.R_ANKLE];
+  if (![lh, rh, lk, rk, la, ra].every((p) => visOk(p, 0.3))) return prev;
+  const kneeAngle = avg([angle(lh, lk, la), angle(rh, rk, ra)]);
+  if (kneeAngle < 110) return { phase: "down", reps: prev.reps };
+  if (kneeAngle > 155) {
+    if (prev.phase === "down") return { phase: "up", reps: prev.reps + 1 };
+    return { phase: "up", reps: prev.reps };
+  }
+  return prev;
+}
+
+function stepPushup(lms: Landmark[] | null, prev: RepState): RepState {
+  if (!lms) return prev;
+  const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER], le = lms[LM.L_ELBOW], re = lms[LM.R_ELBOW], lw = lms[LM.L_WRIST], rw = lms[LM.R_WRIST];
+  if (![ls, rs, le, re, lw, rw].every((p) => visOk(p, 0.3))) return prev;
+  const elbowAngle = avg([angle(ls, le, lw), angle(rs, re, rw)]);
+  if (elbowAngle < 100) return { phase: "down", reps: prev.reps };
+  if (elbowAngle > 155) {
+    if (prev.phase === "down") return { phase: "up", reps: prev.reps + 1 };
+    return { phase: "up", reps: prev.reps };
+  }
+  return prev;
 }
 
 /* ─── Canvas / dibujo del esqueleto ──────── */
@@ -352,7 +364,6 @@ async function startPoseTracking({
   let stopped = false;
 
   const pose = new Pose({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}` });
-  // En celular el modelo pesado no llega a buen framerate: bajamos a 1.
   const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
   pose.setOptions({
     modelComplexity: isMobile ? 1 : 2,
@@ -446,7 +457,7 @@ function stopSpeaking() {
 }
 
 /* ─── Reconocimiento de voz (órdenes del usuario) ── */
-const ADVANCE_WORDS = ["listo", "lista", "avanzar", "avanza", "continuar", "continua", "seguir", "empezar", "empeza", "dale", "vamos", "ya estoy"];
+const ADVANCE_WORDS = ["listo", "lista", "avanzar", "avanza", "continuar", "continua", "seguir", "empezar", "empeza", "dale", "vamos", "ya estoy", "termine", "terminé"];
 
 function matchesAdvance(text: string) {
   const t = text.toLowerCase();
@@ -494,9 +505,6 @@ function useVoiceCommands(enabled: boolean, onAdvance: () => void) {
 }
 
 /* ─── Countdown sin efectos dentro del updater ── */
-// El onDone se dispara desde un efecto que observa remaining===0 — NUNCA desde
-// adentro del updater de setState (React lo ejecuta dos veces en dev y eso
-// hacía avanzar dos pruebas por cada fin de conteo).
 function useCountdown(from: number, active: boolean, onDone: () => void) {
   const [remaining, setRemaining] = useState(from);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -525,18 +533,7 @@ function useCountdown(from: number, active: boolean, onDone: () => void) {
   return remaining;
 }
 
-/* ─── Score generation from real pose samples ─ */
-function movementAgeFromScores(age: number, scores: number[]): number {
-  const biomechScore = scores.length ? avg(scores) : 58;
-  const offset = Math.round((72 - biomechScore) * 0.58);
-  return Math.round(clamp(age + offset, 22, 75));
-}
-
 /* ─── Plan FLORA: del resultado al primer bloque ── */
-// Heurística MVP honesta: el área más floja de las 3 pruebas define el foco
-// del bloque; el promedio define nivel y días. El lenguaje es el del Método
-// FLORA: series semanales, bloque de 5 semanas, semana de descarga,
-// repeticiones en reserva, sesión mínima, consistencia.
 type Ejercicio = { n: string; series: string };
 type Sesion = { dia: string; titulo: string; ejercicios: Ejercicio[] };
 type PlanFlora = {
@@ -548,25 +545,21 @@ type PlanFlora = {
   vozResumen: string;
 };
 
-function buildPlanFlora(scores: number[], movementAge: number, chronoAge: number): PlanFlora {
-  const [posture = 60, arms = 60, balance = 60] = scores;
-  const media = avg(scores.length ? scores : [60]);
+const FOCUS_META: Record<TestId, { label: string; detalle: string; extra: Ejercicio }> = {
+  ols: { label: "equilibrio y control", detalle: "Tu equilibrio fue el punto más flojo: el bloque suma trabajo a una pierna en cada sesión.", extra: { n: "Equilibrio a una pierna (ojos al frente)", series: "2 × 30-45 s c/p" } },
+  sts: { label: "fuerza de piernas", detalle: "Tu fuerza de piernas fue el punto más flojo: el bloque prioriza sentadillas y trabajo unilateral.", extra: { n: "Sentadilla búlgara (mochila opcional)", series: "3 × 8-12 c/p" } },
+  pushup: { label: "fuerza de tren superior", detalle: "Tus flexiones fueron el punto más flojo: el bloque suma volumen de empuje en cada sesión.", extra: { n: "Flexiones con pausa abajo", series: "3 × 6-10" } },
+};
 
-  const areas = [
-    { id: "postura", score: posture, label: "control y postura", detalle: "Tu prueba de postura fue la más floja: el bloque prioriza espalda media y core, la base de todos los movimientos." },
-    { id: "hombros", score: arms, label: "movilidad de hombros", detalle: "Tu rango de hombros fue lo más flojo: el bloque suma trabajo de empuje vertical y movilidad activa en cada sesión." },
-    { id: "equilibrio", score: balance, label: "equilibrio y pierna unilateral", detalle: "El equilibrio fue tu prueba más floja: el bloque prioriza trabajo a una pierna — el mejor predictor de juventud neuromotora." },
-  ];
-  const foco = areas.reduce((min, a) => (a.score < min.score ? a : min), areas[0]);
+function buildPlanFlora(breakdown: Partial<Record<TestId, number>>, movementAge: number | null, chronoAge: number): PlanFlora {
+  const measured = Object.keys(breakdown) as TestId[];
+  const focoId = measured.length
+    ? measured.reduce((worst, id) => ((breakdown[id] ?? 0) > (breakdown[worst] ?? 0) ? id : worst), measured[0])
+    : "sts";
+  const foco = FOCUS_META[focoId];
 
-  const nivel = media >= 75 ? "Sólido" : media >= 55 ? "Base" : "Inicial";
-  const dias = media >= 75 ? 4 : 3;
-
-  const focoExtra: Record<string, Ejercicio> = {
-    postura: { n: "Remo invertido lento (bajada de 3 seg)", series: "2 × 8-10" },
-    hombros: { n: "Pike push-up + cuelgue de barra o marco", series: "2 × 6-10 / 20-30 s" },
-    equilibrio: { n: "Equilibrio a una pierna (ojos al frente)", series: "2 × 30-45 s c/p" },
-  };
+  const nivel = movementAge == null ? "Base" : movementAge <= chronoAge - 5 ? "Sólido" : movementAge <= chronoAge + 8 ? "Base" : "Inicial";
+  const dias = nivel === "Sólido" ? 4 : 3;
 
   const base: Sesion[] =
     nivel === "Inicial"
@@ -638,13 +631,13 @@ function buildPlanFlora(scores: number[], movementAge: number, chronoAge: number
           ]},
         ];
 
-  const sesiones = base.map((s) => ({ ...s, ejercicios: [...s.ejercicios, focoExtra[foco.id]] }));
+  const sesiones = base.map((s) => ({ ...s, ejercicios: [...s.ejercicios, foco.extra] }));
 
-  const diffFrase = movementAge > chronoAge
+  const diffFrase = movementAge != null && movementAge > chronoAge
     ? "para bajar tu edad de movimiento"
-    : "para seguir moviéndote más joven que tu edad";
+    : "para seguir moviéndote joven";
 
-  const vozResumen = `Tu plan está listo. Un bloque de cinco semanas, ${dias} días por semana, con foco en ${foco.label}, ${diffFrase}. Cuatro semanas subiendo de a poco y una de descarga. En cada serie guardate una o dos repeticiones. Y si un día estás corto de tiempo, hacé la sesión mínima: quince minutos y tu consistencia sigue arriba. Mirá tu semana uno en pantalla.`;
+  const vozResumen = `Tu plan está listo. Un bloque de cinco semanas, ${dias} días por semana, con foco en ${foco.label}, ${diffFrase}. Cuatro semanas subiendo de a poco y una de descarga. En cada serie guardate una o dos repeticiones. Y si un día estás corto de tiempo, hacé la sesión mínima: quince minutos y tu consistencia sigue arriba.`;
 
   return { nivel, dias, foco: foco.label, focoDetalle: foco.detalle, sesiones, vozResumen };
 }
@@ -684,8 +677,8 @@ function StepHook({ onNext }: { onNext: () => void }) {
       </motion.h1>
 
       <motion.p initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.35 }}
-        style={{ fontSize:"1.1rem", color:"rgba(248,246,242,0.6)", lineHeight:1.7, fontWeight:300, maxWidth:440 }}>
-        8 de cada 10 personas descubren que su cuerpo se mueve de forma diferente a su edad real. Averiguá el tuyo en 4 minutos.
+        style={{ fontSize:"1.1rem", color:"rgba(248,246,242,0.6)", lineHeight:1.7, fontWeight:300, maxWidth:460 }}>
+        3 pruebas de equilibrio y fuerza, comparadas con normas científicas publicadas por edad y sexo. ~6 minutos, con tu cámara.
       </motion.p>
 
       <motion.button initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.5 }}
@@ -699,12 +692,82 @@ function StepHook({ onNext }: { onNext: () => void }) {
 
       <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.7 }}
         style={{ display:"flex", gap:24, flexWrap:"wrap", justifyContent:"center" }}>
-        {["Sin registro previo","Solo tu cámara","Resultado inmediato"].map(t => (
+        {["Sin registro previo","Solo tu cámara","Con fuentes citadas"].map(t => (
           <span key={t} style={{ display:"flex", alignItems:"center", gap:6, fontSize:"0.8rem", color:"rgba(248,246,242,0.4)", fontWeight:500 }}>
             <span style={{ color:C.sage }}>✓</span>{t}
           </span>
         ))}
       </motion.div>
+    </motion.div>
+  );
+}
+
+/* ─── STEP: INTAKE (edad + sexo, antes de la cámara) ── */
+const AGE_BUCKETS = [
+  { label: "18-29", value: 24 },
+  { label: "30-39", value: 35 },
+  { label: "40-49", value: 45 },
+  { label: "50-59", value: 55 },
+  { label: "60-69", value: 65 },
+  { label: "70+", value: 75 },
+];
+
+function StepIntake({ onDone }: { onDone: (age: number, sex: Sex) => void }) {
+  const [sub, setSub] = useState<"age" | "sex">("age");
+  const [age, setAge] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (sub === "age") {
+      speak("Antes de arrancar, dos preguntas rápidas para comparar tu desempeño con las normas correctas. ¿Cuántos años tenés?", { key: "intake-age", minGap: 0 });
+    } else {
+      speak("¿Cuál es tu sexo? Las normas de fuerza son distintas por sexo, así que ajusto la comparación a eso.", { key: "intake-sex", minGap: 0 });
+    }
+  }, [sub]);
+
+  return (
+    <motion.div key="intake" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 24px", gap: 28 }}>
+      <p style={{ fontSize: "0.7rem", fontWeight: 800, color: C.sage, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+        {sub === "age" ? "Paso 1 de 2" : "Paso 2 de 2"}
+      </p>
+
+      {sub === "age" ? (
+        <>
+          <h2 style={{ fontSize: "clamp(1.9rem,4.4vw,2.8rem)", fontWeight: 900, color: "#F8F6F2", letterSpacing: "-0.03em", maxWidth: 560 }}>
+            ¿Cuántos años tenés?
+          </h2>
+          <p style={{ color: "rgba(248,246,242,0.55)", fontSize: "0.95rem", maxWidth: 460, fontWeight: 300 }}>
+            Lo uso para comparar tu desempeño con las normas publicadas de tu edad.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, maxWidth: 420, width: "100%" }}>
+            {AGE_BUCKETS.map((b) => (
+              <motion.button key={b.label} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                onClick={() => { setAge(b.value); setSub("sex"); }}
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 16, padding: "18px 8px", color: "#F8F6F2", fontWeight: 800, fontSize: "1.05rem", cursor: "pointer" }}>
+                {b.label}
+              </motion.button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <h2 style={{ fontSize: "clamp(1.9rem,4.4vw,2.8rem)", fontWeight: 900, color: "#F8F6F2", letterSpacing: "-0.03em", maxWidth: 560 }}>
+            ¿Cuál es tu sexo?
+          </h2>
+          <p style={{ color: "rgba(248,246,242,0.55)", fontSize: "0.95rem", maxWidth: 460, fontWeight: 300 }}>
+            Las normas de fuerza (piernas y flexiones) son distintas por sexo. El equilibrio no cambia.
+          </p>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
+            {([["F", "Mujer"], ["M", "Hombre"]] as const).map(([val, label]) => (
+              <motion.button key={val} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                onClick={() => onDone(age ?? 40, val)}
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 20, padding: "28px 40px", color: "#F8F6F2", fontWeight: 800, fontSize: "1.15rem", cursor: "pointer", minWidth: 160 }}>
+                {label}
+              </motion.button>
+            ))}
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }
@@ -730,7 +793,6 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
     if (advancedRef.current) return;
     advancedRef.current = true;
     logEvent("fase", "cámara → pruebas");
-    // Espera a que la frase termine antes de cambiar de paso (no se pisa).
     speak(phrase, { key: "cam-advance", minGap: 0 }).then(() => onNext());
   }, [onNext]);
 
@@ -746,8 +808,6 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
       setQuality(poseConfidence);
       if (landmarks) presentFrames.current += 1;
 
-      // Quietud: si vos o la cámara se están moviendo (acomodando la laptop,
-      // buscando el ángulo), los landmarks se mueven y NO arrancamos.
       let motion = 1;
       if (ok && landmarks) {
         const mid = shoulderMidpoint(landmarks);
@@ -773,13 +833,10 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
         speak("No logro verte. Prendé una luz de frente y ponete a dos o tres metros.", { key: "cam-nobody", minGap: 12000 });
       }
 
-      // Tiempo mínimo de encuadre: nunca antes de 4s de cámara activa,
-      // y solo tras ~2s de cuerpo detectado Y quieto.
       const elapsed = Date.now() - startedAtRef.current;
       if (elapsed > 4000 && detectedFrames.current > 50) {
         forceAdvance("¡Te veo! Arrancamos con la primera prueba.");
       }
-      // Red de seguridad anti-trabas (~12s de esqueleto presente).
       if (elapsed > 6000 && presentFrames.current > 300) {
         forceAdvance("La luz no ayuda, pero te veo lo suficiente. Seguimos.");
       }
@@ -877,44 +934,49 @@ type MovPhase = "intro" | "prep" | "counting" | "done";
 
 function StepMovement({ setPoseHandler, onComplete }: {
   setPoseHandler: (fn: PoseHandler | null) => void;
-  onComplete: (scores: number[]) => void;
+  onComplete: (results: TestResults) => void;
 }) {
   const phaseRef = useRef<MovPhase>("intro");
-  const currentIdRef = useRef<MovementTest["id"]>("posture");
-  const samplesRef = useRef<number[]>([]);
-  const collectedScoresRef = useRef<number[]>([]);
+  const currentIdRef = useRef<TestId>("ols");
   const stableRef = useRef(0);
   const introAtRef = useRef(0);
   const attemptRef = useRef(0);
+  const framesWithBodyRef = useRef(0);
   const prevMidRef = useRef<{ x: number; y: number } | null>(null);
   const introReadyRef = useRef(false);
+  const olsRef = useRef<OlsState>(OLS_INIT);
+  const repRef = useRef<RepState>(REP_INIT);
+  const cueFiredRef = useRef(false);
+  const resultsRef = useRef<TestResults>({});
   const [currentIdx, setCurrentIdx] = useState(0);
   const [phase, setPhase] = useState<MovPhase>("intro");
   const [prepLeft, setPrepLeft] = useState(3);
   const [detected, setDetected] = useState(false);
-  const [liveScore, setLiveScore] = useState(0);
+  const [liveMetric, setLiveMetric] = useState(0);
   const [feedback, setFeedback] = useState("Posicionate frente a la cámara");
 
-  // Clamp defensivo: currentIdx jamás debe indexar fuera del array.
   const current = MOVEMENTS[Math.min(currentIdx, MOVEMENTS.length - 1)];
 
-  useEffect(() => { phaseRef.current = phase; logEvent("fase", `prueba ${currentIdx + 1} · ${phase}`); }, [phase, currentIdx]);
+  useEffect(() => { phaseRef.current = phase; logEvent("fase", `prueba ${currentIdx + 1} (${current.id}) · ${phase}`); }, [phase, currentIdx, current.id]);
 
-  // Cada prueba se anuncia por voz y arranca sola cuando el cuerpo está
-  // estable Y la consigna terminó de decirse.
+  const resetAttempt = useCallback(() => {
+    olsRef.current = OLS_INIT;
+    repRef.current = REP_INIT;
+    stableRef.current = 0;
+    framesWithBodyRef.current = 0;
+    cueFiredRef.current = false;
+    setLiveMetric(0);
+  }, []);
+
   useEffect(() => {
     currentIdRef.current = current.id;
-    samplesRef.current = [];
-    stableRef.current = 0;
+    resetAttempt();
     attemptRef.current = 0;
     introReadyRef.current = false;
     introAtRef.current = Date.now();
     speak(`Prueba ${currentIdx + 1}. ${current.title}. ${current.instruction}`, { key: `mov-${currentIdx}`, minGap: 0 })
-      .then(() => {
-        introReadyRef.current = true;
-        introAtRef.current = Date.now();
-      });
-  }, [current.id, current.title, current.instruction, currentIdx]);
+      .then(() => { introReadyRef.current = true; introAtRef.current = Date.now(); });
+  }, [current.id, current.title, current.instruction, currentIdx, resetAttempt]);
 
   // Cuenta regresiva hablada de 3 antes de medir.
   useEffect(() => {
@@ -927,7 +989,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
       if (n <= 0) {
         clearInterval(t);
         speak("¡Ya!", { key: `prep-${currentIdx}-go`, minGap: 0 });
-        samplesRef.current = [];
+        resetAttempt();
         setPhase("counting");
       } else {
         setPrepLeft(n);
@@ -935,12 +997,12 @@ function StepMovement({ setPoseHandler, onComplete }: {
       }
     }, 1000);
     return () => clearInterval(t);
-  }, [phase, currentIdx]);
+  }, [phase, currentIdx, resetAttempt]);
 
-  // Orden por voz para destrabar la intro.
   useVoiceCommands(phase === "intro", () => setPhase("prep"));
+  // En flexiones (amrap), "listo" durante la medición termina el intento ya.
+  useVoiceCommands(phase === "counting" && current.mode === "amrap", () => finishRef.current());
 
-  // Red de seguridad de la intro.
   useEffect(() => {
     if (phase !== "intro") return;
     const remind = setTimeout(() => {
@@ -953,17 +1015,54 @@ function StepMovement({ setPoseHandler, onComplete }: {
     return () => { clearTimeout(remind); clearTimeout(force); };
   }, [phase, currentIdx]);
 
+  const getRaw = useCallback((id: TestId) => {
+    if (id === "ols") return Math.round(olsRef.current.heldMs / 100) / 10;
+    return repRef.current.reps;
+  }, []);
+
+  const handleMoveDone = useCallback((override?: number) => {
+    const id = current.id;
+    const raw = override ?? getRaw(id);
+    const bodySeen = framesWithBodyRef.current;
+    logEvent("test", `fin prueba ${currentIdx + 1} (${id}): raw=${raw}, framesConCuerpo=${bodySeen}`);
+
+    if (bodySeen < 5 && attemptRef.current < 1) {
+      attemptRef.current += 1;
+      resetAttempt();
+      introReadyRef.current = false;
+      introAtRef.current = Date.now();
+      setPhase("intro");
+      speak(`No pude verte bien en esa prueba. Probemos de nuevo. ${current.instruction}`, { key: `retry-${currentIdx}`, minGap: 0 })
+        .then(() => { introReadyRef.current = true; introAtRef.current = Date.now(); });
+      return;
+    }
+
+    resultsRef.current = { ...resultsRef.current, [id]: raw };
+    logEvent("test", `resultado ${id}: ${raw}`);
+
+    if (currentIdx < MOVEMENTS.length - 1) {
+      speak("¡Buenísimo! Vamos con la siguiente.", { key: `done-${currentIdx}`, minGap: 0 });
+      setPhase("intro");
+      setCurrentIdx((i) => Math.min(i + 1, MOVEMENTS.length - 1));
+    } else {
+      speak("¡Terminamos! Estoy calculando tu resultado.", { key: "done-all", minGap: 0 });
+      setPhase("done");
+      onComplete(resultsRef.current);
+    }
+  }, [currentIdx, current.id, current.instruction, getRaw, onComplete, resetAttempt]);
+
+  const finishRef = useRef(handleMoveDone);
+  useEffect(() => { finishRef.current = handleMoveDone; }, [handleMoveDone]);
+
   // Suscripción al feed de pose compartido.
   useEffect(() => {
     setPoseHandler((landmarks) => {
-      const analysis = analyzePose(landmarks, currentIdRef.current);
-      setDetected(analysis.detected);
-      setLiveScore(analysis.score);
-      setFeedback(analysis.feedback);
+      const ok = bodyPresent(landmarks);
+      setDetected(ok);
+      if (ok) framesWithBodyRef.current += 1;
 
-      // Movimiento frame a frame (sirve para quietud y para validar postura).
       let motion = 1;
-      if (analysis.detected && landmarks) {
+      if (ok && landmarks) {
         const mid = shoulderMidpoint(landmarks);
         const prev = prevMidRef.current;
         motion = prev ? Math.hypot(mid.x - prev.x, mid.y - prev.y) : 1;
@@ -972,28 +1071,32 @@ function StepMovement({ setPoseHandler, onComplete }: {
         prevMidRef.current = null;
       }
 
-      // Un frame cuenta solo si el movimiento pedido está pasando.
-      let doingIt = analysis.detected;
-      if (doingIt && landmarks) {
+      if (phaseRef.current === "counting") {
         const id = currentIdRef.current;
-        if (id === "arms") doingIt = armsRaised(landmarks);
-        else if (id === "balance") doingIt = kneeRaised(landmarks);
-        else if (id === "posture") doingIt = motion < 0.012;
-      }
-      if (phaseRef.current === "counting" && doingIt && analysis.score > 0) {
-        samplesRef.current.push(analysis.score);
+        if (id === "ols") {
+          const st = stepOLS(landmarks, olsRef.current, MOVEMENTS[0].duration * 1000);
+          olsRef.current = st;
+          setLiveMetric(Math.round(st.heldMs / 100) / 10);
+          setFeedback(st.legUp ? "Sostenido… seguí así" : st.attempted ? "Volvé a levantar el pie" : "Levantá un pie del piso");
+          if (st.done) finishRef.current(Math.round(st.heldMs / 100) / 10);
+        } else if (id === "sts") {
+          const st = stepSTS(landmarks, repRef.current);
+          repRef.current = st;
+          setLiveMetric(st.reps);
+          setFeedback(st.phase === "down" ? "Ahora parate del todo" : "Sentate y volvé a pararte");
+        } else if (id === "pushup") {
+          const st = stepPushup(landmarks, repRef.current);
+          repRef.current = st;
+          setLiveMetric(st.reps);
+          setFeedback("Bajá completo — decí listo cuando termines");
+        }
       }
 
-      // Arranque manos libres: consigna terminada + 1s de aire + cuerpo
-      // detectado Y QUIETO ~1.5s (acomodar la cámara/caminar resetea).
       if (phaseRef.current === "intro") {
-        if (introReadyRef.current && analysis.detected && motion < 0.012 && Date.now() - introAtRef.current > 1000) {
+        if (introReadyRef.current && ok && motion < 0.012 && Date.now() - introAtRef.current > 1000) {
           stableRef.current += 1;
-          if (stableRef.current > 40) {
-            stableRef.current = 0;
-            setPhase("prep");
-          }
-        } else if (!analysis.detected || motion > 0.025) {
+          if (stableRef.current > 40) { stableRef.current = 0; setPhase("prep"); }
+        } else if (!ok || motion > 0.025) {
           stableRef.current = 0;
         }
       }
@@ -1001,68 +1104,23 @@ function StepMovement({ setPoseHandler, onComplete }: {
     return () => setPoseHandler(null);
   }, [setPoseHandler]);
 
-  const MIN_VALID_FRAMES = 15; // ~1 segundo de movimiento real detectado
-
-  const handleMoveDone = useCallback(() => {
-    const validSamples = samplesRef.current;
-    logEvent("test", `fin prueba ${currentIdx + 1}: ${validSamples.length} frames válidos`);
-
-    if (validSamples.length < MIN_VALID_FRAMES && attemptRef.current < 2) {
-      attemptRef.current += 1;
-      samplesRef.current = [];
-      stableRef.current = 0;
-      introReadyRef.current = false;
-      introAtRef.current = Date.now();
-      setPhase("intro");
-      logEvent("test", `reintento ${attemptRef.current} de prueba ${currentIdx + 1}`);
-      speak(`No llegué a ver el movimiento. Va de nuevo. ${current.instruction}`, { key: `retry-${currentIdx}-${attemptRef.current}`, minGap: 0 })
-        .then(() => {
-          introReadyRef.current = true;
-          introAtRef.current = Date.now();
-        });
-      return;
-    }
-
-    const measured = validSamples.length >= MIN_VALID_FRAMES
-      ? Math.round(avg(validSamples))
-      : 40; // tras 2 reintentos sin señal: score honesto bajo, no inventado
-
-    if (validSamples.length < MIN_VALID_FRAMES) {
-      speak("No pude medir bien esta prueba. Seguimos con la próxima.", { key: `skip-${currentIdx}`, minGap: 0 });
-    }
-    collectedScoresRef.current.push(measured);
-    samplesRef.current = [];
-    logEvent("test", `score prueba ${currentIdx + 1}: ${measured}%`);
-
-    if (currentIdx < MOVEMENTS.length - 1) {
-      if (validSamples.length >= MIN_VALID_FRAMES) {
-        speak("¡Muy bien! Vamos con la siguiente.", { key: `done-${currentIdx}`, minGap: 0 });
-      }
-      setPhase("intro");
-      setCurrentIdx((i) => Math.min(i + 1, MOVEMENTS.length - 1));
-    } else {
-      speak("¡Excelente! Terminamos. Estoy analizando tus movimientos.", { key: "done-all", minGap: 0 });
-      setPhase("done");
-      onComplete(collectedScoresRef.current);
-    }
-  }, [currentIdx, current.instruction, onComplete]);
-
-  const timer = useCountdown(current.duration, phase === "counting", handleMoveDone);
+  const timer = useCountdown(current.duration, phase === "counting", () => handleMoveDone());
   const progress = phase === "counting" ? ((current.duration - timer) / current.duration) * 100 : 0;
 
-  // Coaching en vivo a mitad de prueba si no hay señal del movimiento.
   useEffect(() => {
     if (phase !== "counting") return;
-    if (timer === Math.ceil(current.duration / 2) && samplesRef.current.length < 5) {
+    if (timer === Math.ceil(current.duration / 2) && !cueFiredRef.current) {
+      cueFiredRef.current = true;
       speak(MOVEMENT_CUES[current.id], { key: `cue-${currentIdx}-${attemptRef.current}`, minGap: 0 });
     }
   }, [timer, phase, current.duration, current.id, currentIdx]);
+
+  const metricDisplay = current.id === "ols" ? liveMetric.toFixed(1) : String(liveMetric);
 
   return (
     <motion.div key="movement" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
       style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
 
-      {/* Barra superior: qué prueba es + señal en vivo */}
       <div style={{ position:"absolute", top:74, left:20, right:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:14 }}>
         <div style={{ background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"14px 22px", backdropFilter:"blur(14px)" }}>
           <p style={{ color:C.sage, fontWeight:900, letterSpacing:"0.14em", fontSize:"0.72rem", textTransform:"uppercase", marginBottom:6 }}>
@@ -1073,19 +1131,18 @@ function StepMovement({ setPoseHandler, onComplete }: {
           </p>
         </div>
         <div style={{ background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"14px 22px", textAlign:"right", backdropFilter:"blur(14px)" }}>
-          <p style={{ color:"rgba(248,246,242,0.4)", fontWeight:900, letterSpacing:"0.14em", fontSize:"0.62rem", textTransform:"uppercase", marginBottom:6 }}>Señal</p>
-          <p style={{ color: liveScore >= 70 ? "#AFC3A5" : liveScore >= 50 ? "#F0C36A" : "#F17464", fontWeight:900, fontSize:"clamp(2rem,4.5vw,3.4rem)", lineHeight:1 }}>
-            {Math.round(liveScore)}<span style={{ fontSize:"1rem", color:"rgba(248,246,242,0.4)" }}>%</span>
+          <p style={{ color:"rgba(248,246,242,0.4)", fontWeight:900, letterSpacing:"0.14em", fontSize:"0.62rem", textTransform:"uppercase", marginBottom:6 }}>{current.metricLabel}</p>
+          <p style={{ color:"#AFC3A5", fontWeight:900, fontSize:"clamp(2rem,4.5vw,3.4rem)", lineHeight:1 }}>
+            {phase === "counting" ? metricDisplay : "—"}
           </p>
         </div>
       </div>
 
-      {/* INTRO: consigna gigante en el centro */}
       {phase === "intro" && (
         <div style={{ position:"absolute", left:0, right:0, top:"50%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", padding:"0 24px" }}>
           <div style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.75)" }}>
             <p style={{ fontSize:"clamp(3rem,8vw,5.5rem)", lineHeight:1, marginBottom:16 }}>{current.emoji}</p>
-            <p style={{ color:"#F8F6F2", fontSize:"clamp(1.9rem,4.8vw,3.6rem)", fontWeight:900, letterSpacing:"-0.02em", lineHeight:1.2, maxWidth:900 }}>
+            <p style={{ color:"#F8F6F2", fontSize:"clamp(1.7rem,4.2vw,3.1rem)", fontWeight:900, letterSpacing:"-0.02em", lineHeight:1.25, maxWidth:900, margin:"0 auto" }}>
               {current.instruction}
             </p>
             <p style={{ color:"rgba(248,246,242,0.78)", fontSize:"clamp(1.2rem,2.6vw,1.8rem)", fontWeight:700, marginTop:20 }}>
@@ -1095,7 +1152,6 @@ function StepMovement({ setPoseHandler, onComplete }: {
         </div>
       )}
 
-      {/* PREP: cuenta regresiva gigante */}
       {phase === "prep" && (
         <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(8,11,15,0.28)" }}>
           <motion.p key={prepLeft} initial={{ opacity:0, scale:1.6 }} animate={{ opacity:1, scale:1 }} transition={{ duration:0.35 }}
@@ -1105,25 +1161,24 @@ function StepMovement({ setPoseHandler, onComplete }: {
         </div>
       )}
 
-      {/* COUNTING: timer gigante centrado */}
       {phase === "counting" && (
-        <div style={{ position:"absolute", left:0, right:0, top:"46%", transform:"translateY(-50%)", display:"flex", justifyContent:"center" }}>
-          <p style={{ fontSize:"clamp(7rem,24vw,16rem)", fontWeight:900, fontFamily:"monospace", color:"rgba(248,246,242,0.55)", lineHeight:1, textShadow:"0 8px 50px rgba(0,0,0,0.6)" }}>
-            {timer}
+        <div style={{ position:"absolute", left:0, right:0, top:"46%", transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
+          <p style={{ fontSize:"clamp(6rem,20vw,13rem)", fontWeight:900, fontFamily:"monospace", color:"rgba(248,246,242,0.92)", lineHeight:1, textShadow:"0 8px 50px rgba(0,0,0,0.6)" }}>
+            {metricDisplay}
           </p>
+          <p style={{ color:"rgba(248,246,242,0.5)", fontSize:"clamp(1rem,2.2vw,1.4rem)", fontWeight:700 }}>{current.metricLabel}</p>
         </div>
       )}
 
-      {/* Abajo: feedback del trainer GIGANTE + barra + progreso */}
       <div style={{ position:"absolute", left:20, right:20, bottom:40, display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
         <div style={{ maxWidth:1000, background:"rgba(8,11,15,0.70)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"18px 34px", textAlign:"center", backdropFilter:"blur(16px)" }}>
           <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"clamp(1.4rem,3.4vw,2.4rem)", lineHeight:1.3, letterSpacing:"-0.01em" }}>
-            {feedback}
+            {phase === "counting" ? feedback : current.hint}
           </p>
         </div>
         <div style={{ width:"min(560px, 78vw)", height:6, borderRadius:999, background:"rgba(255,255,255,0.14)", overflow:"hidden" }}>
-          <motion.div animate={{ width: phase === "counting" ? `${progress}%` : `${liveScore}%` }} transition={{ duration:0.25 }}
-            style={{ height:"100%", borderRadius:999, background: liveScore >= 70 ? C.sage : liveScore >= 50 ? "#F0C36A" : C.red }} />
+          <motion.div animate={{ width: phase === "counting" ? `${progress}%` : "0%" }} transition={{ duration:0.25 }}
+            style={{ height:"100%", borderRadius:999, background: C.sage }} />
         </div>
         <ProgressDots current={currentIdx} total={MOVEMENTS.length} />
       </div>
@@ -1132,58 +1187,44 @@ function StepMovement({ setPoseHandler, onComplete }: {
 }
 
 /* ─── STEP: CALCULATING ───────────────── */
-function StepCalculating({ onDone }: { onDone: () => void }) {
-  const steps = [
-    "Procesando patrones de movimiento...",
-    "Calibrando modelo biomecánico...",
-    "Comparando con perfiles de referencia...",
-    "Generando tu Edad de Movimiento...",
-  ];
+function StepCalculating({ results, onDone }: { results: TestResults; onDone: () => void }) {
+  const items = MOVEMENTS.filter((m) => results[m.id] != null).map((m) => `${TEST_META[m.id].label}: ${TEST_META[m.id].fmt(results[m.id] as number)}`);
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
     const t = setInterval(() => {
-      setIdx(i => (i >= steps.length - 1 ? i : i + 1));
-    }, 700);
+      setIdx((i) => (i >= items.length - 1 ? i : i + 1));
+    }, 550);
     return () => clearInterval(t);
   }, []); // eslint-disable-line
 
   useEffect(() => {
-    if (idx >= steps.length - 1) {
-      const t = setTimeout(onDone, 1300);
-      return () => clearTimeout(t);
-    }
-  }, [idx]); // eslint-disable-line
+    const t = setTimeout(onDone, Math.max(1400, items.length * 550 + 700));
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line
 
   return (
     <motion.div key="calculating" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:32, textAlign:"center", padding:"0 24px" }}>
+      style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28, textAlign:"center", padding:"0 24px" }}>
 
-      <div style={{ position:"relative", width:120, height:120 }}>
+      <div style={{ position:"relative", width:100, height:100 }}>
         {[0,1,2].map(i => (
           <motion.div key={i}
             animate={{ scale:[1,1.3,1], opacity:[0.6,0.15,0.6] }}
             transition={{ duration:2, repeat:Infinity, delay:i*0.5, ease:"easeInOut" }}
-            style={{ position:"absolute", inset:0, borderRadius:"50%", border:`2px solid ${C.sage}`, margin: i*(-16) }}
+            style={{ position:"absolute", inset:0, borderRadius:"50%", border:`2px solid ${C.sage}`, margin: i*(-14) }}
           />
         ))}
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2.5rem" }}>🧬</div>
       </div>
 
-      <div>
-        <h2 style={{ fontSize:"1.6rem", fontWeight:800, color:"#F8F6F2", marginBottom:16, letterSpacing:"-0.02em" }}>Calculando tu resultado</h2>
-        <AnimatePresence mode="wait">
-          <motion.p key={idx} initial={{ opacity:0,y:8 }} animate={{ opacity:1,y:0 }} exit={{ opacity:0,y:-8 }}
-            transition={{ duration:0.3 }}
-            style={{ color:"rgba(248,246,242,0.5)", fontSize:"0.9rem", fontWeight:300 }}>
-            {steps[idx]}
+      <h2 style={{ fontSize:"1.5rem", fontWeight:800, color:"#F8F6F2", letterSpacing:"-0.02em" }}>Comparando con las normas</h2>
+
+      <div style={{ display:"flex", flexDirection:"column", gap:10, minHeight:120 }}>
+        {items.map((line, i) => (
+          <motion.p key={line} initial={{ opacity:0, y:10 }} animate={{ opacity: i <= idx ? 1 : 0.15, y:0 }} transition={{ duration:0.3 }}
+            style={{ color: i <= idx ? "#AFC3A5" : "rgba(248,246,242,0.3)", fontSize:"1rem", fontWeight:700 }}>
+            {line}
           </motion.p>
-        </AnimatePresence>
-      </div>
-
-      <div style={{ display:"flex", gap:6 }}>
-        {steps.map((_,i) => (
-          <div key={i} style={{ width:6, height:6, borderRadius:"50%", background: i<=idx ? C.sage : "rgba(255,255,255,0.15)", transition:"all 0.3s" }} />
         ))}
       </div>
     </motion.div>
@@ -1191,65 +1232,94 @@ function StepCalculating({ onDone }: { onDone: () => void }) {
 }
 
 /* ─── STEP: REVEAL ───────────────────── */
-function StepReveal({ movementAge, chronoAge, onNext }: { movementAge: number; chronoAge: number; onNext: () => void }) {
-  const diff = movementAge - chronoAge;
+function StepReveal({ maResult, chronoAge, results, onNext }: {
+  maResult: MovementAgeResult;
+  chronoAge: number;
+  results: TestResults;
+  onNext: () => void;
+}) {
+  const { age, ci, measured } = maResult;
+  const diff = age != null ? age - chronoAge : 0;
   const isYounger = diff < 0;
   const isEqual = Math.abs(diff) <= 1;
-  const color = isYounger ? "#4ade80" : isEqual ? C.sage : C.red;
+  const color = age == null ? C.muted : isYounger ? "#4ade80" : isEqual ? C.sage : C.red;
 
   useEffect(() => {
+    if (age == null) {
+      speak("No junté suficientes datos para calcular tu Edad de Movimiento esta vez. Mirá el detalle de cada prueba en pantalla.", { key: "reveal", minGap: 0 });
+      return;
+    }
     const diffPhrase = isYounger
-      ? `Tu cuerpo se mueve ${Math.abs(diff)} años más joven que tu edad real. ¡Felicitaciones!`
+      ? `Tu cuerpo rinde como el de alguien ${Math.abs(diff)} años más joven, comparado con las normas publicadas.`
       : isEqual
-      ? "Tu movimiento está alineado con tu edad."
-      : `Tu cuerpo se mueve ${diff} años más viejo que tu edad real. Ese es tu punto de partida, y se puede mejorar.`;
-    speak(`Tu edad de movimiento es ${movementAge} años. ${diffPhrase}`, { key: "reveal", minGap: 0 });
+      ? "Tu desempeño está alineado con tu edad, según las normas publicadas."
+      : `Tu cuerpo rinde como el de alguien ${diff} años mayor, comparado con las normas publicadas. Es tu punto de partida.`;
+    speak(`Tu Edad de Movimiento es ${age} años, con un margen de más menos ${ci}. ${diffPhrase}`, { key: "reveal", minGap: 0 });
   }, []); // eslint-disable-line
 
   return (
     <motion.div key="reveal" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28, textAlign:"center", padding:"0 24px" }}>
+      style={{ position:"absolute", inset:0, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", padding:"84px 24px 40px", gap:24 }}>
 
-      <motion.div initial={{ opacity:0,y:20 }} animate={{ opacity:1,y:0 }} transition={{ delay:0.2 }}
-        style={{ fontSize:"0.75rem", fontWeight:700, color:C.sage, letterSpacing:"0.2em", textTransform:"uppercase" }}>
-        Tu resultado
-      </motion.div>
+      <p style={{ fontSize:"0.75rem", fontWeight:700, color:C.sage, letterSpacing:"0.2em", textTransform:"uppercase" }}>Tu resultado</p>
 
-      <motion.div initial={{ opacity:0,scale:0.8 }} animate={{ opacity:1,scale:1 }}
-        transition={{ delay:0.4, ease:[0.16,1,0.3,1], duration:0.8 }}>
-        <p style={{ fontSize:"0.85rem", color:"rgba(248,246,242,0.5)", marginBottom:4, fontWeight:500 }}>Edad de Movimiento</p>
-        <motion.p
-          initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.6 }}
-          style={{ fontSize:"clamp(5rem,15vw,8rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.9, letterSpacing:"-0.05em", filter:`drop-shadow(0 0 40px ${color}60)` }}>
-          {movementAge}
-        </motion.p>
-        <motion.p initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.9 }}
-          style={{ fontSize:"0.9rem", color:color, fontWeight:700, marginTop:8 }}>
-          {isYounger ? `Tu cuerpo se mueve ${Math.abs(diff)} años más JOVEN que tu edad real. 🎉`
-            : isEqual ? "Tu movimiento está exactamente alineado con tu edad."
-            : `Tu cuerpo se mueve ${diff} años más viejo de lo que sos.`}
-        </motion.p>
-      </motion.div>
+      {age != null ? (
+        <>
+          <div style={{ textAlign:"center" }}>
+            <p style={{ fontSize:"0.85rem", color:"rgba(248,246,242,0.5)", marginBottom:4, fontWeight:500 }}>Edad de Movimiento</p>
+            <p style={{ fontSize:"clamp(4.5rem,13vw,7rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.9, letterSpacing:"-0.05em", filter:`drop-shadow(0 0 40px ${color}60)` }}>
+              {age}<span style={{ fontSize:"0.35em", color:"rgba(248,246,242,0.4)" }}> ± {ci}</span>
+            </p>
+            <p style={{ fontSize:"0.9rem", color, fontWeight:700, marginTop:8, maxWidth:420 }}>
+              {isYounger ? `Rendís como alguien ${Math.abs(diff)} años más joven. 🎉`
+                : isEqual ? "Tu desempeño está alineado con tu edad."
+                : `Rendís como alguien ${diff} años mayor — tu punto de partida.`}
+            </p>
+          </div>
 
-      <motion.div initial={{ opacity:0,y:16 }} animate={{ opacity:1,y:0 }} transition={{ delay:1.1 }}
-        style={{ display:"flex", gap:32, padding:"20px 32px", background:"rgba(8,11,15,0.5)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16, backdropFilter:"blur(10px)" }}>
-        <div style={{ textAlign:"center" }}>
-          <p style={{ fontSize:"2rem", fontWeight:900, color:"rgba(248,246,242,0.3)", lineHeight:1 }}>{chronoAge}</p>
-          <p style={{ fontSize:"0.7rem", color:"rgba(248,246,242,0.35)", textTransform:"uppercase", letterSpacing:"0.1em", marginTop:4 }}>Edad real</p>
-        </div>
-        <div style={{ width:1, background:"rgba(255,255,255,0.1)" }} />
-        <div style={{ textAlign:"center" }}>
-          <p style={{ fontSize:"2rem", fontWeight:900, color, lineHeight:1 }}>{movementAge}</p>
-          <p style={{ fontSize:"0.7rem", color:"rgba(248,246,242,0.35)", textTransform:"uppercase", letterSpacing:"0.1em", marginTop:4 }}>Edad de mov.</p>
-        </div>
-      </motion.div>
+          <div style={{ display:"flex", gap:32, padding:"18px 30px", background:"rgba(8,11,15,0.5)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16 }}>
+            <div style={{ textAlign:"center" }}>
+              <p style={{ fontSize:"1.7rem", fontWeight:900, color:"rgba(248,246,242,0.3)", lineHeight:1 }}>{chronoAge}</p>
+              <p style={{ fontSize:"0.68rem", color:"rgba(248,246,242,0.35)", textTransform:"uppercase", letterSpacing:"0.1em", marginTop:4 }}>Edad real</p>
+            </div>
+            <div style={{ width:1, background:"rgba(255,255,255,0.1)" }} />
+            <div style={{ textAlign:"center" }}>
+              <p style={{ fontSize:"1.7rem", fontWeight:900, color, lineHeight:1 }}>{age}</p>
+              <p style={{ fontSize:"0.68rem", color:"rgba(248,246,242,0.35)", textTransform:"uppercase", letterSpacing:"0.1em", marginTop:4 }}>Edad de mov.</p>
+            </div>
+          </div>
+        </>
+      ) : (
+        <p style={{ color:"rgba(248,246,242,0.6)", fontSize:"1rem", maxWidth:420, textAlign:"center" }}>
+          No pudimos calcular tu Edad de Movimiento con suficiente certeza — necesitamos al menos 2 pruebas bien medidas. Mirá el detalle abajo.
+        </p>
+      )}
 
-      <motion.p initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:1.3 }}
-        style={{ fontSize:"0.95rem", color:"rgba(248,246,242,0.5)", lineHeight:1.7, maxWidth:380, fontWeight:300 }}>
-        Este es tu punto de partida. Con práctica consistente, la mayoría reduce su Edad de Movimiento entre 3 y 9 años en 8 semanas.
-      </motion.p>
+      {/* Desglose por prueba con fuente citada */}
+      <div style={{ display:"flex", flexDirection:"column", gap:10, width:"min(560px, 92vw)" }}>
+        {MOVEMENTS.map((m) => {
+          const v = results[m.id];
+          const eq = maResult.breakdown[m.id];
+          return (
+            <div key={m.id} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:14, padding:"14px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+              <div>
+                <p style={{ color:"#F8F6F2", fontWeight:700, fontSize:"0.92rem" }}>{TEST_META[m.id].label}</p>
+                <p style={{ color:"rgba(248,246,242,0.4)", fontSize:"0.72rem" }}>Fuente: {TEST_META[m.id].source}</p>
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <p style={{ color:"#AFC3A5", fontWeight:800, fontSize:"1rem" }}>{v != null ? TEST_META[m.id].fmt(v) : "sin datos"}</p>
+                {eq != null && <p style={{ color:"rgba(248,246,242,0.45)", fontSize:"0.72rem" }}>~{Math.round(eq)} años</p>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-      <motion.button initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }} transition={{ delay:1.5 }}
+      <p style={{ fontSize:"0.85rem", color:"rgba(248,246,242,0.4)", lineHeight:1.65, maxWidth:460, textAlign:"center" }}>
+        Es una estimación de bienestar, no un diagnóstico médico: compara tu desempeño con normas publicadas para tu edad y sexo ({measured.length} de {MOVEMENTS.length} pruebas medidas). Volvé a hacer la evaluación en unas semanas para ver tu progreso en tus propios números.
+      </p>
+
+      <motion.button initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }}
         onClick={onNext}
         whileHover={{ scale:1.04, boxShadow:"0 20px 50px rgba(122,143,116,0.4)" }}
         whileTap={{ scale:0.97 }}
@@ -1257,23 +1327,22 @@ function StepReveal({ movementAge, chronoAge, onNext }: { movementAge: number; c
         Ver mi plan del Método FLORA →
       </motion.button>
 
-      <motion.button initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:1.7 }}
-        onClick={() => window.location.href = "/"}
+      <button onClick={() => window.location.href = "/"}
         style={{ background:"transparent", border:"none", color:"rgba(248,246,242,0.3)", fontSize:"0.85rem", cursor:"pointer", fontWeight:500 }}>
         Volver al inicio
-      </motion.button>
+      </button>
     </motion.div>
   );
 }
 
 /* ─── STEP: PLAN (Método FLORA) ───────── */
-function StepPlan({ scores, movementAge, chronoAge, onNext }: {
-  scores: number[];
-  movementAge: number;
+function StepPlan({ breakdown, movementAge, chronoAge, onNext }: {
+  breakdown: Partial<Record<TestId, number>>;
+  movementAge: number | null;
   chronoAge: number;
   onNext: () => void;
 }) {
-  const plan = buildPlanFlora(scores, movementAge, chronoAge);
+  const plan = buildPlanFlora(breakdown, movementAge, chronoAge);
 
   useEffect(() => {
     logEvent("plan", `nivel ${plan.nivel} · ${plan.dias} días · foco ${plan.foco}`);
@@ -1305,7 +1374,6 @@ function StepPlan({ scores, movementAge, chronoAge, onNext }: {
           </p>
         </div>
 
-        {/* Chips resumen */}
         <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
           {[`Nivel ${plan.nivel}`, `${plan.dias} días/semana`, `Foco: ${plan.foco}`, "45-55 min/sesión"].map((t) => (
             <span key={t} style={{ background:"rgba(122,143,116,0.16)", border:"1px solid rgba(122,143,116,0.35)", borderRadius:999, padding:"8px 16px", color:"#AFC3A5", fontSize:"0.82rem", fontWeight:700 }}>
@@ -1314,7 +1382,6 @@ function StepPlan({ scores, movementAge, chronoAge, onNext }: {
           ))}
         </div>
 
-        {/* Rampa del bloque */}
         <div style={{ background:"rgba(8,11,15,0.66)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"18px 20px", backdropFilter:"blur(14px)" }}>
           <p style={{ fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.18em", textTransform:"uppercase", color:C.sage, marginBottom:14 }}>
             Cómo progresa el bloque: 4 semanas subiendo series, 1 de descarga
@@ -1331,7 +1398,6 @@ function StepPlan({ scores, movementAge, chronoAge, onNext }: {
           </div>
         </div>
 
-        {/* Semana 1: sesiones */}
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           <p style={{ fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.18em", textTransform:"uppercase", color:C.sage, textAlign:"center" }}>
             Tu semana 1 — todas las series con 1-2 repeticiones en reserva
@@ -1352,7 +1418,6 @@ function StepPlan({ scores, movementAge, chronoAge, onNext }: {
           ))}
         </div>
 
-        {/* Reglas del método */}
         <div style={{ background:"rgba(30,58,43,0.5)", border:"1px solid rgba(122,143,116,0.3)", borderRadius:20, padding:"16px 20px", backdropFilter:"blur(14px)" }}>
           <p style={{ fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.18em", textTransform:"uppercase", color:"#AFC3A5", marginBottom:10 }}>
             Las 3 reglas del bloque
@@ -1384,14 +1449,40 @@ function StepPlan({ scores, movementAge, chronoAge, onNext }: {
 }
 
 /* ─── STEP: SAVE ──────────────────────── */
-function StepSave({ movementAge }: { movementAge: number }) {
+function StepSave({ movementAge, chronoAge, results }: { movementAge: number | null; chronoAge: number; results: TestResults }) {
   const [email, setEmail] = useState("");
-  const [age, setAge] = useState("");
   const [sent, setSent] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Persistir localmente SIEMPRE, se complete el email o no.
+  useEffect(() => {
+    try {
+      localStorage.setItem("calistenia_eval_result", JSON.stringify({ ts: Date.now(), chronoAge, movementAge, results, build: EVAL_BUILD }));
+    } catch {}
+  }, [chronoAge, movementAge, results]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSent(true);
+    setSaving(true);
+    try {
+      await fetch("/api/evaluacion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          edad: chronoAge,
+          movementAge,
+          scores: [results.ols ?? null, results.sts ?? null, results.pushup ?? null],
+          build: EVAL_BUILD,
+        }),
+      });
+      logEvent("save", `enviado a ${email}`);
+    } catch (err) {
+      logEvent("error", `save falló: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSaving(false);
+      setSent(true);
+    }
   };
 
   if (sent) {
@@ -1402,7 +1493,7 @@ function StepSave({ movementAge }: { movementAge: number }) {
           style={{ fontSize:"4rem" }}>🎉</motion.div>
         <h2 style={{ fontSize:"1.8rem", fontWeight:900, color:"#F8F6F2", letterSpacing:"-0.02em" }}>¡Listo!</h2>
         <p style={{ color:"rgba(248,246,242,0.55)", fontSize:"1rem", lineHeight:1.7, maxWidth:360, fontWeight:300 }}>
-          Te enviamos tu resultado a <strong style={{ color:C.sage }}>{email}</strong>. En tu próxima sesión empezamos a reducir tu Edad de Movimiento.
+          {email ? <>Guardamos tu resultado y te lo mandamos a <strong style={{ color:C.sage }}>{email}</strong>.</> : "Guardamos tu resultado en este dispositivo."} En tu próxima sesión empezamos con tu plan del Método FLORA.
         </p>
         <a href="/" style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"14px 36px", borderRadius:999, textDecoration:"none" }}>
           Explorar CALISTENIA.bio →
@@ -1418,44 +1509,34 @@ function StepSave({ movementAge }: { movementAge: number }) {
       <div style={{ maxWidth:480 }}>
         <p style={{ fontSize:"0.75rem", color:C.sage, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:8 }}>Guardá tu resultado</p>
         <h2 style={{ fontSize:"clamp(1.8rem,4vw,2.4rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:12 }}>
-          Tu Edad de Movimiento es <span style={{ color:C.sage }}>{movementAge}</span>
+          {movementAge != null ? <>Tu Edad de Movimiento es <span style={{ color:C.sage }}>{movementAge}</span></> : "Ya guardamos tu resultado"}
         </h2>
         <p style={{ color:"rgba(248,246,242,0.5)", fontSize:"0.95rem", lineHeight:1.65, fontWeight:300 }}>
-          Dejanos tu email para recibir tu plan completo del Bloque 1 — las 5 semanas detalladas, con la progresión de series y la semana de descarga.
+          Dejanos tu email (opcional) para recibir tu plan completo del Bloque 1 — las 5 semanas detalladas.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} style={{ width:"min(480px, 92vw)", display:"flex", flexDirection:"column", gap:12 }}>
-        <input type="number" placeholder="Tu edad cronológica" value={age} onChange={e => setAge(e.target.value)} required min={16} max={80}
+        <input type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)}
           style={{ width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"14px 18px", color:"#F8F6F2", fontSize:"1rem", outline:"none" }} />
-        <input type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} required
-          style={{ width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"14px 18px", color:"#F8F6F2", fontSize:"1rem", outline:"none" }} />
-        <motion.button type="submit" whileHover={{ scale:1.03 }} whileTap={{ scale:0.97 }}
-          style={{ width:"100%", background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"16px", borderRadius:12, border:"none", cursor:"pointer" }}>
-          Guardar mi resultado →
+        <motion.button type="submit" disabled={saving} whileHover={{ scale:1.03 }} whileTap={{ scale:0.97 }}
+          style={{ width:"100%", background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"16px", borderRadius:12, border:"none", cursor:"pointer", opacity: saving ? 0.7 : 1 }}>
+          {saving ? "Guardando…" : "Guardar mi resultado →"}
         </motion.button>
       </form>
 
       <p style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.2)" }}>Sin spam. Podés darte de baja cuando quieras.</p>
-
-      <button onClick={() => window.location.href = "/"}
-        style={{ background:"transparent", border:"none", color:"rgba(248,246,242,0.3)", fontSize:"0.85rem", cursor:"pointer" }}>
-        Omitir por ahora
-      </button>
     </motion.div>
   );
 }
 
 /* ─── MAIN FLOW ───────────────────────── */
-// Arquitectura de feed único: la cámara y el modelo de pose se crean UNA vez
-// y viven a nivel del flow. Los pasos son overlays (slides) que se suscriben
-// al stream de landmarks — la página nunca se recarga y la cámara nunca se
-// apaga/prende entre pasos (adiós popup de Windows en medio del journey).
 export function OnboardingFlow() {
   const [step, setStep] = useState<Step>("hook");
-  const [movementAge, setMovementAge] = useState(0);
-  const [testScores, setTestScores] = useState<number[]>([]);
-  const CHRONO_AGE = 40;
+  const [chronoAge, setChronoAge] = useState(40);
+  const [sex, setSex] = useState<Sex>("M");
+  const [testResults, setTestResults] = useState<TestResults>({});
+  const [maResult, setMaResult] = useState<MovementAgeResult>({ age: null, ci: null, breakdown: {}, measured: [] });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1481,7 +1562,7 @@ export function OnboardingFlow() {
         canvas: canvasRef.current!,
         onStatus: setCamStatus,
         onResults: (lms, quality) => {
-          setHud(`${EVAL_BUILD} · ${videoRef.current?.videoWidth ?? 0}×${videoRef.current?.videoHeight ?? 0} · ${lms?.length ?? 0} pts · vis ${(quality / 100).toFixed(2)}`);
+          if (IS_DEV) setHud(`${EVAL_BUILD} · ${videoRef.current?.videoWidth ?? 0}×${videoRef.current?.videoHeight ?? 0} · ${lms?.length ?? 0} pts · vis ${(quality / 100).toFixed(2)}`);
           poseSubRef.current?.(lms, quality);
         },
       });
@@ -1495,7 +1576,6 @@ export function OnboardingFlow() {
     }
   }, [cameraState]);
 
-  // Captura global de errores + limpieza al desmontar.
   useEffect(() => {
     warmVoices();
     logEvent("app", `journey iniciado (${EVAL_BUILD})`);
@@ -1512,17 +1592,25 @@ export function OnboardingFlow() {
     };
   }, []);
 
-  const handleMovementsComplete = useCallback((scores: number[]) => {
-    logEvent("fase", `pruebas completas: [${scores.join(", ")}]`);
-    setTestScores(scores);
-    setStep("calculating");
-    const ma = movementAgeFromScores(CHRONO_AGE, scores);
-    setTimeout(() => { setMovementAge(ma); }, 100);
+  const handleIntakeDone = useCallback((age: number, s: Sex) => {
+    setChronoAge(age);
+    setSex(s);
+    try { localStorage.setItem("calistenia_intake", JSON.stringify({ age, sex: s })); } catch {}
+    logEvent("fase", `intake → cámara (edad ${age}, sexo ${s})`);
+    setStep("camera");
   }, []);
 
-  const stepIndex = ["hook","camera","movement","calculating","reveal","plan","save"].indexOf(step);
+  const handleMovementsComplete = useCallback((results: TestResults) => {
+    logEvent("fase", `pruebas completas: ${JSON.stringify(results)}`);
+    setTestResults(results);
+    setStep("calculating");
+    const ma = movementAgeV2(chronoAge, sex, results);
+    setMaResult(ma);
+  }, [chronoAge, sex]);
 
-  // El feed queda visible todo el journey; se atenúa en las etapas de resultado.
+  const stepIndex = ["hook","intake","camera","movement","calculating","reveal","plan","save"].indexOf(step);
+  const TOTAL_STEPS = 7;
+
   const feedOpacity =
     cameraState !== "on" ? 0
     : step === "camera" || step === "movement" ? 0.85
@@ -1532,7 +1620,6 @@ export function OnboardingFlow() {
   return (
     <div style={{ position:"fixed", inset:0, background:C.dark, overflow:"hidden" }}>
 
-      {/* ── Feed único de video + esqueleto (persistente) ── */}
       <div style={{ position:"absolute", inset:0, opacity: feedOpacity, transition:"opacity 0.7s ease" }}>
         <video ref={videoRef} autoPlay playsInline muted
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block" }} />
@@ -1541,31 +1628,30 @@ export function OnboardingFlow() {
         <div style={{ position:"absolute", inset:0, pointerEvents:"none", background:"radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.10) 48%, rgba(8,11,15,0.72) 100%)" }} />
       </div>
 
-      {/* Top bar */}
       <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px 24px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <a href="/" style={{ fontWeight:900, fontSize:"1.1rem", letterSpacing:"-0.03em", color:"#F8F6F2", textDecoration:"none" }}>
           CALISTENIA<span style={{ color:C.sage }}>.bio</span>
         </a>
-        {step !== "hook" && step !== "reveal" && step !== "save" && (
+        {step !== "hook" && step !== "intake" && step !== "reveal" && step !== "save" && (
           <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:"0.78rem", color:"rgba(248,246,242,0.35)", fontWeight:500 }}>
             <div style={{ width:6, height:6, borderRadius:"50%", background:C.sage }} />
-            {step === "camera" ? "Paso 1 de 3 — Cámara"
-              : step === "movement" ? "Paso 2 de 3 — Evaluación"
-              : step === "calculating" ? "Paso 3 de 3 — Analizando"
+            {step === "camera" ? "Cámara"
+              : step === "movement" ? "Evaluación"
+              : step === "calculating" ? "Analizando"
               : ""}
           </div>
         )}
         {step === "hook" && (
           <div style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.25)", fontWeight:500 }}>
-            ~4 minutos · Sin registro
+            ~6 minutos · Sin registro
           </div>
         )}
       </div>
 
-      {/* ── Slides encima del feed ── */}
       <div style={{ position:"absolute", inset:0, zIndex:5 }}>
         <AnimatePresence mode="wait">
-          {step === "hook" && <StepHook key="hook" onNext={() => { logEvent("fase", "hook → cámara"); setStep("camera"); }} />}
+          {step === "hook" && <StepHook key="hook" onNext={() => { logEvent("fase", "hook → intake"); setStep("intake"); }} />}
+          {step === "intake" && <StepIntake key="intake" onDone={handleIntakeDone} />}
           {step === "camera" && (
             <StepCamera key="camera"
               cameraState={cameraState}
@@ -1578,32 +1664,30 @@ export function OnboardingFlow() {
             <StepMovement key="movement" setPoseHandler={setPoseHandler} onComplete={handleMovementsComplete} />
           )}
           {step === "calculating" && (
-            <StepCalculating key="calculating" onDone={() => { logEvent("fase", "→ reveal"); setStep("reveal"); }} />
+            <StepCalculating key="calculating" results={testResults} onDone={() => { logEvent("fase", "→ reveal"); setStep("reveal"); }} />
           )}
           {step === "reveal" && (
-            <StepReveal key="reveal" movementAge={movementAge} chronoAge={CHRONO_AGE} onNext={() => { logEvent("fase", "→ plan"); setStep("plan"); }} />
+            <StepReveal key="reveal" maResult={maResult} chronoAge={chronoAge} results={testResults} onNext={() => { logEvent("fase", "→ plan"); setStep("plan"); }} />
           )}
           {step === "plan" && (
-            <StepPlan key="plan" scores={testScores} movementAge={movementAge} chronoAge={CHRONO_AGE} onNext={() => setStep("save")} />
+            <StepPlan key="plan" breakdown={maResult.breakdown} movementAge={maResult.age} chronoAge={chronoAge} onNext={() => setStep("save")} />
           )}
-          {step === "save" && <StepSave key="save" movementAge={movementAge} />}
+          {step === "save" && <StepSave key="save" movementAge={maResult.age} chronoAge={chronoAge} results={testResults} />}
         </AnimatePresence>
       </div>
 
-      {/* HUD de diagnóstico + monitor de eventos */}
-      {cameraState === "on" && (
+      {IS_DEV && cameraState === "on" && (
         <div style={{ position:"absolute", left:16, bottom:10, zIndex:30, color:"rgba(248,246,242,0.38)", fontSize:"0.68rem", fontFamily:"monospace", pointerEvents:"none" }}>
           {hud}
         </div>
       )}
       <EventMonitor />
 
-      {/* Bottom progress bar */}
       {step !== "hook" && (
         <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(255,255,255,0.06)", zIndex:20 }}>
           <motion.div
-            initial={{ width: `${(stepIndex/6)*100}%` }}
-            animate={{ width: `${(stepIndex/6)*100}%` }}
+            initial={{ width: `${(stepIndex/TOTAL_STEPS)*100}%` }}
+            animate={{ width: `${(stepIndex/TOTAL_STEPS)*100}%` }}
             transition={{ duration:0.5 }}
             style={{ height:"100%", background:C.sage }} />
         </div>
