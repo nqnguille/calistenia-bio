@@ -3,6 +3,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 
 const links = [
   { label: "Método", href: "/metodo/" },
+  { label: "Cultura", href: "/cultura/" },
   { label: "Producto", href: "/#producto" },
   { label: "Ciencia", href: "/#ciencia" },
   { label: "Coaches", href: "/#coaches" },
