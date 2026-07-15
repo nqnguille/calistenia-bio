@@ -381,26 +381,38 @@ function warmVoices() {
   window.speechSynthesis.addEventListener?.("voiceschanged", () => {}, { once: true });
 }
 
-function speak(text: string, opts: { key?: string; minGap?: number } = {}) {
-  if (typeof window === "undefined") return;
-  const synth = window.speechSynthesis;
-  if (!synth) return;
-  const key = opts.key ?? text;
-  const now = Date.now();
-  if (key === speechState.lastKey && now - speechState.lastAt < (opts.minGap ?? 6000)) return;
-  speechState.lastKey = key;
-  speechState.lastAt = now;
-  synth.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  const voices = synth.getVoices();
-  const v =
-    voices.find((x) => x.lang?.toLowerCase().startsWith("es-ar")) ||
-    voices.find((x) => x.lang?.toLowerCase().startsWith("es-419")) ||
-    voices.find((x) => x.lang?.toLowerCase().startsWith("es"));
-  if (v) u.voice = v;
-  u.lang = v?.lang || "es-AR";
-  u.rate = 1.04;
-  synth.speak(u);
+// Devuelve una Promise que se resuelve cuando la locución TERMINA de decirse
+// (con timeout de respaldo si el navegador no dispara onend). Crítico para no
+// arrancar mediciones mientras el trainer todavía está explicando.
+function speak(text: string, opts: { key?: string; minGap?: number } = {}): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve();
+    const synth = window.speechSynthesis;
+    if (!synth) return resolve();
+    const key = opts.key ?? text;
+    const now = Date.now();
+    if (key === speechState.lastKey && now - speechState.lastAt < (opts.minGap ?? 6000)) return resolve();
+    speechState.lastKey = key;
+    speechState.lastAt = now;
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const voices = synth.getVoices();
+    const v =
+      voices.find((x) => x.lang?.toLowerCase().startsWith("es-ar")) ||
+      voices.find((x) => x.lang?.toLowerCase().startsWith("es-419")) ||
+      voices.find((x) => x.lang?.toLowerCase().startsWith("es"));
+    if (v) u.voice = v;
+    u.lang = v?.lang || "es-AR";
+    u.rate = 1.04;
+
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); } };
+    u.onend = finish;
+    u.onerror = finish;
+    // Respaldo por si onend nunca llega (~11 caracteres/seg + margen).
+    setTimeout(finish, Math.max(1800, text.length * 105));
+    synth.speak(u);
+  });
 }
 
 function stopSpeaking() {
@@ -454,7 +466,7 @@ function useVoiceCommands(enabled: boolean, onAdvance: () => void) {
   }, [enabled]);
 }
 
-const EVAL_BUILD = "v6 · trainer fullscreen";
+const EVAL_BUILD = "v7 · voz sin cortes";
 
 /* ─── Helpers ────────────────────────────── */
 function pad(n: number) { return String(n).padStart(2, "0"); }
@@ -620,11 +632,12 @@ function StepCamera({ onNext }: { onNext: () => void }) {
     if (advancedRef.current) return;
     advancedRef.current = true;
     setStatus("Cuerpo detectado · preparando evaluación…");
-    speak(phrase, { key: "cam-advance", minGap: 0 });
-    setTimeout(() => {
+    // Espera a que la frase termine de decirse antes de cambiar de paso,
+    // así la siguiente locución no la pisa a mitad de camino.
+    speak(phrase, { key: "cam-advance", minGap: 0 }).then(() => {
       stopRuntime();
       onNext();
-    }, 1200);
+    });
   }, [onNext, stopRuntime]);
 
   // Orden por voz: "listo", "dale", "avanzar"… destraba el paso a mano.
@@ -834,6 +847,7 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
   const introAtRef = useRef(0);
   const attemptRef = useRef(0);
   const prevMidRef = useRef<{ x: number; y: number } | null>(null);
+  const introReadyRef = useRef(false); // true recién cuando la voz TERMINÓ la consigna
   const [currentIdx, setCurrentIdx] = useState(0);
   const [phase, setPhase] = useState<MovPhase>("intro");
   const [prepLeft, setPrepLeft] = useState(3);
@@ -854,8 +868,13 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
     samplesRef.current = [];
     stableRef.current = 0;
     attemptRef.current = 0;
+    introReadyRef.current = false;
     introAtRef.current = Date.now();
-    speak(`Prueba ${currentIdx + 1}. ${current.title}. ${current.instruction}`, { key: `mov-${currentIdx}`, minGap: 0 });
+    speak(`Prueba ${currentIdx + 1}. ${current.title}. ${current.instruction}`, { key: `mov-${currentIdx}`, minGap: 0 })
+      .then(() => {
+        introReadyRef.current = true;
+        introAtRef.current = Date.now(); // el margen corre desde que terminó de hablar
+      });
   }, [current.id, current.title, current.instruction, currentIdx]);
 
   // Orden por voz para destrabar la intro ("listo", "dale", "vamos"…).
@@ -937,10 +956,10 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
             if (phaseRef.current === "counting" && doingIt && analysis.score > 0) {
               samplesRef.current.push(analysis.score);
             }
-            // Arranque manos libres: cuerpo estable ~0.7s después de que
-            // terminó de leerse la consigna (3.5s de margen para la voz).
+            // Arranque manos libres: SOLO cuando la voz terminó la consigna
+            // (introReadyRef) + 1s de aire + cuerpo estable.
             if (phaseRef.current === "intro") {
-              if (analysis.detected && Date.now() - introAtRef.current > 3500) {
+              if (introReadyRef.current && analysis.detected && Date.now() - introAtRef.current > 1000) {
                 stableRef.current += 1;
                 if (stableRef.current > 20) {
                   stableRef.current = 0;
@@ -976,11 +995,16 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
     // el trainer lo dice y repite la prueba (hasta 2 reintentos).
     if (validSamples.length < MIN_VALID_FRAMES && attemptRef.current < 2) {
       attemptRef.current += 1;
-      speak(`No llegué a ver el movimiento. Va de nuevo. ${current.instruction}`, { key: `retry-${currentIdx}-${attemptRef.current}`, minGap: 0 });
       samplesRef.current = [];
       stableRef.current = 0;
+      introReadyRef.current = false;
       introAtRef.current = Date.now();
       setPhase("intro");
+      speak(`No llegué a ver el movimiento. Va de nuevo. ${current.instruction}`, { key: `retry-${currentIdx}-${attemptRef.current}`, minGap: 0 })
+        .then(() => {
+          introReadyRef.current = true;
+          introAtRef.current = Date.now();
+        });
       return;
     }
 
