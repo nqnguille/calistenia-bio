@@ -21,10 +21,17 @@ interface MovementTest {
 }
 
 const MOVEMENTS: MovementTest[] = [
-  { id: "posture",  title: "Postura en reposo",   instruction: "Quedate quieto, brazos al costado, mirada al frente.", emoji: "🧍", duration: 6,  hint: "Estamos midiendo tu alineación natural" },
-  { id: "arms",     title: "Movilidad de hombros", instruction: "Levantá ambos brazos sobre la cabeza, lo más alto que puedas.", emoji: "🙆", duration: 6, hint: "La movilidad del hombro es clave para la edad funcional" },
-  { id: "balance",  title: "Equilibrio unipodal",  instruction: "Levantá la rodilla derecha y mantené el equilibrio.", emoji: "🦩", duration: 6, hint: "El equilibrio predice el envejecimiento neuromotor" },
+  { id: "posture",  title: "Postura en reposo",   instruction: "Quedate quieto, brazos al costado, mirada al frente.", emoji: "🧍", duration: 7,  hint: "Estamos midiendo tu alineación natural" },
+  { id: "arms",     title: "Movilidad de hombros", instruction: "Levantá ambos brazos sobre la cabeza, lo más alto que puedas, y sostenelos.", emoji: "🙆", duration: 8, hint: "La movilidad del hombro es clave para la edad funcional" },
+  { id: "balance",  title: "Equilibrio a una pierna",  instruction: "Levantá una rodilla bien alto y mantené el equilibrio.", emoji: "🦩", duration: 8, hint: "El equilibrio predice el envejecimiento neuromotor" },
 ];
+
+// Frase corta que el trainer dice a mitad de prueba si no ve el movimiento.
+const MOVEMENT_CUES: Record<MovementTest["id"], string> = {
+  posture: "Quedate bien quieto, mirando al frente.",
+  arms: "Subí los brazos, bien arriba de la cabeza.",
+  balance: "Levantá una rodilla y aguantá ahí.",
+};
 
 
 type Landmark = { x: number; y: number; z?: number; visibility?: number };
@@ -207,6 +214,28 @@ function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAn
 // nunca se estira. El video se muestra con object-fit: cover, por eso los
 // landmarks (normalizados sobre el frame completo) se mapean con el mismo
 // recorte centrado que aplica el navegador al video.
+/* ─── Validación de movimiento real ──────── */
+// Un frame solo cuenta para la medición si el usuario está HACIENDO el
+// movimiento pedido — sin esto, caminar frente a la cámara "aprueba" el test.
+function armsRaised(lms: Landmark[]) {
+  const lw = lms[LM.L_WRIST], rw = lms[LM.R_WRIST], ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER];
+  if (!lw || !rw || !ls || !rs) return false;
+  return lw.y < ls.y - 0.02 && rw.y < rs.y - 0.02; // ambas muñecas por encima de los hombros
+}
+
+function kneeRaised(lms: Landmark[]) {
+  const lh = lms[LM.L_HIP], rh = lms[LM.R_HIP], lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE];
+  if (!lh || !rh || !lk || !rk) return false;
+  // Parado: la rodilla queda ~0.2 (normalizado) por debajo de la cadera.
+  // Rodilla levantada: se acerca a la altura de la cadera.
+  return Math.max(lh.y - lk.y, rh.y - rk.y) > -0.06;
+}
+
+function shoulderMidpoint(lms: Landmark[]) {
+  const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER];
+  return { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
+}
+
 function resizeCanvas(canvas: HTMLCanvasElement) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = Math.round((canvas.clientWidth || 1) * dpr);
@@ -425,7 +454,7 @@ function useVoiceCommands(enabled: boolean, onAdvance: () => void) {
   }, [enabled]);
 }
 
-const EVAL_BUILD = "v5 · voz + 33 puntos";
+const EVAL_BUILD = "v6 · trainer fullscreen";
 
 /* ─── Helpers ────────────────────────────── */
 function pad(n: number) { return String(n).padStart(2, "0"); }
@@ -803,6 +832,8 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
   const collectedScoresRef = useRef<number[]>([]);
   const stableRef = useRef(0);
   const introAtRef = useRef(0);
+  const attemptRef = useRef(0);
+  const prevMidRef = useRef<{ x: number; y: number } | null>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [phase, setPhase] = useState<MovPhase>("intro");
   const [prepLeft, setPrepLeft] = useState(3);
@@ -822,6 +853,7 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
     currentIdRef.current = current.id;
     samplesRef.current = [];
     stableRef.current = 0;
+    attemptRef.current = 0;
     introAtRef.current = Date.now();
     speak(`Prueba ${currentIdx + 1}. ${current.title}. ${current.instruction}`, { key: `mov-${currentIdx}`, minGap: 0 });
   }, [current.id, current.title, current.instruction, currentIdx]);
@@ -887,7 +919,22 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
             setLiveScore(analysis.score);
             setFeedback(analysis.feedback);
             setDetail(analysis.detail);
-            if (phaseRef.current === "counting" && analysis.detected && analysis.score > 0) {
+
+            // Un frame cuenta solo si el movimiento pedido está pasando.
+            let doingIt = analysis.detected;
+            if (doingIt && landmarks) {
+              const id = currentIdRef.current;
+              if (id === "arms") doingIt = armsRaised(landmarks);
+              else if (id === "balance") doingIt = kneeRaised(landmarks);
+              else if (id === "posture") {
+                const mid = shoulderMidpoint(landmarks);
+                const prev = prevMidRef.current;
+                const motion = prev ? Math.hypot(mid.x - prev.x, mid.y - prev.y) : 1;
+                prevMidRef.current = mid;
+                doingIt = motion < 0.012; // quieto de verdad, no caminando
+              }
+            }
+            if (phaseRef.current === "counting" && doingIt && analysis.score > 0) {
               samplesRef.current.push(analysis.score);
             }
             // Arranque manos libres: cuerpo estable ~0.7s después de que
@@ -920,13 +967,37 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
     return () => { active = false; stopRuntime(); };
   }, [stopRuntime]);
 
+  const MIN_VALID_FRAMES = 15; // ~1 segundo de movimiento real detectado
+
   const handleMoveDone = useCallback(() => {
-    const measured = samplesRef.current.length >= 6 ? Math.round(avg(samplesRef.current)) : Math.max(35, liveScore || 42);
+    const validSamples = samplesRef.current;
+
+    // Si no vimos el movimiento de verdad, NO inventamos un resultado:
+    // el trainer lo dice y repite la prueba (hasta 2 reintentos).
+    if (validSamples.length < MIN_VALID_FRAMES && attemptRef.current < 2) {
+      attemptRef.current += 1;
+      speak(`No llegué a ver el movimiento. Va de nuevo. ${current.instruction}`, { key: `retry-${currentIdx}-${attemptRef.current}`, minGap: 0 });
+      samplesRef.current = [];
+      stableRef.current = 0;
+      introAtRef.current = Date.now();
+      setPhase("intro");
+      return;
+    }
+
+    const measured = validSamples.length >= MIN_VALID_FRAMES
+      ? Math.round(avg(validSamples))
+      : 40; // tras 2 reintentos sin señal: score honesto bajo, no inventado
+
+    if (validSamples.length < MIN_VALID_FRAMES) {
+      speak("No pude medir bien esta prueba. Seguimos con la próxima.", { key: `skip-${currentIdx}`, minGap: 0 });
+    }
     collectedScoresRef.current.push(measured);
     samplesRef.current = [];
 
     if (currentIdx < MOVEMENTS.length - 1) {
-      speak("¡Muy bien! Vamos con la siguiente.", { key: `done-${currentIdx}`, minGap: 0 });
+      if (validSamples.length >= MIN_VALID_FRAMES) {
+        speak("¡Muy bien! Vamos con la siguiente.", { key: `done-${currentIdx}`, minGap: 0 });
+      }
       setPhase("intro");
       setCurrentIdx((i) => i + 1);
     } else {
@@ -935,133 +1006,96 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
       stopRuntime();
       onComplete(collectedScoresRef.current);
     }
-  }, [currentIdx, liveScore, onComplete, stopRuntime]);
+  }, [currentIdx, current.instruction, onComplete, stopRuntime]);
 
   const timer = useCountdown(current.duration, phase === "counting", handleMoveDone);
   const progress = phase === "counting" ? ((current.duration - timer) / current.duration) * 100 : 0;
 
+  // Coaching en vivo: a mitad de prueba, si todavía no vimos el movimiento,
+  // el trainer repite la indicación corta.
+  useEffect(() => {
+    if (phase !== "counting") return;
+    if (timer === Math.ceil(current.duration / 2) && samplesRef.current.length < 5) {
+      speak(MOVEMENT_CUES[current.id], { key: `cue-${currentIdx}-${attemptRef.current}`, minGap: 0 });
+    }
+  }, [timer, phase, current.duration, current.id, currentIdx]);
+
   return (
     <motion.div key="movement" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-      style={{ display:"flex", flexDirection:"column", height:"100%", width:"100%", paddingTop:56 }}>
+      style={{ position:"fixed", inset:0, zIndex:4, background:C.dark, overflow:"hidden" }}>
 
-      <div style={{ padding:"14px 24px 0", display:"flex", justifyContent:"center" }}>
+      {/* Video fullscreen, igual que el paso 1: la cámara ES la pantalla */}
+      <video ref={videoRef} autoPlay playsInline muted
+        style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block", opacity:0.85 }} />
+      <canvas ref={canvasRef}
+        style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
+      <div style={{ position:"absolute", inset:0, pointerEvents:"none", background:"radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.08) 50%, rgba(8,11,15,0.72) 100%)" }} />
+
+      {/* Barra superior: qué prueba es + señal en vivo */}
+      <div style={{ position:"absolute", top:74, left:20, right:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:14, pointerEvents:"none" }}>
+        <div style={{ background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"14px 22px", backdropFilter:"blur(14px)" }}>
+          <p style={{ color:C.sage, fontWeight:900, letterSpacing:"0.14em", fontSize:"0.72rem", textTransform:"uppercase", marginBottom:6 }}>
+            Prueba {currentIdx + 1} de {MOVEMENTS.length}{!detected && ` · ${status}`}
+          </p>
+          <p style={{ color:"#F8F6F2", fontWeight:900, fontSize:"clamp(1.3rem,3vw,2.2rem)", letterSpacing:"-0.02em", lineHeight:1 }}>
+            {current.emoji} {current.title}
+          </p>
+        </div>
+        <div style={{ background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"14px 22px", textAlign:"right", backdropFilter:"blur(14px)" }}>
+          <p style={{ color:"rgba(248,246,242,0.4)", fontWeight:900, letterSpacing:"0.14em", fontSize:"0.62rem", textTransform:"uppercase", marginBottom:6 }}>Señal</p>
+          <p style={{ color: liveScore >= 70 ? "#AFC3A5" : liveScore >= 50 ? "#F0C36A" : "#F17464", fontWeight:900, fontSize:"clamp(2rem,4.5vw,3.4rem)", lineHeight:1 }}>
+            {Math.round(liveScore)}<span style={{ fontSize:"1rem", color:"rgba(248,246,242,0.4)" }}>%</span>
+          </p>
+        </div>
+      </div>
+
+      {/* INTRO: consigna gigante en el centro */}
+      {phase === "intro" && (
+        <div style={{ position:"absolute", left:0, right:0, top:"50%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", pointerEvents:"none", padding:"0 24px" }}>
+          <div style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.75)" }}>
+            <p style={{ fontSize:"clamp(3rem,8vw,5.5rem)", lineHeight:1, marginBottom:16 }}>{current.emoji}</p>
+            <p style={{ color:"#F8F6F2", fontSize:"clamp(1.9rem,4.8vw,3.6rem)", fontWeight:900, letterSpacing:"-0.02em", lineHeight:1.2, maxWidth:900 }}>
+              {current.instruction}
+            </p>
+            <p style={{ color:"rgba(248,246,242,0.78)", fontSize:"clamp(1.2rem,2.6vw,1.8rem)", fontWeight:700, marginTop:20 }}>
+              {detected ? "Quedate así — arrancamos en un momento" : "Esperando verte… o decí «listo»"}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* PREP: cuenta regresiva gigante */}
+      {phase === "prep" && (
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none", background:"rgba(8,11,15,0.28)" }}>
+          <motion.p key={prepLeft} initial={{ opacity:0, scale:1.6 }} animate={{ opacity:1, scale:1 }} transition={{ duration:0.35 }}
+            style={{ fontSize:"clamp(9rem,30vw,20rem)", fontWeight:900, color:"#F8F6F2", lineHeight:1, textShadow:"0 10px 60px rgba(0,0,0,0.7)" }}>
+            {prepLeft}
+          </motion.p>
+        </div>
+      )}
+
+      {/* COUNTING: timer gigante centrado */}
+      {phase === "counting" && (
+        <div style={{ position:"absolute", left:0, right:0, top:"46%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+          <p style={{ fontSize:"clamp(7rem,24vw,16rem)", fontWeight:900, fontFamily:"monospace", color:"rgba(248,246,242,0.55)", lineHeight:1, textShadow:"0 8px 50px rgba(0,0,0,0.6)" }}>
+            {timer}
+          </p>
+        </div>
+      )}
+
+      {/* Abajo: feedback del trainer GIGANTE + barra + progreso */}
+      <div style={{ position:"absolute", left:20, right:20, bottom:24, display:"flex", flexDirection:"column", alignItems:"center", gap:14, pointerEvents:"none" }}>
+        <div style={{ maxWidth:1000, background:"rgba(8,11,15,0.70)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"18px 34px", textAlign:"center", backdropFilter:"blur(16px)", boxShadow:"0 20px 70px rgba(0,0,0,0.4)" }}>
+          <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"clamp(1.4rem,3.4vw,2.4rem)", lineHeight:1.3, letterSpacing:"-0.01em" }}>
+            {feedback}
+          </p>
+        </div>
+        <div style={{ width:"min(560px, 78vw)", height:6, borderRadius:999, background:"rgba(255,255,255,0.14)", overflow:"hidden" }}>
+          <motion.div animate={{ width: phase === "counting" ? `${progress}%` : `${liveScore}%` }} transition={{ duration:0.25 }}
+            style={{ height:"100%", borderRadius:999, background: liveScore >= 70 ? C.sage : liveScore >= 50 ? "#F0C36A" : C.red }} />
+        </div>
         <ProgressDots current={currentIdx} total={MOVEMENTS.length} />
       </div>
-
-      <div className="eval-grid" style={{ flex:1, display:"grid", gridTemplateColumns:"minmax(0, 1.15fr) minmax(320px, .85fr)", gap:28, alignItems:"center", width:"min(1180px, 94vw)", margin:"0 auto", padding:"22px 0" }}>
-        <div style={{ position:"relative", aspectRatio:"16/10", borderRadius:30, overflow:"hidden", border:"1px solid rgba(255,255,255,0.10)", boxShadow:"0 32px 100px rgba(0,0,0,0.42)", background:C.dark2 }}>
-          <video ref={videoRef} autoPlay playsInline muted
-            style={{ width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block", opacity:0.72 }} />
-          <canvas ref={canvasRef}
-            style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
-          <div className="bio-grid" style={{ position:"absolute", inset:0, opacity:0.28, pointerEvents:"none" }} />
-
-          <div style={{ position:"absolute", top:16, left:16, background:"rgba(8,11,15,0.76)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"9px 14px", display:"flex", alignItems:"center", gap:9, backdropFilter:"blur(12px)" }}>
-            <motion.span animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.2, repeat:Infinity }} style={{ width:8, height:8, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A" }} />
-            <span style={{ color:"rgba(248,246,242,0.74)", fontSize:"0.72rem", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase" }}>{detected ? "Landmarks activos" : status}</span>
-          </div>
-
-          {/* Cuenta regresiva gigante antes de medir */}
-          {phase === "prep" && (
-            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none", background:"rgba(8,11,15,0.30)" }}>
-              <motion.p key={prepLeft} initial={{ opacity:0, scale:1.6 }} animate={{ opacity:1, scale:1 }} transition={{ duration:0.35 }}
-                style={{ fontSize:"clamp(7rem,22vw,15rem)", fontWeight:900, color:"#F8F6F2", lineHeight:1, textShadow:"0 10px 60px rgba(0,0,0,0.65)" }}>
-                {prepLeft}
-              </motion.p>
-            </div>
-          )}
-
-          {/* Timer gigante mientras mide, legible a 3 metros */}
-          {phase === "counting" && (
-            <div style={{ position:"absolute", top:"8%", left:0, right:0, display:"flex", justifyContent:"center", pointerEvents:"none" }}>
-              <p style={{ fontSize:"clamp(4rem,12vw,8rem)", fontWeight:900, fontFamily:"monospace", color:"rgba(248,246,242,0.92)", lineHeight:1, textShadow:"0 8px 50px rgba(0,0,0,0.6)" }}>
-                {timer}
-              </p>
-            </div>
-          )}
-
-          {/* Consigna en intro, grande sobre el video */}
-          {phase === "intro" && (
-            <div style={{ position:"absolute", left:0, right:0, top:"50%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", pointerEvents:"none", padding:"0 20px" }}>
-              <div style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.7)" }}>
-                <p style={{ fontSize:"clamp(2.4rem,6vw,4rem)", lineHeight:1, marginBottom:10 }}>{current.emoji}</p>
-                <p style={{ color:"#F8F6F2", fontSize:"clamp(1.5rem,3.6vw,2.6rem)", fontWeight:900, letterSpacing:"-0.02em", lineHeight:1.25, maxWidth:720 }}>
-                  {current.instruction}
-                </p>
-                <p style={{ color:"rgba(248,246,242,0.72)", fontSize:"clamp(0.95rem,2vw,1.3rem)", fontWeight:600, marginTop:14 }}>
-                  {detected ? "Quedate así — arrancamos solos en un momento" : "Esperando verte entero… o decí «listo» y arrancamos"}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div style={{ position:"absolute", left:18, right:18, bottom:18, background:"rgba(8,11,15,0.78)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:16, backdropFilter:"blur(14px)" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:14, marginBottom:10 }}>
-              <div>
-                <p style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase" }}>{detail}</p>
-                <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"clamp(1rem,2.2vw,1.5rem)", marginTop:3 }}>{feedback}</p>
-              </div>
-              <div style={{ textAlign:"right" }}>
-                <span style={{ color: liveScore >= 70 ? "#AFC3A5" : liveScore >= 50 ? "#F0C36A" : "#F17464", fontSize:"clamp(2rem,4vw,3rem)", fontWeight:900, lineHeight:1 }}>{Math.round(liveScore)}</span>
-                <span style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.75rem", fontWeight:700 }}>%</span>
-              </div>
-            </div>
-            <div style={{ height:5, borderRadius:999, background:"rgba(255,255,255,0.12)", overflow:"hidden" }}>
-              <motion.div animate={{ width: phase === "counting" ? `${progress}%` : `${liveScore}%` }} transition={{ duration:0.25 }} style={{ height:"100%", borderRadius:999, background: liveScore >= 70 ? C.sage : liveScore >= 50 ? "#F0C36A" : C.red }} />
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display:"flex", flexDirection:"column", gap:22 }}>
-          <motion.div key={current.id} initial={{ opacity:0, y:18 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.35 }}
-            style={{ background:"rgba(255,255,255,0.055)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:28, padding:28, backdropFilter:"blur(16px)" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:16, marginBottom:22 }}>
-              <div style={{ width:52, height:52, borderRadius:18, background:"rgba(122,143,116,0.16)", border:"1px solid rgba(122,143,116,0.26)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"1.8rem" }}>{current.emoji}</div>
-              <div style={{ color:C.sage, fontWeight:900, letterSpacing:"0.14em", fontSize:"0.72rem", textTransform:"uppercase" }}>Prueba {currentIdx + 1}/{MOVEMENTS.length}</div>
-            </div>
-            <h3 style={{ color:"#F8F6F2", fontSize:"clamp(1.8rem,3vw,2.7rem)", fontWeight:900, lineHeight:0.95, letterSpacing:"-0.05em", marginBottom:16 }}>{current.title}</h3>
-            <p style={{ color:"rgba(248,246,242,0.64)", fontSize:"1.04rem", lineHeight:1.7, fontWeight:300 }}>{current.instruction}</p>
-            <p style={{ color:C.sage, fontSize:"0.9rem", lineHeight:1.6, marginTop:16, fontWeight:600 }}>{current.hint}</p>
-          </motion.div>
-
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
-            {collectedScoresRef.current.map((score, i) => (
-              <div key={i} style={{ background:"rgba(255,255,255,0.045)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16, padding:12, textAlign:"center" }}>
-                <p style={{ color:"rgba(248,246,242,0.30)", fontSize:"0.6rem", fontWeight:900, letterSpacing:"0.12em", textTransform:"uppercase" }}>Test {i+1}</p>
-                <p style={{ color:"#AFC3A5", fontWeight:900, fontSize:"1.4rem", lineHeight:1.2 }}>{score}%</p>
-              </div>
-            ))}
-          </div>
-
-          {phase === "intro" && (
-            <div style={{ display:"flex", alignItems:"center", gap:12, color:"rgba(248,246,242,0.55)", fontSize:"0.92rem", lineHeight:1.6 }}>
-              <motion.span animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.2, repeat:Infinity }}
-                style={{ width:9, height:9, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A", flexShrink:0 }} />
-              {detected
-                ? "Manos libres: la medición arranca sola con cuenta regresiva hablada."
-                : "Ubicate frente a la cámara — te guío por voz, no hace falta tocar nada."}
-            </div>
-          )}
-
-          {phase === "counting" && (
-            <div style={{ color:"rgba(248,246,242,0.46)", fontSize:"0.9rem", lineHeight:1.6 }}>
-              Quedate en la consigna. Estamos promediando señales reales de tus landmarks.
-            </div>
-          )}
-        </div>
-      </div>
-
-      <style jsx>{`
-        @media (max-width: 860px) {
-          .eval-grid {
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: flex-start !important;
-            padding-bottom: 24px !important;
-            overflow-y: auto !important;
-          }
-        }
-      `}</style>
     </motion.div>
   );
 }
