@@ -1,0 +1,574 @@
+"use client";
+// Sesión de entrenamiento guiada: el personal trainer en vivo. Recorre los
+// ejercicios del día del plan FLORA con el feed único de cámara — consigna
+// hablada, conteo de repeticiones en vivo por patrón de movimiento, descansos
+// cronometrados, RIR al cierre de cada ejercicio, y registro de todo en el
+// mismo registro KV del usuario.
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { IS_DEV, logEvent } from "@/lib/evlog";
+import { speak, stopSpeaking, warmVoices, ADVANCE_WORDS, SKIP_WORDS } from "@/lib/voice";
+import {
+  type PoseRuntime, type Landmark,
+  bodyPresent, startPoseTracking, stepReps, holdConditionMet,
+  REP_INIT, type RepState,
+} from "@/lib/pose-engine";
+import { useVoiceCommands, useCountdown } from "@/components/shared/hooks";
+import { EventMonitor } from "@/components/shared/EventMonitor";
+import {
+  buildTodaySession, instructionFor, restSecondsFor,
+  type StoredPlan, type Progress, type TodaySession, type TodayExercise,
+  type SessionLog, type EjercicioLog,
+} from "@/lib/planRuntime";
+
+const C = {
+  sage: "#7A8F74", sage2: "#AFC3A5", muted: "#8E9188",
+  dark: "#080B0F", red: "#ef4444",
+};
+
+const SESSION_BUILD = "sesión v1";
+
+interface StoredRecord {
+  chronoAge: number | null;
+  sex: "M" | "F";
+  plan: StoredPlan | null;
+  progress?: Progress;
+}
+
+type View = "loading" | "notfound" | "noplan" | "blockdone" | "resumen" | "training" | "fin";
+type Phase = "exIntro" | "serie" | "rest" | "rir";
+
+export function SesionGuiada() {
+  const [view, setView] = useState<View>("loading");
+  const [record, setRecord] = useState<StoredRecord | null>(null);
+  const [session, setSession] = useState<TodaySession | null>(null);
+  const idRef = useRef<string | null>(null);
+  const progressRef = useRef<Progress>({ sessions: [] });
+
+  // ── Máquina de entrenamiento ──
+  const [exIdx, setExIdx] = useState(0);
+  const [serieNum, setSerieNum] = useState(1);
+  const [phase, setPhase] = useState<Phase>("exIntro");
+  const phaseRef = useRef<Phase>("exIntro");
+  const exRef = useRef<TodayExercise | null>(null);
+  const repRef = useRef<RepState>(REP_INIT);
+  const holdMsRef = useRef(0);
+  const lastHoldTsRef = useRef<number | null>(null);
+  const finishLatchRef = useRef(false);
+  const lastProgressAtRef = useRef(0);
+  const logRef = useRef<EjercicioLog[]>([]);
+  const [liveMetric, setLiveMetric] = useState(0);
+  const [detected, setDetected] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [saving, setSaving] = useState<"idle" | "saving" | "ok" | "error">("idle");
+
+  // ── Cámara (feed único, se crea una vez) ──
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const runtimeRef = useRef<PoseRuntime | null>(null);
+  const [cameraState, setCameraState] = useState<"idle" | "starting" | "on" | "error">("idle");
+  const [hud, setHud] = useState("");
+
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+
+  /* ── Carga del registro ── */
+  useEffect(() => {
+    warmVoices();
+    const id = new URLSearchParams(window.location.search).get("id")
+      ?? (() => { try { return localStorage.getItem("calistenia_result_id"); } catch { return null; } })();
+    if (!id) { setView("notfound"); return; }
+    idRef.current = id;
+    fetch(`/api/evaluacion?id=${encodeURIComponent(id)}`)
+      .then((r) => r.json())
+      .then((data: { ok: boolean; item?: StoredRecord }) => {
+        if (!data.ok || !data.item) { setView("notfound"); return; }
+        setRecord(data.item);
+        if (!data.item.plan?.sesiones?.length) { setView("noplan"); return; }
+        progressRef.current = data.item.progress ?? { sessions: [] };
+        const today = buildTodaySession(data.item.plan, progressRef.current);
+        setSession(today);
+        setView(today.blockDone ? "blockdone" : "resumen");
+        logEvent("sesion", `cargada: sesión #${today.sessionNumber}, ${today.dia}, semana ${today.week}${today.isDeload ? " (descarga)" : ""}`);
+      })
+      .catch(() => setView("notfound"));
+
+    return () => {
+      runtimeRef.current?.stop();
+      runtimeRef.current = null;
+      stopSpeaking();
+    };
+  }, []);
+
+  /* ── Handler de pose por frame ── */
+  const onPoseFrame = useCallback((landmarks: Landmark[] | null) => {
+    const ok = bodyPresent(landmarks);
+    setDetected(ok);
+    if (phaseRef.current !== "serie") return;
+    const ex = exRef.current;
+    if (!ex) return;
+
+    if (finishLatchRef.current) return;
+
+    if (ex.measure.kind === "reps") {
+      const prev = repRef.current;
+      const st = stepReps(ex.measure.pattern, landmarks, prev);
+      repRef.current = st;
+      if (st.reps !== prev.reps) {
+        setLiveMetric(st.reps);
+        lastProgressAtRef.current = Date.now();
+        // El trainer cuenta en voz alta cada repetición.
+        speak(String(st.reps), { key: `rep-${st.reps}-${Date.now() >> 11}`, minGap: 0 });
+        const target = ex.presc.repMax;
+        if (st.reps === target) {
+          speak(`¡${target}! Tope del rango. Si vas con buena técnica seguí, o decí listo.`, { key: `top-${Date.now() >> 12}`, minGap: 0 });
+        }
+      }
+    } else if (ex.measure.kind === "hold") {
+      const now = performance.now();
+      if (holdConditionMet(ex.measure.pattern, landmarks)) {
+        if (lastHoldTsRef.current != null) holdMsRef.current += now - lastHoldTsRef.current;
+        lastHoldTsRef.current = now;
+        lastProgressAtRef.current = Date.now();
+        const secs = holdMsRef.current / 1000;
+        setLiveMetric(Math.round(secs * 10) / 10);
+        const target = ex.presc.repMax; // en holds el rango es en segundos
+        if (secs >= target) finishSerieRef.current();
+      } else {
+        lastHoldTsRef.current = null;
+      }
+    }
+    // manual: no medimos nada — el usuario dice "listo".
+  }, []);
+  const onPoseFrameRef = useRef(onPoseFrame);
+  useEffect(() => { onPoseFrameRef.current = onPoseFrame; }, [onPoseFrame]);
+
+  /* ── Arranque de cámara + primera consigna ── */
+  const startTraining = useCallback(async (minima: boolean) => {
+    if (!record?.plan || cameraState === "starting") return;
+    const today = buildTodaySession(record.plan, progressRef.current, minima);
+    setSession(today);
+    setCameraState("starting");
+    logEvent("sesion", `empezando${minima ? " (mínima)" : ""}`);
+    speak(
+      today.isDeload
+        ? "Semana de descarga: hoy va la mitad de series, sin exigirte al límite. Es la semana donde el esfuerzo del mes se convierte en resultado. Activando tu cámara."
+        : minima
+        ? "Sesión mínima: quince minutos, los dos ejercicios que más mueven la aguja. Cuenta para tu consistencia. Activando tu cámara."
+        : `Sesión ${today.sessionNumber}. ${today.dia}, ${today.titulo}. Semana ${today.week} del bloque. Activando tu cámara.`,
+      { key: "ses-start", minGap: 0 }
+    );
+    try {
+      const runtime = await startPoseTracking({
+        video: videoRef.current!,
+        canvas: canvasRef.current!,
+        onResults: (lms, quality) => {
+          if (IS_DEV) setHud(`${SESSION_BUILD} · ${lms?.length ?? 0} pts · vis ${(quality / 100).toFixed(2)}`);
+          onPoseFrameRef.current(lms);
+        },
+      });
+      runtimeRef.current = runtime;
+      setCameraState("on");
+      setView("training");
+      setExIdx(0);
+      setSerieNum(1);
+      logRef.current = [];
+      setPhase("exIntro");
+    } catch (err) {
+      logEvent("error", `cámara sesión: ${err instanceof Error ? err.message : String(err)}`);
+      setCameraState("error");
+    }
+  }, [record, cameraState]);
+
+  const ex = session?.ejercicios[exIdx] ?? null;
+  useEffect(() => { exRef.current = ex; }, [ex]);
+
+  /* ── Intro de cada ejercicio ── */
+  useEffect(() => {
+    if (view !== "training" || phase !== "exIntro" || !ex || !session) return;
+    const rango = ex.presc.isTime ? `${ex.presc.repMin} a ${ex.presc.repMax} segundos` : `${ex.presc.repMin} a ${ex.presc.repMax} repeticiones`;
+    const perSide = ex.presc.perSide ? " Cada pierna, en la misma serie." : "";
+    speak(
+      `Ejercicio ${exIdx + 1} de ${session.ejercicios.length}: ${ex.nombre}. ${ex.setsHoy} series de ${rango}.${perSide} ${instructionFor(ex.nombre)} Cuando arranques, yo cuento. Decí listo al terminar la serie.`,
+      { key: `ex-${exIdx}`, minGap: 0 }
+    ).then(() => {
+      startSerie();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, phase, exIdx]);
+
+  const startSerie = useCallback(() => {
+    repRef.current = REP_INIT;
+    holdMsRef.current = 0;
+    lastHoldTsRef.current = null;
+    finishLatchRef.current = false;
+    lastProgressAtRef.current = Date.now();
+    setLiveMetric(0);
+    setFeedback("");
+    setPhase("serie");
+  }, []);
+
+  /* ── Fin de serie (con latch: voz y auto-completado pueden disparar juntos) ── */
+  const finishSerie = useCallback(() => {
+    const e = exRef.current;
+    if (!e || phaseRef.current !== "serie" || finishLatchRef.current) return;
+    finishLatchRef.current = true;
+    const isHold = e.measure.kind === "hold";
+    const value = isHold ? Math.round(holdMsRef.current / 100) / 10 : repRef.current.reps;
+
+    // Registrar la serie en el log del ejercicio actual.
+    let current = logRef.current[logRef.current.length - 1];
+    if (!current || current.n !== e.nombre) {
+      current = { n: e.nombre, series: [], rir: null, skipped: false };
+      logRef.current.push(current);
+    }
+    current.series.push(isHold ? { reps: null, segundos: value } : { reps: value, segundos: null });
+    logEvent("sesion", `serie ${serieNum}/${e.setsHoy} de "${e.nombre}": ${value}${isHold ? "s" : " reps"}`);
+
+    if (serieNum < e.setsHoy) {
+      const rest = restSecondsFor(e.nombre);
+      speak(`Buena serie: ${isHold ? `${Math.round(value)} segundos` : `${value}`}. Descanso de ${rest} segundos.`, { key: `rest-${exIdx}-${serieNum}`, minGap: 0 });
+      setSerieNum((n) => n + 1);
+      setPhase("rest");
+    } else {
+      speak("Última serie del ejercicio, ¡bien ahí! ¿Cuántas repeticiones te quedaban en el tanque? Marcalo en pantalla, o decí listo para seguir.", { key: `rir-${exIdx}`, minGap: 0 });
+      setPhase("rir");
+    }
+  }, [serieNum, exIdx]);
+  const finishSerieRef = useRef(finishSerie);
+  useEffect(() => { finishSerieRef.current = finishSerie; }, [finishSerie]);
+
+  /* ── Descanso cronometrado ── */
+  const currentRest = ex ? restSecondsFor(ex.nombre) : 90;
+  const restLeft = useCountdown(currentRest, phase === "rest", () => {
+    speak(`¡Vamos! Serie ${serieNum} de ${exRef.current?.setsHoy ?? 0}.`, { key: `go-${exIdx}-${serieNum}`, minGap: 0 }).then(startSerie);
+  });
+
+  /* ── RIR y pase al siguiente ejercicio ── */
+  const advanceExercise = useCallback((rir: number | null) => {
+    const current = logRef.current[logRef.current.length - 1];
+    if (current && phaseRef.current === "rir") current.rir = rir;
+    if (!session) return;
+    if (exIdx < session.ejercicios.length - 1) {
+      setExIdx((i) => i + 1);
+      setSerieNum(1);
+      setPhase("exIntro");
+    } else {
+      finishSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exIdx, session]);
+
+  // Auto-avance del RIR a los 12s si no responde.
+  useEffect(() => {
+    if (phase !== "rir") return;
+    const t = setTimeout(() => advanceExercise(null), 12000);
+    return () => clearTimeout(t);
+  }, [phase, advanceExercise]);
+
+  /* ── Saltear ejercicio ── */
+  const skipExercise = useCallback(() => {
+    const e = exRef.current;
+    if (!e || phaseRef.current === "rir") return;
+    logRef.current.push({ n: e.nombre, series: [], rir: null, skipped: true });
+    logEvent("sesion", `salteado: ${e.nombre}`);
+    speak("Lo salteamos, no pasa nada. Seguimos.", { key: `skip-${exIdx}`, minGap: 0 });
+    if (session && exIdx < session.ejercicios.length - 1) {
+      setExIdx((i) => i + 1);
+      setSerieNum(1);
+      setPhase("exIntro");
+    } else {
+      finishSession();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exIdx, session]);
+
+  /* ── Fin de sesión: guardar y despedir ── */
+  const finishSession = useCallback(() => {
+    if (!session || !idRef.current) return;
+    setView("fin");
+    setSaving("saving");
+    runtimeRef.current?.stop();
+    runtimeRef.current = null;
+
+    const log: SessionLog = {
+      ts: new Date().toISOString(),
+      week: session.week,
+      diaIdx: session.diaIdx,
+      dia: session.dia,
+      minima: session.ejercicios.length <= 2,
+      ejercicios: logRef.current,
+    };
+    const newProgress: Progress = { sessions: [...progressRef.current.sessions, log] };
+    progressRef.current = newProgress;
+
+    const totalSeries = logRef.current.reduce((a, e) => a + e.series.length, 0);
+    speak(`¡Sesión completa! ${totalSeries} series registradas. Nos vemos en la próxima — la consistencia es lo que manda.`, { key: "ses-fin", minGap: 0 });
+
+    fetch("/api/evaluacion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: idRef.current, progress: newProgress, build: SESSION_BUILD }),
+    })
+      .then((r) => r.json())
+      .then((d: { ok: boolean }) => {
+        setSaving(d.ok ? "ok" : "error");
+        logEvent("sesion", `guardada: ${d.ok}`);
+      })
+      .catch(() => setSaving("error"));
+  }, [session]);
+
+  /* ── Órdenes de voz según fase ── */
+  useVoiceCommands(view === "training", () => {
+    const p = phaseRef.current;
+    if (p === "serie") finishSerieRef.current();
+    else if (p === "rest") { speak("Dale, seguimos.", { key: `skiprest-${Date.now() >> 12}`, minGap: 0 }).then(startSerie); }
+    else if (p === "rir") advanceExercise(null);
+  }, ADVANCE_WORDS);
+  useVoiceCommands(view === "training" && phase !== "rir", skipExercise, SKIP_WORDS);
+
+  // Recordatorio si la serie quedó sin actividad.
+  useEffect(() => {
+    if (view !== "training" || phase !== "serie") return;
+    const t = setInterval(() => {
+      if (Date.now() - lastProgressAtRef.current > 45000) {
+        lastProgressAtRef.current = Date.now();
+        speak("¿Todo bien? Decí listo para descansar, o saltar si este ejercicio no va.", { key: "idle-check", minGap: 30000 });
+      }
+    }, 5000);
+    return () => clearInterval(t);
+  }, [view, phase]);
+
+  /* ═══════════════ RENDER ═══════════════ */
+
+  if (view === "loading") {
+    return <Shell><p style={{ color: "rgba(248,246,242,0.5)" }}>Preparando tu sesión…</p></Shell>;
+  }
+
+  if (view === "notfound" || view === "noplan") {
+    return (
+      <Shell>
+        <p style={{ fontSize: "2.5rem" }}>🔍</p>
+        <h1 style={{ color: "#F8F6F2", fontSize: "1.6rem", fontWeight: 900 }}>
+          {view === "noplan" ? "Todavía no tenés un plan" : "No encontramos tu plan"}
+        </h1>
+        <p style={{ color: "rgba(248,246,242,0.5)", maxWidth: 400, textAlign: "center" }}>
+          Hacé la evaluación de 6 minutos y salís con tu plan del Método FLORA listo para entrenar.
+        </p>
+        <a href="/evaluacion/" style={btnStyle}>Hacer la evaluación →</a>
+      </Shell>
+    );
+  }
+
+  if (view === "blockdone") {
+    return (
+      <Shell>
+        <p style={{ fontSize: "2.5rem" }}>🏁</p>
+        <h1 style={{ color: "#F8F6F2", fontSize: "1.7rem", fontWeight: 900, textAlign: "center" }}>¡Terminaste el Bloque 1!</h1>
+        <p style={{ color: "rgba(248,246,242,0.55)", maxWidth: 420, textAlign: "center", lineHeight: 1.7 }}>
+          Cinco semanas completas. Ahora toca medir el progreso: repetí la evaluación y armamos tu Bloque 2 con tus números nuevos — no a ciegas.
+        </p>
+        <a href="/evaluacion/" style={btnStyle}>Re-evaluarme y armar el Bloque 2 →</a>
+      </Shell>
+    );
+  }
+
+  if (view === "resumen" && session) {
+    return (
+      <Shell wide>
+        <p style={{ fontSize: "0.72rem", fontWeight: 800, color: C.sage, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+          Sesión {session.sessionNumber} · Semana {session.week} de 5{session.isDeload ? " · DESCARGA" : ""}
+        </p>
+        <h1 style={{ color: "#F8F6F2", fontSize: "clamp(1.8rem,4.5vw,2.6rem)", fontWeight: 900, letterSpacing: "-0.03em", textAlign: "center" }}>
+          {session.dia} — {session.titulo}
+        </h1>
+        {session.isDeload && (
+          <p style={{ color: C.sage2, fontSize: "0.92rem", textAlign: "center", maxWidth: 440 }}>
+            Semana de descarga: mitad de series, sin exigirte al límite. Acá se consolida el mes.
+          </p>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "min(520px, 92vw)" }}>
+          {session.ejercicios.map((e, i) => (
+            <div key={e.nombre} style={{ display: "flex", justifyContent: "space-between", gap: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "13px 16px" }}>
+              <span style={{ color: "rgba(248,246,242,0.85)", fontSize: "0.92rem" }}>{i + 1}. {e.nombre}</span>
+              <span style={{ color: "#AFC3A5", fontWeight: 800, fontSize: "0.88rem", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                {e.setsHoy} × {e.presc.repMin}{e.presc.repMax !== e.presc.repMin ? `-${e.presc.repMax}` : ""}{e.presc.isTime ? " s" : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+        <p style={{ color: "rgba(248,246,242,0.45)", fontSize: "0.85rem", textAlign: "center", maxWidth: 440, lineHeight: 1.6 }}>
+          Todo por voz: yo cuento tus repeticiones, cronometro tus descansos y registro la sesión. Decí «listo» para cerrar cada serie y «saltar» si un ejercicio no va.
+        </p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          <button onClick={() => startTraining(false)} style={btnStyle}>
+            {cameraState === "starting" ? "Activando cámara…" : "Empezar la sesión →"}
+          </button>
+          <button onClick={() => startTraining(true)} style={{ ...btnStyle, background: "rgba(122,143,116,0.18)", color: C.sage2, border: `1px solid ${C.sage}55` }}>
+            Sesión mínima (15′)
+          </button>
+        </div>
+        {cameraState === "error" && (
+          <p style={{ color: C.red, fontSize: "0.85rem" }}>No pudimos iniciar la cámara — revisá permisos y probá de nuevo.</p>
+        )}
+      </Shell>
+    );
+  }
+
+  if (view === "fin" && session) {
+    const totalSeries = logRef.current.reduce((a, e) => a + e.series.length, 0);
+    const hechos = logRef.current.filter((e) => !e.skipped).length;
+    return (
+      <Shell>
+        <motion.p animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.5 }} style={{ fontSize: "3.5rem" }}>💪</motion.p>
+        <h1 style={{ color: "#F8F6F2", fontSize: "1.8rem", fontWeight: 900, textAlign: "center" }}>¡Sesión completa!</h1>
+        <div style={{ display: "flex", gap: 28, padding: "18px 30px", background: "rgba(8,11,15,0.5)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16 }}>
+          {[
+            { n: String(hechos), l: "ejercicios" },
+            { n: String(totalSeries), l: "series" },
+            { n: `S${session.week}`, l: "semana" },
+          ].map((s) => (
+            <div key={s.l} style={{ textAlign: "center" }}>
+              <p style={{ fontSize: "1.7rem", fontWeight: 900, color: "#AFC3A5", lineHeight: 1 }}>{s.n}</p>
+              <p style={{ fontSize: "0.68rem", color: "rgba(248,246,242,0.4)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>{s.l}</p>
+            </div>
+          ))}
+        </div>
+        <p style={{ color: "rgba(248,246,242,0.5)", fontSize: "0.9rem", textAlign: "center", maxWidth: 400, lineHeight: 1.65 }}>
+          {saving === "saving" ? "Guardando tu sesión…"
+            : saving === "ok" ? "Sesión registrada. La próxima vez que entres, te toca la siguiente del plan — la consistencia es lo que manda."
+            : saving === "error" ? "No pudimos guardar en el servidor (queda registrada en este dispositivo). Reintentá desde tu link."
+            : ""}
+        </p>
+        <a href="/" style={btnStyle}>Listo por hoy →</a>
+      </Shell>
+    );
+  }
+
+  /* ── TRAINING (fullscreen sobre el feed) ── */
+  const target = ex ? (ex.presc.isTime ? `${ex.presc.repMin}-${ex.presc.repMax} s` : `${ex.presc.repMin}-${ex.presc.repMax}`) : "";
+  const metricDisplay = ex?.measure.kind === "hold" ? liveMetric.toFixed(1) : String(liveMetric);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: C.dark, overflow: "hidden" }}>
+      <div style={{ position: "absolute", inset: 0, opacity: cameraState === "on" ? 0.85 : 0, transition: "opacity 0.7s ease" }}>
+        <video ref={videoRef} autoPlay playsInline muted
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)", display: "block" }} />
+        <canvas ref={canvasRef}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "scaleX(-1)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.10) 48%, rgba(8,11,15,0.72) 100%)" }} />
+      </div>
+
+      {/* Barra superior */}
+      {session && ex && (
+        <div style={{ position: "absolute", top: 20, left: 20, right: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, zIndex: 10 }}>
+          <div style={{ background: "rgba(8,11,15,0.62)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: "14px 22px", backdropFilter: "blur(14px)" }}>
+            <p style={{ color: C.sage, fontWeight: 900, letterSpacing: "0.14em", fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6 }}>
+              {session.dia} · Ejercicio {exIdx + 1}/{session.ejercicios.length} · Serie {serieNum}/{ex.setsHoy}
+            </p>
+            <p style={{ color: "#F8F6F2", fontWeight: 900, fontSize: "clamp(1.2rem,2.8vw,2rem)", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+              {ex.nombre}
+            </p>
+          </div>
+          <div style={{ background: "rgba(8,11,15,0.62)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: "14px 22px", textAlign: "right", backdropFilter: "blur(14px)" }}>
+            <p style={{ color: "rgba(248,246,242,0.4)", fontWeight: 900, letterSpacing: "0.14em", fontSize: "0.62rem", textTransform: "uppercase", marginBottom: 6 }}>objetivo {target}</p>
+            <p style={{ color: "#AFC3A5", fontWeight: 900, fontSize: "clamp(2rem,4.5vw,3.4rem)", lineHeight: 1 }}>
+              {phase === "serie" ? metricDisplay : "—"}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Centro: métrica gigante / descanso / RIR */}
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 5 }}>
+        <AnimatePresence mode="wait">
+          {phase === "serie" && ex && ex.measure.kind !== "manual" && (
+            <motion.div key="metric" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: "center" }}>
+              <p style={{ fontSize: "clamp(7rem,26vw,17rem)", fontWeight: 900, fontFamily: "monospace", color: "rgba(248,246,242,0.92)", lineHeight: 1, textShadow: "0 8px 50px rgba(0,0,0,0.6)" }}>
+                {metricDisplay}
+              </p>
+              <p style={{ color: "rgba(248,246,242,0.55)", fontSize: "clamp(1rem,2.4vw,1.5rem)", fontWeight: 700 }}>
+                {ex.measure.kind === "hold" ? "segundos" : "repeticiones"} · decí «listo» al terminar
+              </p>
+            </motion.div>
+          )}
+          {phase === "serie" && ex && ex.measure.kind === "manual" && (
+            <motion.div key="manual" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: "center", padding: "0 24px" }}>
+              <p style={{ fontSize: "clamp(2.5rem,7vw,4.5rem)", lineHeight: 1.1, marginBottom: 14 }}>🏃</p>
+              <p style={{ color: "#F8F6F2", fontSize: "clamp(1.5rem,3.6vw,2.4rem)", fontWeight: 900, maxWidth: 700, textShadow: "0 8px 40px rgba(0,0,0,0.7)" }}>
+                A tu ritmo — decí «listo» al terminar la serie
+              </p>
+            </motion.div>
+          )}
+          {phase === "rest" && (
+            <motion.div key="rest" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: "center" }}>
+              <p style={{ color: C.sage2, fontSize: "clamp(1.1rem,2.6vw,1.6rem)", fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>Descanso</p>
+              <p style={{ fontSize: "clamp(6rem,22vw,14rem)", fontWeight: 900, fontFamily: "monospace", color: "rgba(248,246,242,0.92)", lineHeight: 1, textShadow: "0 8px 50px rgba(0,0,0,0.6)" }}>
+                {restLeft}
+              </p>
+              <p style={{ color: "rgba(248,246,242,0.5)", fontSize: "clamp(0.95rem,2.2vw,1.3rem)", fontWeight: 700 }}>decí «listo» para arrancar antes</p>
+            </motion.div>
+          )}
+          {phase === "exIntro" && ex && (
+            <motion.div key="intro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: "center", padding: "0 24px" }}>
+              <p style={{ color: "#F8F6F2", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, maxWidth: 800, lineHeight: 1.25, textShadow: "0 8px 40px rgba(0,0,0,0.7)" }}>
+                {instructionFor(ex.nombre)}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* RIR chips (interactivo) */}
+      {phase === "rir" && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, zIndex: 20, background: "rgba(8,11,15,0.55)" }}>
+          <p style={{ color: "#F8F6F2", fontSize: "clamp(1.4rem,3.4vw,2.2rem)", fontWeight: 900, textAlign: "center", padding: "0 24px" }}>
+            ¿Cuántas repeticiones te quedaban en el tanque?
+          </p>
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
+            {[0, 1, 2, 3, 4].map((r) => (
+              <button key={r} onClick={() => advanceExercise(r)}
+                style={{ width: 74, height: 74, borderRadius: 20, background: r >= 1 && r <= 2 ? "rgba(122,143,116,0.35)" : "rgba(255,255,255,0.08)", border: `1px solid ${r >= 1 && r <= 2 ? C.sage : "rgba(255,255,255,0.15)"}`, color: "#F8F6F2", fontWeight: 900, fontSize: "1.5rem", cursor: "pointer" }}>
+                {r === 4 ? "4+" : r}
+              </button>
+            ))}
+          </div>
+          <p style={{ color: "rgba(248,246,242,0.45)", fontSize: "0.85rem" }}>1-2 es el punto ideal del método · decí «listo» para saltear</p>
+        </div>
+      )}
+
+      {/* Feedback inferior */}
+      {view === "training" && phase !== "rir" && (
+        <div style={{ position: "absolute", left: 20, right: 20, bottom: 30, display: "flex", justifyContent: "center", zIndex: 10, pointerEvents: "none" }}>
+          <div style={{ maxWidth: 900, background: "rgba(8,11,15,0.68)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 24, padding: "14px 28px", textAlign: "center", backdropFilter: "blur(16px)" }}>
+            <p style={{ color: "rgba(248,246,242,0.8)", fontWeight: 700, fontSize: "clamp(0.95rem,2.2vw,1.3rem)" }}>
+              {feedback || (detected ? "🎤 «listo» cierra la serie · «saltar» saltea el ejercicio" : "Ubicate donde te vea entera la cámara")}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {IS_DEV && cameraState === "on" && (
+        <div style={{ position: "absolute", left: 16, bottom: 8, zIndex: 30, color: "rgba(248,246,242,0.38)", fontSize: "0.68rem", fontFamily: "monospace", pointerEvents: "none" }}>
+          {hud}
+        </div>
+      )}
+      <EventMonitor />
+    </div>
+  );
+}
+
+const btnStyle: React.CSSProperties = {
+  background: "#7A8F74", color: "#fff", fontWeight: 800, fontSize: "1rem",
+  padding: "16px 36px", borderRadius: 999, border: "none", cursor: "pointer", textDecoration: "none",
+};
+
+function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "#080B0F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: wide ? "60px 20px" : "0 24px" }}>
+      <a href="/" style={{ position: "fixed", top: 18, left: 24, fontWeight: 900, fontSize: "1.05rem", letterSpacing: "-0.03em", color: "#F8F6F2", textDecoration: "none" }}>
+        CALISTENIA<span style={{ color: "#7A8F74" }}>.bio</span>
+      </a>
+      {children}
+    </div>
+  );
+}

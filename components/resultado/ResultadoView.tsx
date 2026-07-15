@@ -135,7 +135,11 @@ export function ResultadoView() {
           </>
         )}
 
-        <div style={{ textAlign: "center", marginTop: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, marginTop: 8 }}>
+          <a href={typeof window !== "undefined" ? `/sesion/${window.location.search}` : "/sesion/"}
+            style={{ background: C.sage, color: "#fff", fontWeight: 800, fontSize: "1.05rem", padding: "16px 40px", borderRadius: 999, textDecoration: "none" }}>
+            Entrenar mi sesión de hoy →
+          </a>
           <a href="/evaluacion/" style={{ color: "rgba(248,246,242,0.4)", fontSize: "0.85rem" }}>Volver a hacer la evaluación →</a>
         </div>
       </div>

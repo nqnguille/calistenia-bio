@@ -51,7 +51,8 @@ function planEmailHtml(rec: StoredRecord, link: string) {
     <h1 style="font-size:22px;color:#151716;margin:0 0 16px">Tu resultado y tu plan del Método FLORA</h1>
     ${headline}
     ${rec.plan ? `<p style="font-size:13px;color:#7A8F74;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px">Bloque 1 · Nivel ${rec.plan.nivel} · ${rec.plan.dias} días/semana · Foco: ${rec.plan.foco}</p>${sesionesHtml}` : ""}
-    <a href="${link}" style="display:inline-block;margin-top:12px;background:#7A8F74;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:14px 28px;border-radius:999px">Ver mi resultado completo →</a>
+    <a href="${link.replace("/resultado/", "/sesion/")}" style="display:inline-block;margin-top:12px;background:#7A8F74;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:14px 28px;border-radius:999px">Empezar mi primera sesión →</a>
+    <p style="margin:14px 0 0"><a href="${link}" style="color:#7A8F74;font-size:13px;font-weight:700;text-decoration:none">Ver mi resultado completo →</a></p>
     <p style="font-size:12px;color:#8E9188;margin-top:32px;line-height:1.6">Es una estimación de bienestar según normas científicas publicadas, no un diagnóstico médico.</p>
   </div>
 </body></html>`;
@@ -108,6 +109,7 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     results: (body.results as unknown) ?? existing?.results ?? {},
     maResult: (body.maResult as unknown) ?? existing?.maResult ?? null,
     plan: (body.plan as unknown) ?? existing?.plan ?? null,
+    progress: (body.progress as unknown) ?? existing?.progress ?? { sessions: [] },
     build: String(body.build ?? existing?.build ?? "").slice(0, 40),
     ua: request.headers.get("user-agent") ?? existing?.ua ?? "",
   };

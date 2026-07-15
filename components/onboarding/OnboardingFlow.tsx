@@ -3,6 +3,17 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { movementAgeV2, type TestId, type TestResults, type MovementAgeResult } from "@/lib/movementAge";
 import { OLS_SOURCE, STS_SOURCE, PUSHUP_SOURCE, SQUAT_SOURCE, type Sex } from "@/lib/norms";
+import { IS_DEV, logEvent } from "@/lib/evlog";
+import { speak, stopSpeaking, warmVoices } from "@/lib/voice";
+import {
+  type PoseRuntime, type PoseHandler,
+  bodyPresent, shoulderMidpoint, clamp, startPoseTracking,
+  stepOLS, stepSTS, stepPushup, stepSquat, squatScore,
+  OLS_INIT, REP_INIT, SQUAT_INIT,
+  type OlsState, type RepState, type SquatState,
+} from "@/lib/pose-engine";
+import { useVoiceCommands, useCountdown } from "@/components/shared/hooks";
+import { EventMonitor } from "@/components/shared/EventMonitor";
 
 const C = {
   cream: "#F8F6F2", ink: "#151716", ink2: "#343A36",
@@ -10,8 +21,7 @@ const C = {
   dark: "#080B0F", dark2: "#111821", red: "#ef4444",
 };
 
-const EVAL_BUILD = "v13 · 4 tests + email real";
-const IS_DEV = process.env.NODE_ENV !== "production";
+const EVAL_BUILD = "v14 · sesión guiada";
 
 /* ─── Types ─────────────────────────────── */
 type Step = "hook" | "intake" | "camera" | "movement" | "calculating" | "reveal" | "plan" | "save";
@@ -73,503 +83,6 @@ const TEST_META: Record<TestId, { label: string; source: string; fmt: (v: number
   squat: { label: "Movilidad de piernas", source: SQUAT_SOURCE, fmt: (v) => (v >= 3 ? "Profundidad completa" : v >= 2 ? "Profundidad parcial" : "Profundidad limitada") },
   pushup: { label: "Flexiones", source: PUSHUP_SOURCE, fmt: (v) => `${Math.round(v)} reps` },
 };
-
-type Landmark = { x: number; y: number; z?: number; visibility?: number };
-type PoseRuntime = { stop: () => void };
-type PoseHandler = (landmarks: Landmark[] | null, quality: number) => void;
-
-declare global {
-  interface Window {
-    Pose?: new (config: { locateFile: (file: string) => string }) => {
-      setOptions: (options: Record<string, unknown>) => void;
-      onResults: (cb: (results: { poseLandmarks?: Landmark[] }) => void) => void;
-      send: (input: { image: HTMLVideoElement }) => Promise<void>;
-      close: () => void;
-    };
-    Camera?: new (video: HTMLVideoElement, config: {
-      onFrame: () => Promise<void>;
-      width: number;
-      height: number;
-      facingMode: "user" | "environment";
-    }) => { start: () => Promise<void>; stop: () => void };
-  }
-}
-
-/* ─── Monitor de eventos ─────────────────── */
-// Registro liviano de todo lo que pasa en el front: errores JS, fases, voz,
-// detección. Visible en pantalla en desarrollo (panel abajo a la derecha) y
-// persistido en localStorage("calistenia_evlog") para poder reportar sin capturas.
-type EvEntry = { t: number; tag: string; msg: string };
-const EVLOG: EvEntry[] = [];
-let evSubscribers: Array<() => void> = [];
-
-function logEvent(tag: string, msg: string) {
-  EVLOG.push({ t: Date.now(), tag, msg });
-  if (EVLOG.length > 300) EVLOG.splice(0, EVLOG.length - 300);
-  try { localStorage.setItem("calistenia_evlog", JSON.stringify(EVLOG.slice(-120))); } catch {}
-  if (IS_DEV) console.log(`[ev:${tag}]`, msg);
-  evSubscribers.forEach((f) => f());
-}
-
-function EventMonitor() {
-  const [, force] = useState(0);
-  useEffect(() => {
-    const f = () => force((x) => x + 1);
-    evSubscribers.push(f);
-    return () => { evSubscribers = evSubscribers.filter((x) => x !== f); };
-  }, []);
-  if (!IS_DEV) return null;
-  const last = EVLOG.slice(-7);
-  if (!last.length) return null;
-  return (
-    <div style={{ position:"absolute", right:12, bottom:10, zIndex:30, width:330, maxWidth:"44vw", background:"rgba(8,11,15,0.72)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:12, padding:"8px 10px", pointerEvents:"none", backdropFilter:"blur(10px)" }}>
-      {last.map((e, i) => (
-        <p key={`${e.t}-${i}`} style={{ margin:0, fontSize:"0.6rem", lineHeight:1.5, fontFamily:"monospace", color: e.tag === "error" || e.tag === "promise" ? "#F17464" : "rgba(248,246,242,0.55)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-          {new Date(e.t).toLocaleTimeString("es-AR", { hour12: false })} <b style={{ color: e.tag === "error" ? "#F17464" : C.sage }}>{e.tag}</b> {e.msg}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-/* ─── Carga de MediaPipe ─────────────────── */
-const MP_SCRIPTS = [
-  "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js",
-  "https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js",
-];
-
-let mediaPipePromise: Promise<void> | null = null;
-
-function loadScript(src: string) {
-  return new Promise<void>((resolve, reject) => {
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
-    if (existing) {
-      if (existing.dataset.loaded === "true") resolve();
-      else existing.addEventListener("load", () => resolve(), { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = src;
-    script.crossOrigin = "anonymous";
-    script.async = true;
-    script.dataset.loaded = "false";
-    script.onload = () => { script.dataset.loaded = "true"; resolve(); };
-    script.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
-    document.head.appendChild(script);
-  });
-}
-
-function loadMediaPipe() {
-  if (typeof window === "undefined") return Promise.resolve();
-  if (window.Pose && window.Camera) return Promise.resolve();
-  mediaPipePromise ??= MP_SCRIPTS.reduce(
-    (chain, src) => chain.then(() => loadScript(src)),
-    Promise.resolve()
-  ).then(() => {
-    if (!window.Pose || !window.Camera) throw new Error("MediaPipe no quedó disponible");
-  });
-  return mediaPipePromise;
-}
-
-const LM = {
-  NOSE: 0,
-  L_SHOULDER: 11, R_SHOULDER: 12,
-  L_ELBOW: 13, R_ELBOW: 14,
-  L_WRIST: 15, R_WRIST: 16,
-  L_HIP: 23, R_HIP: 24,
-  L_KNEE: 25, R_KNEE: 26,
-  L_ANKLE: 27, R_ANKLE: 28,
-} as const;
-
-// Esqueleto COMPLETO de BlazePose: 33 landmarks (cara, torso, manos y pies).
-const FULL_CONNECTIONS: Array<[number, number]> = [
-  [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], [9, 10],
-  [11, 12], [11, 23], [12, 24], [23, 24],
-  [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19],
-  [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20],
-  [23, 25], [25, 27], [27, 29], [29, 31], [27, 31],
-  [24, 26], [26, 28], [28, 30], [30, 32], [28, 32],
-];
-
-const CORE_POINTS = new Set<number>([11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]);
-const isDetailPoint = (i: number) => !CORE_POINTS.has(i) && i !== LM.NOSE;
-
-function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
-function avg(nums: number[]) { return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0; }
-function visOk(lm?: Landmark, threshold = 0.42) { return !!lm && (lm.visibility ?? 1) >= threshold; }
-
-function angle(a: Landmark, b: Landmark, c: Landmark) {
-  const ab = { x: a.x - b.x, y: a.y - b.y };
-  const cb = { x: c.x - b.x, y: c.y - b.y };
-  const dot = ab.x * cb.x + ab.y * cb.y;
-  const mag = Math.hypot(ab.x, ab.y) * Math.hypot(cb.x, cb.y);
-  if (!mag) return 0;
-  return Math.acos(clamp(dot / mag, -1, 1)) * (180 / Math.PI);
-}
-
-// Umbral bajo a propósito: con luz tenue MediaPipe reporta visibilidades ~0.3
-// aun con el cuerpo entero en cuadro. El gate fino lo hace poseQuality.
-function essentialVisible(lms: Landmark[]) {
-  return [LM.L_SHOULDER, LM.R_SHOULDER, LM.L_HIP, LM.R_HIP].every((i) => visOk(lms[i], 0.22));
-}
-
-// Confianza de detección 0-100: promedio de visibilidad de hombros, cadera y rodillas.
-function poseQuality(lms: Landmark[] | null) {
-  if (!lms) return 0;
-  const pts = [LM.L_SHOULDER, LM.R_SHOULDER, LM.L_HIP, LM.R_HIP, LM.L_KNEE, LM.R_KNEE];
-  return Math.round(clamp(avg(pts.map((i) => lms[i]?.visibility ?? 0)) * 100, 0, 100));
-}
-
-// Gate tolerante: si el modelo devuelve un esqueleto coherente, hay un cuerpo.
-function bodyPresent(lms: Landmark[] | null): lms is Landmark[] {
-  if (!lms || lms.length < 33) return false;
-  return essentialVisible(lms) || poseQuality(lms) >= 28;
-}
-
-function shoulderMidpoint(lms: Landmark[]) {
-  const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER];
-  return { x: (ls.x + rs.x) / 2, y: (ls.y + rs.y) / 2 };
-}
-
-/* ─── Motores de medición por test (Fase 1) ──
-   Cada uno es una función pura de estado: (landmarks, estado previo) → nuevo
-   estado. Miden un CONTEO o un TIEMPO — nunca un ángulo absoluto — que es
-   donde MediaPipe es confiable. */
-
-interface OlsState { legUp: boolean; upSince: number | null; heldMs: number; attempted: boolean; done: boolean; }
-const OLS_INIT: OlsState = { legUp: false, upSince: null, heldMs: 0, attempted: false, done: false };
-
-function stepOLS(lms: Landmark[] | null, prev: OlsState, capMs: number): OlsState {
-  if (prev.done || !lms) return prev;
-  const la = lms[LM.L_ANKLE], ra = lms[LM.R_ANKLE], lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE], lh = lms[LM.L_HIP], rh = lms[LM.R_HIP];
-  if (![la, ra, lk, rk, lh, rh].every((p) => visOk(p, 0.3))) return prev;
-
-  const ankleDiff = Math.abs(la.y - ra.y);
-  const oneKneeBent = Math.min(angle(lh, lk, la), angle(rh, rk, ra)) < 150;
-  const legIsUp = ankleDiff > 0.06 && oneKneeBent;
-  const now = performance.now();
-
-  if (legIsUp && !prev.legUp) return { ...prev, legUp: true, upSince: now, attempted: true };
-  if (legIsUp && prev.legUp && prev.upSince != null) {
-    const heldMs = now - prev.upSince;
-    if (heldMs >= capMs) return { ...prev, heldMs: capMs, done: true };
-    return { ...prev, heldMs };
-  }
-  if (!legIsUp && prev.legUp) {
-    // El pie volvió a tocar el piso: se termina el intento (mínimo 0.5s para contar).
-    return { ...prev, legUp: false, upSince: null, done: prev.heldMs > 500 };
-  }
-  return prev;
-}
-
-interface RepState { phase: "up" | "down" | "unknown"; reps: number; }
-const REP_INIT: RepState = { phase: "unknown", reps: 0 };
-
-function stepSTS(lms: Landmark[] | null, prev: RepState): RepState {
-  if (!lms) return prev;
-  const lh = lms[LM.L_HIP], rh = lms[LM.R_HIP], lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE], la = lms[LM.L_ANKLE], ra = lms[LM.R_ANKLE];
-  if (![lh, rh, lk, rk, la, ra].every((p) => visOk(p, 0.3))) return prev;
-  const kneeAngle = avg([angle(lh, lk, la), angle(rh, rk, ra)]);
-  if (kneeAngle < 110) return { phase: "down", reps: prev.reps };
-  if (kneeAngle > 155) {
-    if (prev.phase === "down") return { phase: "up", reps: prev.reps + 1 };
-    return { phase: "up", reps: prev.reps };
-  }
-  return prev;
-}
-
-function stepPushup(lms: Landmark[] | null, prev: RepState): RepState {
-  if (!lms) return prev;
-  const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER], le = lms[LM.L_ELBOW], re = lms[LM.R_ELBOW], lw = lms[LM.L_WRIST], rw = lms[LM.R_WRIST];
-  if (![ls, rs, le, re, lw, rw].every((p) => visOk(p, 0.3))) return prev;
-  const elbowAngle = avg([angle(ls, le, lw), angle(rs, re, rw)]);
-  if (elbowAngle < 100) return { phase: "down", reps: prev.reps };
-  if (elbowAngle > 155) {
-    if (prev.phase === "down") return { phase: "up", reps: prev.reps + 1 };
-    return { phase: "up", reps: prev.reps };
-  }
-  return prev;
-}
-
-// Sentadilla profunda: test de UN intento, sin fatiga — se registra la mejor
-// posición sostenida en la ventana de tiempo, no se cuentan repeticiones.
-interface SquatState { bestDelta: number; armsUpAtBest: boolean; }
-const SQUAT_INIT: SquatState = { bestDelta: -1, armsUpAtBest: false };
-
-function stepSquat(lms: Landmark[] | null, prev: SquatState): SquatState {
-  if (!lms) return prev;
-  const lh = lms[LM.L_HIP], rh = lms[LM.R_HIP], lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE];
-  const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER], lw = lms[LM.L_WRIST], rw = lms[LM.R_WRIST];
-  if (![lh, rh, lk, rk].every((p) => visOk(p, 0.3))) return prev;
-  const hipY = avg([lh.y, rh.y]);
-  const kneeY = avg([lk.y, rk.y]);
-  const delta = hipY - kneeY; // más alto = sentadilla más profunda (cadera a la altura de rodilla o más abajo)
-  const armsUp = [ls, rs, lw, rw].every((p) => visOk(p, 0.3)) && avg([lw.y, rw.y]) < avg([ls.y, rs.y]) - 0.03;
-  if (delta > prev.bestDelta) return { bestDelta: delta, armsUpAtBest: armsUp };
-  return prev;
-}
-
-// 0 = sin datos todavía; 1 limitada, 2 parcial, 3 profundidad completa.
-function squatScore(state: SquatState): 0 | 1 | 2 | 3 {
-  if (state.bestDelta <= -1) return 0;
-  if (state.bestDelta >= 0 && state.armsUpAtBest) return 3;
-  if (state.bestDelta >= -0.06) return 2;
-  return 1;
-}
-
-/* ─── Canvas / dibujo del esqueleto ──────── */
-function resizeCanvas(canvas: HTMLCanvasElement) {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const w = Math.round((canvas.clientWidth || 1) * dpr);
-  const h = Math.round((canvas.clientHeight || 1) * dpr);
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
-  }
-}
-
-function coverMapper(canvas: HTMLCanvasElement, video: HTMLVideoElement) {
-  const vw = video.videoWidth || 1280;
-  const vh = video.videoHeight || 720;
-  const scale = Math.max(canvas.width / vw, canvas.height / vh);
-  const dw = vw * scale, dh = vh * scale;
-  const ox = (canvas.width - dw) / 2, oy = (canvas.height - dh) / 2;
-  return (lm: Landmark) => ({ x: ox + lm.x * dw, y: oy + lm.y * dh });
-}
-
-function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landmark[] | null, quality = 80) {
-  resizeCanvas(canvas);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!lms) return;
-
-  const good = quality >= 68;
-  const color = good ? "#AFC3A5" : quality >= 48 ? "#F0C36A" : "#F17464";
-  const dim = good ? "rgba(175,195,165,0.28)" : "rgba(241,116,100,0.25)";
-  const toCanvas = coverMapper(canvas, video);
-  const u = clamp(Math.max(canvas.width, canvas.height) / 1400, 0.6, 2.4);
-
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 14 * u;
-
-  const DRAW_VIS = 0.15;
-  for (const [a, b] of FULL_CONNECTIONS) {
-    const la = lms[a], lb = lms[b];
-    if (!la || !lb || !visOk(la, DRAW_VIS) || !visOk(lb, DRAW_VIS)) continue;
-    const pa = toCanvas(la), pb = toCanvas(lb);
-    const detail = isDetailPoint(a) && isDetailPoint(b);
-    ctx.beginPath();
-    ctx.strokeStyle = detail ? dim : color;
-    ctx.lineWidth = (detail ? 2.5 : 5) * u;
-    ctx.moveTo(pa.x, pa.y);
-    ctx.lineTo(pb.x, pb.y);
-    ctx.stroke();
-  }
-
-  for (let i = 0; i < lms.length; i++) {
-    const lm = lms[i];
-    if (!lm || !visOk(lm, DRAW_VIS)) continue;
-    const p = toCanvas(lm);
-    ctx.beginPath();
-    ctx.fillStyle = isDetailPoint(i) ? dim : color;
-    ctx.arc(p.x, p.y, (i === LM.NOSE ? 7 : isDetailPoint(i) ? 3 : 6) * u, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-/* ─── Runtime de pose (se crea UNA vez por journey) ─ */
-async function startPoseTracking({
-  video,
-  canvas,
-  onStatus,
-  onResults,
-}: {
-  video: HTMLVideoElement;
-  canvas: HTMLCanvasElement;
-  onStatus?: (status: string) => void;
-  onResults: (landmarks: Landmark[] | null, quality: number) => void;
-}): Promise<PoseRuntime> {
-  onStatus?.("Cargando modelo biomecánico…");
-  await loadMediaPipe();
-
-  const Pose = window.Pose!;
-  const Camera = window.Camera!;
-  let stopped = false;
-
-  const pose = new Pose({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}` });
-  const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
-  pose.setOptions({
-    modelComplexity: isMobile ? 1 : 2,
-    smoothLandmarks: true,
-    enableSegmentation: false,
-    minDetectionConfidence: 0.4,
-    minTrackingConfidence: 0.4,
-  });
-  logEvent("modelo", `complexity ${isMobile ? 1 : 2} (${isMobile ? "mobile" : "desktop"})`);
-
-  pose.onResults((results) => {
-    if (stopped) return;
-    const lms = results.poseLandmarks ?? null;
-    const quality = poseQuality(lms);
-    drawPose(canvas, video, lms, quality);
-    onResults(lms, quality);
-  });
-
-  const camera = new Camera(video, {
-    onFrame: async () => {
-      if (stopped) return;
-      resizeCanvas(canvas);
-      await pose.send({ image: video });
-    },
-    width: 1280,
-    height: 720,
-    facingMode: "user",
-  });
-
-  onStatus?.("Solicitando permiso de cámara…");
-  await camera.start();
-  onStatus?.("Cámara activa · buscando cuerpo…");
-  logEvent("camara", "stream iniciado");
-
-  return {
-    stop: () => {
-      stopped = true;
-      logEvent("camara", "stream detenido");
-      try { camera.stop(); } catch {}
-      try { pose.close(); } catch {}
-      const stream = video.srcObject as MediaStream | null;
-      stream?.getTracks().forEach((track) => track.stop());
-      video.srcObject = null;
-    },
-  };
-}
-
-/* ─── Voz (guía conversacional) ──────────── */
-const speechState = { lastKey: "", lastAt: 0 };
-
-function warmVoices() {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.getVoices();
-  window.speechSynthesis.addEventListener?.("voiceschanged", () => {}, { once: true });
-}
-
-// Devuelve una Promise que se resuelve cuando la locución TERMINA de decirse.
-function speak(text: string, opts: { key?: string; minGap?: number } = {}): Promise<void> {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") return resolve();
-    const synth = window.speechSynthesis;
-    if (!synth) return resolve();
-    const key = opts.key ?? text;
-    const now = Date.now();
-    if (key === speechState.lastKey && now - speechState.lastAt < (opts.minGap ?? 6000)) return resolve();
-    speechState.lastKey = key;
-    speechState.lastAt = now;
-    synth.cancel();
-    logEvent("voz", text.slice(0, 64));
-    const u = new SpeechSynthesisUtterance(text);
-    const voices = synth.getVoices();
-    const v =
-      voices.find((x) => x.lang?.toLowerCase().startsWith("es-ar")) ||
-      voices.find((x) => x.lang?.toLowerCase().startsWith("es-419")) ||
-      voices.find((x) => x.lang?.toLowerCase().startsWith("es"));
-    if (v) u.voice = v;
-    u.lang = v?.lang || "es-AR";
-    u.rate = 1.04;
-
-    let done = false;
-    const finish = () => { if (!done) { done = true; resolve(); } };
-    u.onend = finish;
-    u.onerror = finish;
-    setTimeout(finish, Math.max(1800, text.length * 105));
-    synth.speak(u);
-  });
-}
-
-function stopSpeaking() {
-  if (typeof window !== "undefined") window.speechSynthesis?.cancel();
-}
-
-/* ─── Reconocimiento de voz (órdenes del usuario) ── */
-const ADVANCE_WORDS = ["listo", "lista", "avanzar", "avanza", "continuar", "continua", "seguir", "empezar", "empeza", "dale", "vamos", "ya estoy", "termine", "terminé"];
-
-function matchesAdvance(text: string) {
-  const t = text.toLowerCase();
-  return ADVANCE_WORDS.some((w) => t.includes(w));
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SpeechRecognitionCtor = new () => any;
-
-function useVoiceCommands(enabled: boolean, onAdvance: () => void) {
-  const cbRef = useRef(onAdvance);
-  useEffect(() => { cbRef.current = onAdvance; }, [onAdvance]);
-
-  useEffect(() => {
-    if (!enabled || typeof window === "undefined") return;
-    const w = window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor };
-    const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!Ctor) return;
-
-    let alive = true;
-    const rec = new Ctor();
-    rec.lang = "es-AR";
-    rec.continuous = true;
-    rec.interimResults = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    rec.onresult = (e: any) => {
-      if (window.speechSynthesis?.speaking) return; // no escucharse a sí misma
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const text: string = e.results[i]?.[0]?.transcript ?? "";
-        if (matchesAdvance(text)) {
-          logEvent("mic", `orden reconocida: "${text.trim().slice(0, 40)}"`);
-          cbRef.current();
-          break;
-        }
-      }
-    };
-    rec.onend = () => { if (alive) { try { rec.start(); } catch {} } };
-    rec.onerror = () => {};
-    try { rec.start(); } catch {}
-    return () => {
-      alive = false;
-      try { rec.onend = null; rec.stop(); } catch {}
-    };
-  }, [enabled]);
-}
-
-/* ─── Countdown sin efectos dentro del updater ── */
-function useCountdown(from: number, active: boolean, onDone: () => void) {
-  const [remaining, setRemaining] = useState(from);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const firedRef = useRef(false);
-  const onDoneRef = useRef(onDone);
-  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
-
-  useEffect(() => {
-    firedRef.current = false;
-    if (!active) { setRemaining(from); return; }
-    setRemaining(from);
-    intervalRef.current = setInterval(() => {
-      setRemaining((r) => (r > 0 ? r - 1 : 0));
-    }, 1000);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [active, from]);
-
-  useEffect(() => {
-    if (active && remaining === 0 && !firedRef.current) {
-      firedRef.current = true;
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      onDoneRef.current();
-    }
-  }, [remaining, active]);
-
-  return remaining;
-}
 
 /* ─── Plan FLORA: del resultado al primer bloque ── */
 type Ejercicio = { n: string; series: string };
@@ -741,7 +254,7 @@ function StepHook({ onNext }: { onNext: () => void }) {
   );
 }
 
-/* ─── STEP: INTAKE (edad + sexo, antes de la cámara) ── */
+/* ─── STEP: INTAKE (edad exacta + sexo, antes de la cámara) ── */
 function StepIntake({ onDone }: { onDone: (age: number, sex: Sex) => void }) {
   const [sub, setSub] = useState<"age" | "sex">("age");
   const [age, setAge] = useState("");
@@ -848,6 +361,8 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
       setQuality(poseConfidence);
       if (landmarks) presentFrames.current += 1;
 
+      // Quietud: si vos o la cámara se están moviendo (acomodando la laptop,
+      // buscando el ángulo), los landmarks se mueven y NO arrancamos.
       let motion = 1;
       if (ok && landmarks) {
         const mid = shoulderMidpoint(landmarks);
@@ -873,10 +388,13 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
         speak("No logro verte. Prendé una luz de frente y ponete a dos o tres metros.", { key: "cam-nobody", minGap: 12000 });
       }
 
+      // Tiempo mínimo de encuadre: nunca antes de 4s de cámara activa,
+      // y solo tras ~2s de cuerpo detectado Y quieto.
       const elapsed = Date.now() - startedAtRef.current;
       if (elapsed > 4000 && detectedFrames.current > 50) {
         forceAdvance("¡Te veo! Arrancamos con la primera prueba.");
       }
+      // Red de seguridad anti-trabas (~12s de esqueleto presente).
       if (elapsed > 6000 && presentFrames.current > 300) {
         forceAdvance("La luz no ayuda, pero te veo lo suficiente. Seguimos.");
       }
@@ -1141,6 +659,8 @@ function StepMovement({ setPoseHandler, onComplete }: {
         }
       }
 
+      // Arranque manos libres: consigna terminada + 1s de aire + cuerpo
+      // detectado Y QUIETO (acomodar la cámara/caminar resetea).
       if (phaseRef.current === "intro") {
         if (introReadyRef.current && ok && motion < 0.012 && Date.now() - introAtRef.current > 1000) {
           stableRef.current += 1;
@@ -1156,6 +676,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
   const timer = useCountdown(current.duration, phase === "counting", () => handleMoveDone());
   const progress = phase === "counting" ? ((current.duration - timer) / current.duration) * 100 : 0;
 
+  // Coaching en vivo a mitad de prueba.
   useEffect(() => {
     if (phase !== "counting") return;
     if (timer === Math.ceil(current.duration / 2) && !cueFiredRef.current) {
@@ -1172,6 +693,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
     <motion.div key="movement" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
       style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
 
+      {/* Barra superior: qué prueba es + métrica en vivo */}
       <div style={{ position:"absolute", top:74, left:20, right:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:14 }}>
         <div style={{ background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"14px 22px", backdropFilter:"blur(14px)" }}>
           <p style={{ color:C.sage, fontWeight:900, letterSpacing:"0.14em", fontSize:"0.72rem", textTransform:"uppercase", marginBottom:6 }}>
@@ -1189,6 +711,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
         </div>
       </div>
 
+      {/* INTRO: consigna gigante en el centro */}
       {phase === "intro" && (
         <div style={{ position:"absolute", left:0, right:0, top:"50%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", padding:"0 24px" }}>
           <div style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.75)" }}>
@@ -1203,6 +726,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
         </div>
       )}
 
+      {/* PREP: cuenta regresiva gigante */}
       {phase === "prep" && (
         <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(8,11,15,0.28)" }}>
           <motion.p key={prepLeft} initial={{ opacity:0, scale:1.6 }} animate={{ opacity:1, scale:1 }} transition={{ duration:0.35 }}
@@ -1212,6 +736,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
         </div>
       )}
 
+      {/* COUNTING: métrica gigante centrada */}
       {phase === "counting" && (
         <div style={{ position:"absolute", left:0, right:0, top:"46%", transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
           <p style={{ fontSize:"clamp(6rem,20vw,13rem)", fontWeight:900, fontFamily:"monospace", color:"rgba(248,246,242,0.92)", lineHeight:1, textShadow:"0 8px 50px rgba(0,0,0,0.6)" }}>
@@ -1221,6 +746,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
         </div>
       )}
 
+      {/* Abajo: feedback del trainer + barra + progreso */}
       <div style={{ position:"absolute", left:20, right:20, bottom:40, display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
         <div style={{ maxWidth:1000, background:"rgba(8,11,15,0.70)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"18px 34px", textAlign:"center", backdropFilter:"blur(16px)" }}>
           <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"clamp(1.4rem,3.4vw,2.4rem)", lineHeight:1.3, letterSpacing:"-0.01em" }}>
@@ -1505,6 +1031,11 @@ function resultUrl(id: string) {
   return `${window.location.origin}/resultado/?id=${encodeURIComponent(id)}`;
 }
 
+function sesionUrl(id: string) {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}/sesion/?id=${encodeURIComponent(id)}`;
+}
+
 function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: number | null; chronoAge: number; results: TestResults; resultId: string | null }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -1574,8 +1105,13 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
             </button>
           </div>
         )}
-        <a href="/" style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"14px 36px", borderRadius:999, textDecoration:"none" }}>
-          Explorar CALISTENIA.bio →
+        {resultId && (
+          <a href={sesionUrl(resultId)} style={{ background:C.sage, color:"#fff", fontWeight:800, fontSize:"1.05rem", padding:"16px 40px", borderRadius:999, textDecoration:"none" }}>
+            Empezar mi primera sesión →
+          </a>
+        )}
+        <a href="/" style={{ background:"transparent", color:"rgba(248,246,242,0.4)", fontWeight:600, fontSize:"0.9rem", textDecoration:"none" }}>
+          Explorar CALISTENIA.bio
         </a>
       </motion.div>
     );
@@ -1591,7 +1127,7 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
           {movementAge != null ? <>Tu Edad de Movimiento es <span style={{ color:C.sage }}>{movementAge}</span></> : "Guardado con éxito"}
         </h2>
         <p style={{ color:"rgba(248,246,242,0.5)", fontSize:"0.95rem", lineHeight:1.65, fontWeight:300 }}>
-          Dejanos tu email (opcional, todavía no enviamos nada automático) o copiá el link de abajo para volver a verlo.
+          Dejanos tu email (opcional) para recibir tu plan completo, o copiá el link de abajo para volver a verlo.
         </p>
       </div>
 
@@ -1619,6 +1155,9 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
 }
 
 /* ─── MAIN FLOW ───────────────────────── */
+// Arquitectura de feed único: la cámara y el modelo de pose se crean UNA vez
+// y viven a nivel del flow. Los pasos son overlays (slides) que se suscriben
+// al stream de landmarks.
 export function OnboardingFlow() {
   const [step, setStep] = useState<Step>("hook");
   const [chronoAge, setChronoAge] = useState(40);
@@ -1665,6 +1204,7 @@ export function OnboardingFlow() {
     }
   }, [cameraState]);
 
+  // Captura global de errores + limpieza al desmontar.
   useEffect(() => {
     warmVoices();
     logEvent("app", `journey iniciado (${EVAL_BUILD})`);
@@ -1719,6 +1259,7 @@ export function OnboardingFlow() {
   const stepIndex = ["hook","intake","camera","movement","calculating","reveal","plan","save"].indexOf(step);
   const TOTAL_STEPS = 7;
 
+  // El feed queda visible todo el journey; se atenúa en las etapas de resultado.
   const feedOpacity =
     cameraState !== "on" ? 0
     : step === "camera" || step === "movement" ? 0.85
@@ -1728,6 +1269,7 @@ export function OnboardingFlow() {
   return (
     <div style={{ position:"fixed", inset:0, background:C.dark, overflow:"hidden" }}>
 
+      {/* ── Feed único de video + esqueleto (persistente) ── */}
       <div style={{ position:"absolute", inset:0, opacity: feedOpacity, transition:"opacity 0.7s ease" }}>
         <video ref={videoRef} autoPlay playsInline muted
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block" }} />
@@ -1736,6 +1278,7 @@ export function OnboardingFlow() {
         <div style={{ position:"absolute", inset:0, pointerEvents:"none", background:"radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.10) 48%, rgba(8,11,15,0.72) 100%)" }} />
       </div>
 
+      {/* Top bar */}
       <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px 24px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <a href="/" style={{ fontWeight:900, fontSize:"1.1rem", letterSpacing:"-0.03em", color:"#F8F6F2", textDecoration:"none" }}>
           CALISTENIA<span style={{ color:C.sage }}>.bio</span>
@@ -1756,6 +1299,7 @@ export function OnboardingFlow() {
         )}
       </div>
 
+      {/* ── Slides encima del feed ── */}
       <div style={{ position:"absolute", inset:0, zIndex:5 }}>
         <AnimatePresence mode="wait">
           {step === "hook" && <StepHook key="hook" onNext={() => { logEvent("fase", "hook → intake"); setStep("intake"); }} />}
@@ -1784,6 +1328,7 @@ export function OnboardingFlow() {
         </AnimatePresence>
       </div>
 
+      {/* HUD de diagnóstico + monitor de eventos (solo dev) */}
       {IS_DEV && cameraState === "on" && (
         <div style={{ position:"absolute", left:16, bottom:10, zIndex:30, color:"rgba(248,246,242,0.38)", fontSize:"0.68rem", fontFamily:"monospace", pointerEvents:"none" }}>
           {hud}
@@ -1791,6 +1336,7 @@ export function OnboardingFlow() {
       )}
       <EventMonitor />
 
+      {/* Bottom progress bar */}
       {step !== "hook" && (
         <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(255,255,255,0.06)", zIndex:20 }}>
           <motion.div
