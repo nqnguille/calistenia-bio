@@ -10,7 +10,7 @@ const C = {
   dark: "#080B0F", dark2: "#111821", red: "#ef4444",
 };
 
-const EVAL_BUILD = "v11 · normas científicas";
+const EVAL_BUILD = "v12 · autoguardado + link";
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 /* ─── Types ─────────────────────────────── */
@@ -1449,36 +1449,49 @@ function StepPlan({ breakdown, movementAge, chronoAge, onNext }: {
 }
 
 /* ─── STEP: SAVE ──────────────────────── */
-function StepSave({ movementAge, chronoAge, results }: { movementAge: number | null; chronoAge: number; results: TestResults }) {
+function resultUrl(id: string) {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}/resultado/?id=${encodeURIComponent(id)}`;
+}
+
+function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: number | null; chronoAge: number; results: TestResults; resultId: string | null }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // Persistir localmente SIEMPRE, se complete el email o no.
+  // Persistir localmente SIEMPRE (además del autoguardado en el servidor
+  // que ya ocurrió apenas se calculó el resultado, en handleMovementsComplete).
   useEffect(() => {
     try {
-      localStorage.setItem("calistenia_eval_result", JSON.stringify({ ts: Date.now(), chronoAge, movementAge, results, build: EVAL_BUILD }));
+      localStorage.setItem("calistenia_eval_result", JSON.stringify({ ts: Date.now(), chronoAge, movementAge, results, resultId, build: EVAL_BUILD }));
     } catch {}
-  }, [chronoAge, movementAge, results]);
+  }, [chronoAge, movementAge, results, resultId]);
+
+  const link = resultId ? resultUrl(resultId) : "";
+
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(link).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email) { setSent(true); return; }
     setSaving(true);
     try {
+      // Actualiza el mismo registro ya guardado, sumándole el email
+      // (en vez de crear uno nuevo con datos incompletos).
       await fetch("/api/evaluacion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          edad: chronoAge,
-          movementAge,
-          scores: [results.ols ?? null, results.sts ?? null, results.pushup ?? null],
-          build: EVAL_BUILD,
-        }),
+        body: JSON.stringify({ id: resultId, email, chronoAge, sex: undefined, build: EVAL_BUILD }),
       });
-      logEvent("save", `enviado a ${email}`);
+      logEvent("save", `email sumado: ${email}`);
     } catch (err) {
-      logEvent("error", `save falló: ${err instanceof Error ? err.message : String(err)}`);
+      logEvent("error", `save email falló: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSaving(false);
       setSent(true);
@@ -1492,9 +1505,19 @@ function StepSave({ movementAge, chronoAge, results }: { movementAge: number | n
         <motion.div animate={{ scale:[1,1.2,1] }} transition={{ duration:0.5 }}
           style={{ fontSize:"4rem" }}>🎉</motion.div>
         <h2 style={{ fontSize:"1.8rem", fontWeight:900, color:"#F8F6F2", letterSpacing:"-0.02em" }}>¡Listo!</h2>
-        <p style={{ color:"rgba(248,246,242,0.55)", fontSize:"1rem", lineHeight:1.7, maxWidth:360, fontWeight:300 }}>
-          {email ? <>Guardamos tu resultado y te lo mandamos a <strong style={{ color:C.sage }}>{email}</strong>.</> : "Guardamos tu resultado en este dispositivo."} En tu próxima sesión empezamos con tu plan del Método FLORA.
+        <p style={{ color:"rgba(248,246,242,0.55)", fontSize:"1rem", lineHeight:1.7, maxWidth:380, fontWeight:300 }}>
+          Guardamos tu resultado. Todavía no mandamos email automático — usá el link de abajo para verlo cuando quieras.
         </p>
+        {link && (
+          <div style={{ display:"flex", gap:8, width:"min(480px, 92vw)" }}>
+            <div style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 14px", color:"rgba(248,246,242,0.7)", fontSize:"0.82rem", textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {link}
+            </div>
+            <button onClick={handleCopy} style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"0.85rem", padding:"0 18px", borderRadius:12, border:"none", cursor:"pointer", whiteSpace:"nowrap" }}>
+              {copied ? "¡Copiado!" : "Copiar"}
+            </button>
+          </div>
+        )}
         <a href="/" style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"14px 36px", borderRadius:999, textDecoration:"none" }}>
           Explorar CALISTENIA.bio →
         </a>
@@ -1507,25 +1530,34 @@ function StepSave({ movementAge, chronoAge, results }: { movementAge: number | n
       style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28, textAlign:"center", padding:"0 24px" }}>
 
       <div style={{ maxWidth:480 }}>
-        <p style={{ fontSize:"0.75rem", color:C.sage, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:8 }}>Guardá tu resultado</p>
+        <p style={{ fontSize:"0.75rem", color:C.sage, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:8 }}>Ya guardamos tu resultado</p>
         <h2 style={{ fontSize:"clamp(1.8rem,4vw,2.4rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:12 }}>
-          {movementAge != null ? <>Tu Edad de Movimiento es <span style={{ color:C.sage }}>{movementAge}</span></> : "Ya guardamos tu resultado"}
+          {movementAge != null ? <>Tu Edad de Movimiento es <span style={{ color:C.sage }}>{movementAge}</span></> : "Guardado con éxito"}
         </h2>
         <p style={{ color:"rgba(248,246,242,0.5)", fontSize:"0.95rem", lineHeight:1.65, fontWeight:300 }}>
-          Dejanos tu email (opcional) para recibir tu plan completo del Bloque 1 — las 5 semanas detalladas.
+          Dejanos tu email (opcional, todavía no enviamos nada automático) o copiá el link de abajo para volver a verlo.
         </p>
       </div>
 
+      {link && (
+        <div style={{ display:"flex", gap:8, width:"min(480px, 92vw)" }}>
+          <div style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 14px", color:"rgba(248,246,242,0.7)", fontSize:"0.8rem", textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            {link}
+          </div>
+          <button onClick={handleCopy} style={{ background:"rgba(122,143,116,0.2)", color:C.sage, fontWeight:700, fontSize:"0.85rem", padding:"0 18px", borderRadius:12, border:`1px solid ${C.sage}55`, cursor:"pointer", whiteSpace:"nowrap" }}>
+            {copied ? "¡Copiado!" : "Copiar link"}
+          </button>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} style={{ width:"min(480px, 92vw)", display:"flex", flexDirection:"column", gap:12 }}>
-        <input type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)}
+        <input type="email" placeholder="tu@email.com (opcional)" value={email} onChange={e => setEmail(e.target.value)}
           style={{ width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"14px 18px", color:"#F8F6F2", fontSize:"1rem", outline:"none" }} />
         <motion.button type="submit" disabled={saving} whileHover={{ scale:1.03 }} whileTap={{ scale:0.97 }}
           style={{ width:"100%", background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"16px", borderRadius:12, border:"none", cursor:"pointer", opacity: saving ? 0.7 : 1 }}>
-          {saving ? "Guardando…" : "Guardar mi resultado →"}
+          {saving ? "Guardando…" : "Continuar →"}
         </motion.button>
       </form>
-
-      <p style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.2)" }}>Sin spam. Podés darte de baja cuando quieras.</p>
     </motion.div>
   );
 }
@@ -1537,6 +1569,7 @@ export function OnboardingFlow() {
   const [sex, setSex] = useState<Sex>("M");
   const [testResults, setTestResults] = useState<TestResults>({});
   const [maResult, setMaResult] = useState<MovementAgeResult>({ age: null, ci: null, breakdown: {}, measured: [] });
+  const [resultId, setResultId] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1606,6 +1639,25 @@ export function OnboardingFlow() {
     setStep("calculating");
     const ma = movementAgeV2(chronoAge, sex, results);
     setMaResult(ma);
+
+    // Autoguardado inmediato: el resultado se persiste apenas se calcula,
+    // sin depender de que el usuario llegue al paso de email. Genera un
+    // link permanente (`resultId`) para consultarlo después.
+    const plan = buildPlanFlora(ma.breakdown, ma.age, chronoAge);
+    fetch("/api/evaluacion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chronoAge, sex, results, maResult: ma, plan, build: EVAL_BUILD }),
+    })
+      .then((r) => r.json())
+      .then((data: { ok: boolean; id?: string }) => {
+        if (data.ok && data.id) {
+          setResultId(data.id);
+          try { localStorage.setItem("calistenia_result_id", data.id); } catch {}
+          logEvent("save", `autoguardado ok: ${data.id}`);
+        }
+      })
+      .catch((err) => logEvent("error", `autoguardado falló: ${err instanceof Error ? err.message : String(err)}`));
   }, [chronoAge, sex]);
 
   const stepIndex = ["hook","intake","camera","movement","calculating","reveal","plan","save"].indexOf(step);
@@ -1672,7 +1724,7 @@ export function OnboardingFlow() {
           {step === "plan" && (
             <StepPlan key="plan" breakdown={maResult.breakdown} movementAge={maResult.age} chronoAge={chronoAge} onNext={() => setStep("save")} />
           )}
-          {step === "save" && <StepSave key="save" movementAge={maResult.age} chronoAge={chronoAge} results={testResults} />}
+          {step === "save" && <StepSave key="save" movementAge={maResult.age} chronoAge={chronoAge} results={testResults} resultId={resultId} />}
         </AnimatePresence>
       </div>
 
