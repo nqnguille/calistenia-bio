@@ -49,8 +49,8 @@ declare global {
 }
 
 const MP_SCRIPTS = [
-  "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js",
-  "https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js",
+  "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js",
+  "https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js",
 ];
 
 let mediaPipePromise: Promise<void> | null = null;
@@ -119,8 +119,17 @@ function angle(a: Landmark, b: Landmark, c: Landmark) {
   return Math.acos(clamp(dot / mag, -1, 1)) * (180 / Math.PI);
 }
 
+// Umbral bajo a propósito: con luz tenue MediaPipe reporta visibilidades ~0.3
+// aun con el cuerpo entero en cuadro. El gate fino lo hace poseQuality.
 function essentialVisible(lms: Landmark[]) {
-  return [LM.L_SHOULDER, LM.R_SHOULDER, LM.L_HIP, LM.R_HIP].every((i) => visOk(lms[i]));
+  return [LM.L_SHOULDER, LM.R_SHOULDER, LM.L_HIP, LM.R_HIP].every((i) => visOk(lms[i], 0.22));
+}
+
+// Confianza de detección 0-100: promedio de visibilidad de hombros, cadera y rodillas.
+function poseQuality(lms: Landmark[] | null) {
+  if (!lms) return 0;
+  const pts = [LM.L_SHOULDER, LM.R_SHOULDER, LM.L_HIP, LM.R_HIP, LM.L_KNEE, LM.R_KNEE];
+  return Math.round(clamp(avg(pts.map((i) => lms[i]?.visibility ?? 0)) * 100, 0, 100));
 }
 
 function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAnalysis {
@@ -176,39 +185,50 @@ function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAn
   return { detected: true, score, feedback, detail: `Control ${score}%` };
 }
 
-function resizeCanvas(canvas: HTMLCanvasElement, video: HTMLVideoElement) {
-  const w = video.videoWidth || 1280;
-  const h = video.videoHeight || 720;
+// El canvas replica el tamaño REAL en pantalla (no el del video): así el dibujo
+// nunca se estira. El video se muestra con object-fit: cover, por eso los
+// landmarks (normalizados sobre el frame completo) se mapean con el mismo
+// recorte centrado que aplica el navegador al video.
+function resizeCanvas(canvas: HTMLCanvasElement) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.round((canvas.clientWidth || 1) * dpr);
+  const h = Math.round((canvas.clientHeight || 1) * dpr);
   if (canvas.width !== w || canvas.height !== h) {
     canvas.width = w;
     canvas.height = h;
   }
 }
 
+function coverMapper(canvas: HTMLCanvasElement, video: HTMLVideoElement) {
+  const vw = video.videoWidth || 1280;
+  const vh = video.videoHeight || 720;
+  const scale = Math.max(canvas.width / vw, canvas.height / vh);
+  const dw = vw * scale, dh = vh * scale;
+  const ox = (canvas.width - dw) / 2, oy = (canvas.height - dh) / 2;
+  return (lm: Landmark) => ({ x: ox + lm.x * dw, y: oy + lm.y * dh });
+}
+
 function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landmark[] | null, quality = 80) {
-  resizeCanvas(canvas, video);
+  resizeCanvas(canvas);
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  if (!lms) {
-    ctx.fillStyle = "rgba(248,246,242,0.55)";
-    ctx.font = "600 26px Inter, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Buscando cuerpo…", canvas.width / 2, canvas.height / 2);
-    return;
-  }
+  // Sin cuerpo no se dibuja nada: el estado lo comunica la UI (el canvas está
+  // espejado, cualquier texto acá saldría al revés).
+  if (!lms) return;
 
   const good = quality >= 68;
   const color = good ? "#AFC3A5" : quality >= 48 ? "#F0C36A" : "#F17464";
   const dim = good ? "rgba(175,195,165,0.28)" : "rgba(241,116,100,0.25)";
-  const toCanvas = (lm: Landmark) => ({ x: lm.x * canvas.width, y: lm.y * canvas.height });
+  const toCanvas = coverMapper(canvas, video);
+  const u = clamp(Math.max(canvas.width, canvas.height) / 1400, 0.6, 2.4); // unidad de grosor según resolución
 
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   ctx.shadowColor = color;
-  ctx.shadowBlur = 14;
+  ctx.shadowBlur = 14 * u;
 
   const armPointSet = new Set<number>([LM.L_ELBOW, LM.R_ELBOW, LM.L_WRIST, LM.R_WRIST]);
   for (const [a, b] of CONNECTIONS) {
@@ -218,7 +238,7 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landm
     const isArm = armPointSet.has(a) || armPointSet.has(b);
     ctx.beginPath();
     ctx.strokeStyle = isArm ? color : dim;
-    ctx.lineWidth = isArm ? 6 : 4;
+    ctx.lineWidth = (isArm ? 6 : 4) * u;
     ctx.moveTo(pa.x, pa.y);
     ctx.lineTo(pb.x, pb.y);
     ctx.stroke();
@@ -230,7 +250,7 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landm
     const p = toCanvas(lm);
     ctx.beginPath();
     ctx.fillStyle = color;
-    ctx.arc(p.x, p.y, i === LM.NOSE ? 8 : 7, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, (i === LM.NOSE ? 8 : 7) * u, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -245,7 +265,7 @@ async function startPoseTracking({
   video: HTMLVideoElement;
   canvas: HTMLCanvasElement;
   onStatus?: (status: string) => void;
-  onResults: (landmarks: Landmark[] | null, analysis?: PoseAnalysis) => void;
+  onResults: (landmarks: Landmark[] | null, analysis: PoseAnalysis | undefined, quality: number) => void;
 }): Promise<PoseRuntime> {
   onStatus?.("Cargando modelo biomecánico…");
   await loadMediaPipe();
@@ -266,15 +286,16 @@ async function startPoseTracking({
   pose.onResults((results) => {
     if (stopped) return;
     const lms = results.poseLandmarks ?? null;
+    const quality = poseQuality(lms);
     const genericAnalysis = lms ? analyzePose(lms, "posture") : undefined;
-    drawPose(canvas, video, lms, genericAnalysis?.score ?? 0);
-    onResults(lms, genericAnalysis);
+    drawPose(canvas, video, lms, quality);
+    onResults(lms, genericAnalysis, quality);
   });
 
   const camera = new Camera(video, {
     onFrame: async () => {
       if (stopped) return;
-      resizeCanvas(canvas, video);
+      resizeCanvas(canvas);
       await pose.send({ image: video });
     },
     width: 1280,
@@ -304,18 +325,20 @@ function pad(n: number) { return String(n).padStart(2, "0"); }
 function useCountdown(from: number, active: boolean, onDone: () => void) {
   const [remaining, setRemaining] = useState(from);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
+  const onDoneRef = useRef(onDone);
+  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
   useEffect(() => {
     if (!active) { setRemaining(from); return; }
     setRemaining(from);
     ref.current = setInterval(() => {
       setRemaining(r => {
-        if (r <= 1) { clearInterval(ref.current!); onDone(); return 0; }
+        if (r <= 1) { clearInterval(ref.current!); onDoneRef.current(); return 0; }
         return r - 1;
       });
     }, 1000);
     return () => clearInterval(ref.current!);
-  }, [active, from]); // eslint-disable-line
+  }, [active, from]);
 
   return remaining;
 }
@@ -443,6 +466,7 @@ function StepCamera({ onNext }: { onNext: () => void }) {
   const bootRef = useRef(false);
   const [permission, setPermission] = useState<"idle"|"requesting"|"granted"|"denied">("idle");
   const [detected, setDetected] = useState(false);
+  const [partial, setPartial] = useState(false);
   const [status, setStatus] = useState("Listo para activar cámara");
   const [quality, setQuality] = useState(0);
 
@@ -477,11 +501,12 @@ function StepCamera({ onNext }: { onNext: () => void }) {
           video: videoRef.current!,
           canvas: canvasRef.current!,
           onStatus: (value) => active && setStatus(value),
-          onResults: (landmarks, analysis) => {
+          onResults: (landmarks, _analysis, poseConfidence) => {
             if (!active) return;
             const ok = !!landmarks && essentialVisible(landmarks);
             setDetected(ok);
-            setQuality(analysis?.score ?? 0);
+            setPartial(!!landmarks && !ok);
+            setQuality(poseConfidence);
             if (ok) detectedFrames.current += 1;
             else detectedFrames.current = 0;
 
@@ -589,7 +614,9 @@ function StepCamera({ onNext }: { onNext: () => void }) {
       {permission === "granted" && !detected && (
         <div style={{ position:"absolute", left:24, right:24, bottom:28, display:"flex", justifyContent:"center", pointerEvents:"none" }}>
           <div style={{ maxWidth:760, background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"12px 18px", color:"rgba(248,246,242,0.72)", fontSize:"0.95rem", textAlign:"center", backdropFilter:"blur(16px)", boxShadow:"0 20px 70px rgba(0,0,0,0.35)" }}>
-            Alejate hasta que se vea cuerpo completo: hombros, cadera y rodillas. La cámara ya está en modo fullscreen.
+            {partial
+              ? "Casi: acomodate para que entren hombros y cadera en el cuadro, con buena luz de frente."
+              : "Ponete a 2-3 metros de la cámara, de frente y con luz. Buscamos hombros, cadera y rodillas."}
           </div>
         </div>
       )}
@@ -645,14 +672,13 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
           onStatus: (s) => active && setStatus(s),
           onResults: (landmarks) => {
             if (!active) return;
+            // El esqueleto ya lo dibuja el runtime (y limpia el canvas si se
+            // pierde el cuerpo); acá solo analizamos el movimiento actual.
             const analysis = analyzePose(landmarks, currentIdRef.current);
             setDetected(analysis.detected);
             setLiveScore(analysis.score);
             setFeedback(analysis.feedback);
             setDetail(analysis.detail);
-            if (landmarks && videoRef.current && canvasRef.current) {
-              drawPose(canvasRef.current, videoRef.current, landmarks, analysis.score);
-            }
             if (phaseRef.current === "counting" && analysis.detected && analysis.score > 0) {
               samplesRef.current.push(analysis.score);
             }
