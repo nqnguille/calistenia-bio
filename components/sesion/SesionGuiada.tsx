@@ -338,14 +338,16 @@ export function SesionGuiada() {
     return () => clearInterval(t);
   }, [view, phase]);
 
-  /* ═══════════════ RENDER ═══════════════ */
+  /* ═══════════════ RENDER ═══════════════
+     IMPORTANTE: el <video>/<canvas> del feed viven SIEMPRE montados en el
+     root (como en la evaluación) — si solo existieran en la vista de
+     entrenamiento, startPoseTracking se engancharía a un elemento null al
+     apretar "Empezar" desde el resumen. Las vistas son overlays. */
 
-  if (view === "loading") {
-    return <Shell><p style={{ color: "rgba(248,246,242,0.5)" }}>Preparando tu sesión…</p></Shell>;
-  }
-
-  if (view === "notfound" || view === "noplan") {
-    return (
+  const overlay =
+    view === "loading" ? (
+      <Shell><p style={{ color: "rgba(248,246,242,0.5)" }}>Preparando tu sesión…</p></Shell>
+    ) : view === "notfound" || view === "noplan" ? (
       <Shell>
         <p style={{ fontSize: "2.5rem" }}>🔍</p>
         <h1 style={{ color: "#F8F6F2", fontSize: "1.6rem", fontWeight: 900 }}>
@@ -356,11 +358,7 @@ export function SesionGuiada() {
         </p>
         <a href="/evaluacion/" style={btnStyle}>Hacer la evaluación →</a>
       </Shell>
-    );
-  }
-
-  if (view === "blockdone") {
-    return (
+    ) : view === "blockdone" ? (
       <Shell>
         <p style={{ fontSize: "2.5rem" }}>🏁</p>
         <h1 style={{ color: "#F8F6F2", fontSize: "1.7rem", fontWeight: 900, textAlign: "center" }}>¡Terminaste el Bloque 1!</h1>
@@ -369,11 +367,7 @@ export function SesionGuiada() {
         </p>
         <a href="/evaluacion/" style={btnStyle}>Re-evaluarme y armar el Bloque 2 →</a>
       </Shell>
-    );
-  }
-
-  if (view === "resumen" && session) {
-    return (
+    ) : view === "resumen" && session ? (
       <Shell wide>
         <p style={{ fontSize: "0.72rem", fontWeight: 800, color: C.sage, letterSpacing: "0.2em", textTransform: "uppercase" }}>
           Sesión {session.sessionNumber} · Semana {session.week} de 5{session.isDeload ? " · DESCARGA" : ""}
@@ -411,20 +405,14 @@ export function SesionGuiada() {
           <p style={{ color: C.red, fontSize: "0.85rem" }}>No pudimos iniciar la cámara — revisá permisos y probá de nuevo.</p>
         )}
       </Shell>
-    );
-  }
-
-  if (view === "fin" && session) {
-    const totalSeries = logRef.current.reduce((a, e) => a + e.series.length, 0);
-    const hechos = logRef.current.filter((e) => !e.skipped).length;
-    return (
+    ) : view === "fin" && session ? (
       <Shell>
         <motion.p animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.5 }} style={{ fontSize: "3.5rem" }}>💪</motion.p>
         <h1 style={{ color: "#F8F6F2", fontSize: "1.8rem", fontWeight: 900, textAlign: "center" }}>¡Sesión completa!</h1>
         <div style={{ display: "flex", gap: 28, padding: "18px 30px", background: "rgba(8,11,15,0.5)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16 }}>
           {[
-            { n: String(hechos), l: "ejercicios" },
-            { n: String(totalSeries), l: "series" },
+            { n: String(logRef.current.filter((e) => !e.skipped).length), l: "ejercicios" },
+            { n: String(logRef.current.reduce((a, e) => a + e.series.length, 0)), l: "series" },
             { n: `S${session.week}`, l: "semana" },
           ].map((s) => (
             <div key={s.l} style={{ textAlign: "center" }}>
@@ -441,8 +429,7 @@ export function SesionGuiada() {
         </p>
         <a href="/" style={btnStyle}>Listo por hoy →</a>
       </Shell>
-    );
-  }
+    ) : null;
 
   /* ── TRAINING (fullscreen sobre el feed) ── */
   const target = ex ? (ex.presc.isTime ? `${ex.presc.repMin}-${ex.presc.repMax} s` : `${ex.presc.repMin}-${ex.presc.repMax}`) : "";
@@ -459,7 +446,7 @@ export function SesionGuiada() {
       </div>
 
       {/* Barra superior */}
-      {session && ex && (
+      {view === "training" && session && ex && (
         <div style={{ position: "absolute", top: 20, left: 20, right: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, zIndex: 10 }}>
           <div style={{ background: "rgba(8,11,15,0.62)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: "14px 22px", backdropFilter: "blur(14px)" }}>
             <p style={{ color: C.sage, fontWeight: 900, letterSpacing: "0.14em", fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6 }}>
@@ -479,7 +466,7 @@ export function SesionGuiada() {
       )}
 
       {/* Centro: métrica gigante / descanso / RIR */}
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 5 }}>
+      <div style={{ position: "absolute", inset: 0, display: view === "training" ? "flex" : "none", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 5 }}>
         <AnimatePresence mode="wait">
           {phase === "serie" && ex && ex.measure.kind !== "manual" && (
             <motion.div key="metric" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: "center" }}>
@@ -547,6 +534,9 @@ export function SesionGuiada() {
         </div>
       )}
 
+      {/* Vistas no-entrenamiento como overlays por encima del feed */}
+      {overlay}
+
       {IS_DEV && cameraState === "on" && (
         <div style={{ position: "absolute", left: 16, bottom: 8, zIndex: 30, color: "rgba(248,246,242,0.38)", fontSize: "0.68rem", fontFamily: "monospace", pointerEvents: "none" }}>
           {hud}
@@ -562,9 +552,11 @@ const btnStyle: React.CSSProperties = {
   padding: "16px 36px", borderRadius: 999, border: "none", cursor: "pointer", textDecoration: "none",
 };
 
+// Overlay de vista completa por ENCIMA del feed siempre-montado (zIndex 40):
+// tapa el video mientras no se entrena, sin desmontar los refs de cámara.
 function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#080B0F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: wide ? "60px 20px" : "0 24px" }}>
+    <div style={{ position: "absolute", inset: 0, zIndex: 40, overflowY: "auto", background: "#080B0F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: wide ? "60px 20px" : "0 24px" }}>
       <a href="/" style={{ position: "fixed", top: 18, left: 24, fontWeight: 900, fontSize: "1.05rem", letterSpacing: "-0.03em", color: "#F8F6F2", textDecoration: "none" }}>
         CALISTENIA<span style={{ color: "#7A8F74" }}>.bio</span>
       </a>
