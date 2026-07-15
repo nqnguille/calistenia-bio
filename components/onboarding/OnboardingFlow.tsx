@@ -8,10 +8,10 @@ const C = {
   dark: "#080B0F", dark2: "#111821", red: "#ef4444",
 };
 
-const EVAL_BUILD = "v9 · encuadre + mobile";
+const EVAL_BUILD = "v10 · plan FLORA";
 
 /* ─── Types ─────────────────────────────── */
-type Step = "hook" | "camera" | "movement" | "calculating" | "reveal" | "save";
+type Step = "hook" | "camera" | "movement" | "calculating" | "reveal" | "plan" | "save";
 
 interface MovementTest {
   id: string;
@@ -530,6 +530,123 @@ function movementAgeFromScores(age: number, scores: number[]): number {
   const biomechScore = scores.length ? avg(scores) : 58;
   const offset = Math.round((72 - biomechScore) * 0.58);
   return Math.round(clamp(age + offset, 22, 75));
+}
+
+/* ─── Plan FLORA: del resultado al primer bloque ── */
+// Heurística MVP honesta: el área más floja de las 3 pruebas define el foco
+// del bloque; el promedio define nivel y días. El lenguaje es el del Método
+// FLORA: series semanales, bloque de 5 semanas, semana de descarga,
+// repeticiones en reserva, sesión mínima, consistencia.
+type Ejercicio = { n: string; series: string };
+type Sesion = { dia: string; titulo: string; ejercicios: Ejercicio[] };
+type PlanFlora = {
+  nivel: string;
+  dias: number;
+  foco: string;
+  focoDetalle: string;
+  sesiones: Sesion[];
+  vozResumen: string;
+};
+
+function buildPlanFlora(scores: number[], movementAge: number, chronoAge: number): PlanFlora {
+  const [posture = 60, arms = 60, balance = 60] = scores;
+  const media = avg(scores.length ? scores : [60]);
+
+  const areas = [
+    { id: "postura", score: posture, label: "control y postura", detalle: "Tu prueba de postura fue la más floja: el bloque prioriza espalda media y core, la base de todos los movimientos." },
+    { id: "hombros", score: arms, label: "movilidad de hombros", detalle: "Tu rango de hombros fue lo más flojo: el bloque suma trabajo de empuje vertical y movilidad activa en cada sesión." },
+    { id: "equilibrio", score: balance, label: "equilibrio y pierna unilateral", detalle: "El equilibrio fue tu prueba más floja: el bloque prioriza trabajo a una pierna — el mejor predictor de juventud neuromotora." },
+  ];
+  const foco = areas.reduce((min, a) => (a.score < min.score ? a : min), areas[0]);
+
+  const nivel = media >= 75 ? "Sólido" : media >= 55 ? "Base" : "Inicial";
+  const dias = media >= 75 ? 4 : 3;
+
+  const focoExtra: Record<string, Ejercicio> = {
+    postura: { n: "Remo invertido lento (bajada de 3 seg)", series: "2 × 8-10" },
+    hombros: { n: "Pike push-up + cuelgue de barra o marco", series: "2 × 6-10 / 20-30 s" },
+    equilibrio: { n: "Equilibrio a una pierna (ojos al frente)", series: "2 × 30-45 s c/p" },
+  };
+
+  const base: Sesion[] =
+    nivel === "Inicial"
+      ? [
+          { dia: "Día A", titulo: "Empuje + tracción", ejercicios: [
+            { n: "Flexiones (inclinadas si hace falta)", series: "3 × 6-10" },
+            { n: "Remo invertido bajo mesa firme", series: "3 × 6-10" },
+            { n: "Sentadilla a una silla", series: "3 × 8-12" },
+            { n: "Plancha", series: "3 × 20-30 s" },
+          ]},
+          { dia: "Día B", titulo: "Piernas + equilibrio", ejercicios: [
+            { n: "Zancada atrás", series: "3 × 8 c/p" },
+            { n: "Puente de glúteos", series: "3 × 12-15" },
+            { n: "Equilibrio a una pierna", series: "3 × 30 s c/p" },
+            { n: "Gemelos en escalón", series: "3 × 15-20" },
+          ]},
+          { dia: "Día C", titulo: "Cuerpo completo", ejercicios: [
+            { n: "Flexiones", series: "3 × 6-10" },
+            { n: "Remo invertido", series: "3 × 6-10" },
+            { n: "Sentadilla a una silla", series: "3 × 10-12" },
+            { n: "Plancha lateral", series: "2 × 20 s por lado" },
+          ]},
+        ]
+      : nivel === "Base"
+      ? [
+          { dia: "Día A", titulo: "Empuje + tracción", ejercicios: [
+            { n: "Flexiones", series: "4 × 6-10" },
+            { n: "Remo invertido (o dominadas si tenés barra)", series: "4 × 6-12" },
+            { n: "Pike push-up", series: "3 × 6-10" },
+            { n: "Plancha", series: "3 × 30-45 s" },
+          ]},
+          { dia: "Día B", titulo: "Piernas", ejercicios: [
+            { n: "Sentadilla búlgara (mochila opcional)", series: "4 × 8-12 c/p" },
+            { n: "Puente de isquios a una pierna", series: "3 × 10-15 c/p" },
+            { n: "Zancada atrás", series: "3 × 10 c/p" },
+            { n: "Gemelos a una pierna", series: "3 × 15-25" },
+          ]},
+          { dia: "Día C", titulo: "Cuerpo completo", ejercicios: [
+            { n: "Dominadas o remo invertido", series: "4 × 6-10" },
+            { n: "Flexiones con pausa abajo", series: "3 × 8-12" },
+            { n: "Sentadilla con salto suave", series: "3 × 8-10" },
+            { n: "Hollow hold", series: "3 × 20-40 s" },
+          ]},
+        ]
+      : [
+          { dia: "Día A", titulo: "Superior — tracción", ejercicios: [
+            { n: "Dominadas", series: "4 × 5-10" },
+            { n: "Fondos en paralelas o sillas", series: "3 × 8-12" },
+            { n: "Remo invertido", series: "3 × 10-15" },
+            { n: "Elevación de piernas colgado", series: "3 × 8-12" },
+          ]},
+          { dia: "Día B", titulo: "Inferior — cuádriceps", ejercicios: [
+            { n: "Sentadilla búlgara con mochila", series: "4 × 8-12 c/p" },
+            { n: "Sentadilla sissy asistida", series: "3 × 8-12" },
+            { n: "Zancada inversa", series: "3 × 10 c/p" },
+            { n: "Gemelos a una pierna", series: "3 × 15-25" },
+          ]},
+          { dia: "Día C", titulo: "Superior — empuje", ejercicios: [
+            { n: "Fondos (lastre si superás 12)", series: "4 × 6-10" },
+            { n: "Dominadas agarre ancho", series: "3 × 5-8" },
+            { n: "Flexión pseudo-planche", series: "3 × 8-12" },
+            { n: "Flexión diamante", series: "2 × 8-12" },
+          ]},
+          { dia: "Día D", titulo: "Inferior — cadena posterior", ejercicios: [
+            { n: "Peso muerto rumano a 1 pierna (mochila)", series: "4 × 8-12 c/p" },
+            { n: "Sentadilla a una pierna al banco", series: "3 × 5-8 c/p" },
+            { n: "Puente de glúteos con pausa", series: "3 × 12-15" },
+            { n: "Plancha con toques de hombro", series: "2 × 30-45 s" },
+          ]},
+        ];
+
+  const sesiones = base.map((s) => ({ ...s, ejercicios: [...s.ejercicios, focoExtra[foco.id]] }));
+
+  const diffFrase = movementAge > chronoAge
+    ? "para bajar tu edad de movimiento"
+    : "para seguir moviéndote más joven que tu edad";
+
+  const vozResumen = `Tu plan está listo. Un bloque de cinco semanas, ${dias} días por semana, con foco en ${foco.label}, ${diffFrase}. Cuatro semanas subiendo de a poco y una de descarga. En cada serie guardate una o dos repeticiones. Y si un día estás corto de tiempo, hacé la sesión mínima: quince minutos y tu consistencia sigue arriba. Mirá tu semana uno en pantalla.`;
+
+  return { nivel, dias, foco: foco.label, focoDetalle: foco.detalle, sesiones, vozResumen };
 }
 
 /* ─── Progress dots ───────────────────── */
@@ -1137,7 +1254,7 @@ function StepReveal({ movementAge, chronoAge, onNext }: { movementAge: number; c
         whileHover={{ scale:1.04, boxShadow:"0 20px 50px rgba(122,143,116,0.4)" }}
         whileTap={{ scale:0.97 }}
         style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"16px 40px", borderRadius:999, border:"none", cursor:"pointer" }}>
-        Guardar mi resultado →
+        Ver mi plan del Método FLORA →
       </motion.button>
 
       <motion.button initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:1.7 }}
@@ -1145,6 +1262,123 @@ function StepReveal({ movementAge, chronoAge, onNext }: { movementAge: number; c
         style={{ background:"transparent", border:"none", color:"rgba(248,246,242,0.3)", fontSize:"0.85rem", cursor:"pointer", fontWeight:500 }}>
         Volver al inicio
       </motion.button>
+    </motion.div>
+  );
+}
+
+/* ─── STEP: PLAN (Método FLORA) ───────── */
+function StepPlan({ scores, movementAge, chronoAge, onNext }: {
+  scores: number[];
+  movementAge: number;
+  chronoAge: number;
+  onNext: () => void;
+}) {
+  const plan = buildPlanFlora(scores, movementAge, chronoAge);
+
+  useEffect(() => {
+    logEvent("plan", `nivel ${plan.nivel} · ${plan.dias} días · foco ${plan.foco}`);
+    speak(plan.vozResumen, { key: "plan", minGap: 0 });
+  }, []); // eslint-disable-line
+
+  const SEMANAS = [
+    { s: "S1", l: "arranque", w: 34 },
+    { s: "S2", l: "+ series", w: 52 },
+    { s: "S3", l: "+ series", w: 70 },
+    { s: "S4", l: "pico", w: 92 },
+    { s: "S5", l: "descarga", w: 26, deload: true },
+  ];
+
+  return (
+    <motion.div key="plan" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+      style={{ position:"absolute", inset:0, overflowY:"auto", padding:"84px 20px 40px" }}>
+      <div style={{ maxWidth:680, margin:"0 auto", display:"flex", flexDirection:"column", gap:18 }}>
+
+        <div style={{ textAlign:"center" }}>
+          <p style={{ fontSize:"0.72rem", fontWeight:800, color:C.sage, letterSpacing:"0.2em", textTransform:"uppercase", marginBottom:10 }}>
+            Método FLORA · Bloque 1
+          </p>
+          <h2 style={{ fontSize:"clamp(1.9rem,5vw,2.8rem)", fontWeight:900, color:"#F8F6F2", lineHeight:1, letterSpacing:"-0.03em", marginBottom:12 }}>
+            Tu primer bloque de 5 semanas
+          </h2>
+          <p style={{ color:"rgba(248,246,242,0.6)", fontSize:"0.95rem", lineHeight:1.65, fontWeight:300, maxWidth:520, margin:"0 auto" }}>
+            {plan.focoDetalle}
+          </p>
+        </div>
+
+        {/* Chips resumen */}
+        <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
+          {[`Nivel ${plan.nivel}`, `${plan.dias} días/semana`, `Foco: ${plan.foco}`, "45-55 min/sesión"].map((t) => (
+            <span key={t} style={{ background:"rgba(122,143,116,0.16)", border:"1px solid rgba(122,143,116,0.35)", borderRadius:999, padding:"8px 16px", color:"#AFC3A5", fontSize:"0.82rem", fontWeight:700 }}>
+              {t}
+            </span>
+          ))}
+        </div>
+
+        {/* Rampa del bloque */}
+        <div style={{ background:"rgba(8,11,15,0.66)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"18px 20px", backdropFilter:"blur(14px)" }}>
+          <p style={{ fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.18em", textTransform:"uppercase", color:C.sage, marginBottom:14 }}>
+            Cómo progresa el bloque: 4 semanas subiendo series, 1 de descarga
+          </p>
+          <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+            {SEMANAS.map((w, i) => (
+              <div key={w.s} style={{ display:"grid", gridTemplateColumns:"34px 1fr 82px", gap:12, alignItems:"center" }}>
+                <span style={{ fontSize:"0.75rem", fontWeight:800, color: w.deload ? "#AFC3A5" : "rgba(248,246,242,0.65)" }}>{w.s}</span>
+                <motion.div initial={{ width:0 }} animate={{ width:`${w.w}%` }} transition={{ duration:0.8, delay:0.2 + i*0.12, ease:"easeOut" }}
+                  style={{ height:9, borderRadius:99, background: w.deload ? "linear-gradient(90deg,#1E3A2B,#7A8F74)" : "linear-gradient(90deg,#AFC3A5,#7A8F74)" }} />
+                <span style={{ fontSize:"0.7rem", color:"rgba(248,246,242,0.45)" }}>{w.l}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Semana 1: sesiones */}
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          <p style={{ fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.18em", textTransform:"uppercase", color:C.sage, textAlign:"center" }}>
+            Tu semana 1 — todas las series con 1-2 repeticiones en reserva
+          </p>
+          {plan.sesiones.map((s, i) => (
+            <motion.div key={s.dia} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.15 + i*0.1 }}
+              style={{ background:"rgba(8,11,15,0.66)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"16px 20px", backdropFilter:"blur(14px)" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:10 }}>
+                <p style={{ color:"#F8F6F2", fontWeight:900, fontSize:"1.05rem" }}>{s.dia} <span style={{ color:C.sage, fontWeight:700, fontSize:"0.9rem" }}>— {s.titulo}</span></p>
+              </div>
+              {s.ejercicios.map((e) => (
+                <div key={e.n} style={{ display:"flex", justifyContent:"space-between", gap:12, padding:"7px 0", borderTop:"1px solid rgba(255,255,255,0.07)" }}>
+                  <span style={{ color:"rgba(248,246,242,0.78)", fontSize:"0.9rem", fontWeight:400 }}>{e.n}</span>
+                  <span style={{ color:"#AFC3A5", fontSize:"0.88rem", fontWeight:800, whiteSpace:"nowrap", fontVariantNumeric:"tabular-nums" }}>{e.series}</span>
+                </div>
+              ))}
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Reglas del método */}
+        <div style={{ background:"rgba(30,58,43,0.5)", border:"1px solid rgba(122,143,116,0.3)", borderRadius:20, padding:"16px 20px", backdropFilter:"blur(14px)" }}>
+          <p style={{ fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.18em", textTransform:"uppercase", color:"#AFC3A5", marginBottom:10 }}>
+            Las 3 reglas del bloque
+          </p>
+          {[
+            "Guardate 1-2 repeticiones en cada serie: las últimas tienen que costar, el fallo se usa poco.",
+            "¿Día corto? Sesión mínima: 15 minutos con los 2 primeros ejercicios. Cuenta para tu consistencia.",
+            "La meta no es la sesión perfecta: es cumplir el 80% del mes. Anotá series, reps y cuánto te costó.",
+          ].map((r) => (
+            <p key={r} style={{ color:"rgba(248,246,242,0.72)", fontSize:"0.88rem", lineHeight:1.6, margin:"6px 0", fontWeight:300 }}>
+              <span style={{ color:C.sage, fontWeight:900 }}>· </span>{r}
+            </p>
+          ))}
+        </div>
+
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:12, marginTop:6 }}>
+          <motion.button onClick={onNext}
+            whileHover={{ scale:1.04 }} whileTap={{ scale:0.97 }}
+            style={{ background:C.sage, color:"#fff", fontWeight:800, fontSize:"1.05rem", padding:"17px 42px", borderRadius:999, border:"none", cursor:"pointer" }}>
+            Recibir mi plan completo →
+          </motion.button>
+          <a href="/metodo/" style={{ color:"rgba(248,246,242,0.4)", fontSize:"0.82rem", fontWeight:600 }}>
+            Conocer el Método FLORA: Fuerza · Longevidad · Orden · Recuperación · Alimentación
+          </a>
+        </div>
+      </div>
     </motion.div>
   );
 }
@@ -1187,7 +1421,7 @@ function StepSave({ movementAge }: { movementAge: number }) {
           Tu Edad de Movimiento es <span style={{ color:C.sage }}>{movementAge}</span>
         </h2>
         <p style={{ color:"rgba(248,246,242,0.5)", fontSize:"0.95rem", lineHeight:1.65, fontWeight:300 }}>
-          Dejanos tu email para guardar el resultado y recibir tu plan personalizado para reducir tu Edad de Movimiento.
+          Dejanos tu email para recibir tu plan completo del Bloque 1 — las 5 semanas detalladas, con la progresión de series y la semana de descarga.
         </p>
       </div>
 
@@ -1220,6 +1454,7 @@ function StepSave({ movementAge }: { movementAge: number }) {
 export function OnboardingFlow() {
   const [step, setStep] = useState<Step>("hook");
   const [movementAge, setMovementAge] = useState(0);
+  const [testScores, setTestScores] = useState<number[]>([]);
   const CHRONO_AGE = 40;
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -1279,12 +1514,13 @@ export function OnboardingFlow() {
 
   const handleMovementsComplete = useCallback((scores: number[]) => {
     logEvent("fase", `pruebas completas: [${scores.join(", ")}]`);
+    setTestScores(scores);
     setStep("calculating");
     const ma = movementAgeFromScores(CHRONO_AGE, scores);
     setTimeout(() => { setMovementAge(ma); }, 100);
   }, []);
 
-  const stepIndex = ["hook","camera","movement","calculating","reveal","save"].indexOf(step);
+  const stepIndex = ["hook","camera","movement","calculating","reveal","plan","save"].indexOf(step);
 
   // El feed queda visible todo el journey; se atenúa en las etapas de resultado.
   const feedOpacity =
@@ -1345,7 +1581,10 @@ export function OnboardingFlow() {
             <StepCalculating key="calculating" onDone={() => { logEvent("fase", "→ reveal"); setStep("reveal"); }} />
           )}
           {step === "reveal" && (
-            <StepReveal key="reveal" movementAge={movementAge} chronoAge={CHRONO_AGE} onNext={() => setStep("save")} />
+            <StepReveal key="reveal" movementAge={movementAge} chronoAge={CHRONO_AGE} onNext={() => { logEvent("fase", "→ plan"); setStep("plan"); }} />
+          )}
+          {step === "plan" && (
+            <StepPlan key="plan" scores={testScores} movementAge={movementAge} chronoAge={CHRONO_AGE} onNext={() => setStep("save")} />
           )}
           {step === "save" && <StepSave key="save" movementAge={movementAge} />}
         </AnimatePresence>
@@ -1363,8 +1602,8 @@ export function OnboardingFlow() {
       {step !== "hook" && (
         <div style={{ position:"absolute", bottom:0, left:0, right:0, height:2, background:"rgba(255,255,255,0.06)", zIndex:20 }}>
           <motion.div
-            initial={{ width: `${(stepIndex/5)*100}%` }}
-            animate={{ width: `${(stepIndex/5)*100}%` }}
+            initial={{ width: `${(stepIndex/6)*100}%` }}
+            animate={{ width: `${(stepIndex/6)*100}%` }}
             transition={{ duration:0.5 }}
             style={{ height:"100%", background:C.sage }} />
         </div>
