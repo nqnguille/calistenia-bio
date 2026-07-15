@@ -319,6 +319,45 @@ async function startPoseTracking({
   };
 }
 
+/* ─── Voz (guía conversacional) ──────────── */
+// A 2-3 metros de la pantalla no se lee nada: la guía principal es hablada.
+// Web Speech API: corre en el navegador, sin costo ni red (la primera
+// utterance ocurre después de un click, así que las políticas de autoplay
+// no la bloquean).
+const speechState = { lastKey: "", lastAt: 0 };
+
+function warmVoices() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.addEventListener?.("voiceschanged", () => {}, { once: true });
+}
+
+function speak(text: string, opts: { key?: string; minGap?: number } = {}) {
+  if (typeof window === "undefined") return;
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  const key = opts.key ?? text;
+  const now = Date.now();
+  if (key === speechState.lastKey && now - speechState.lastAt < (opts.minGap ?? 6000)) return;
+  speechState.lastKey = key;
+  speechState.lastAt = now;
+  synth.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  const voices = synth.getVoices();
+  const v =
+    voices.find((x) => x.lang?.toLowerCase().startsWith("es-ar")) ||
+    voices.find((x) => x.lang?.toLowerCase().startsWith("es-419")) ||
+    voices.find((x) => x.lang?.toLowerCase().startsWith("es"));
+  if (v) u.voice = v;
+  u.lang = v?.lang || "es-AR";
+  u.rate = 1.04;
+  synth.speak(u);
+}
+
+function stopSpeaking() {
+  if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+}
+
 /* ─── Helpers ────────────────────────────── */
 function pad(n: number) { return String(n).padStart(2, "0"); }
 
@@ -486,6 +525,8 @@ function StepCamera({ onNext }: { onNext: () => void }) {
     advancedRef.current = false;
     bootRef.current = false;
     setPermission("requesting");
+    warmVoices();
+    speak("Activando tu cámara. Ponete a dos o tres metros, de frente, que se vea tu cuerpo entero.", { key: "cam-on", minGap: 4000 });
   }, [stopRuntime]);
 
   useEffect(() => {
@@ -510,14 +551,19 @@ function StepCamera({ onNext }: { onNext: () => void }) {
             if (ok) detectedFrames.current += 1;
             else detectedFrames.current = 0;
 
+            if (!ok && landmarks) {
+              speak("Casi. Necesito ver tus hombros y tu cadera dentro del cuadro.", { key: "cam-partial", minGap: 9000 });
+            }
+
             if (detectedFrames.current > 22 && !advancedRef.current) {
               advancedRef.current = true;
               setStatus("Cuerpo detectado · preparando evaluación…");
+              speak("¡Te veo! Arrancamos con la primera prueba.", { key: "cam-found", minGap: 3000 });
               setTimeout(() => {
                 if (!active) return;
                 stopRuntime();
                 onNext();
-              }, 900);
+              }, 1400);
             }
           },
         });
@@ -612,12 +658,22 @@ function StepCamera({ onNext }: { onNext: () => void }) {
       )}
 
       {permission === "granted" && !detected && (
-        <div style={{ position:"absolute", left:24, right:24, bottom:28, display:"flex", justifyContent:"center", pointerEvents:"none" }}>
-          <div style={{ maxWidth:760, background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"12px 18px", color:"rgba(248,246,242,0.72)", fontSize:"0.95rem", textAlign:"center", backdropFilter:"blur(16px)", boxShadow:"0 20px 70px rgba(0,0,0,0.35)" }}>
+        <div style={{ position:"absolute", left:24, right:24, bottom:36, display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+          <div style={{ maxWidth:900, background:"rgba(8,11,15,0.68)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"22px 34px", color:"#F8F6F2", fontSize:"clamp(1.3rem,3vw,2.1rem)", fontWeight:700, lineHeight:1.35, letterSpacing:"-0.01em", textAlign:"center", backdropFilter:"blur(16px)", boxShadow:"0 20px 70px rgba(0,0,0,0.35)" }}>
             {partial
-              ? "Casi: acomodate para que entren hombros y cadera en el cuadro, con buena luz de frente."
-              : "Ponete a 2-3 metros de la cámara, de frente y con luz. Buscamos hombros, cadera y rodillas."}
+              ? "Casi: que entren hombros y cadera en el cuadro"
+              : "Ponete a 2-3 metros, de frente y con luz"}
           </div>
+        </div>
+      )}
+
+      {permission === "granted" && detected && (
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none" }}>
+          <motion.div initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }}
+            style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.6)" }}>
+            <p style={{ fontSize:"clamp(3.5rem,9vw,6.5rem)", lineHeight:1 }}>✓</p>
+            <p style={{ color:"#F8F6F2", fontSize:"clamp(1.8rem,4.5vw,3.2rem)", fontWeight:900, letterSpacing:"-0.02em" }}>¡Te veo!</p>
+          </motion.div>
         </div>
       )}
 
@@ -635,16 +691,21 @@ function StepCamera({ onNext }: { onNext: () => void }) {
 }
 
 /* ─── STEP: MOVEMENT ─────────────────── */
+type MovPhase = "intro" | "prep" | "counting" | "done";
+
 function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<PoseRuntime | null>(null);
-  const phaseRef = useRef<"intro"|"counting"|"done">("intro");
+  const phaseRef = useRef<MovPhase>("intro");
   const currentIdRef = useRef<MovementTest["id"]>("posture");
   const samplesRef = useRef<number[]>([]);
   const collectedScoresRef = useRef<number[]>([]);
+  const stableRef = useRef(0);
+  const introAtRef = useRef(0);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [phase, setPhase] = useState<"intro"|"counting"|"done">("intro");
+  const [phase, setPhase] = useState<MovPhase>("intro");
+  const [prepLeft, setPrepLeft] = useState(3);
   const [status, setStatus] = useState("Iniciando cámara…");
   const [detected, setDetected] = useState(false);
   const [liveScore, setLiveScore] = useState(0);
@@ -654,7 +715,37 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
   const current = MOVEMENTS[currentIdx];
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
-  useEffect(() => { currentIdRef.current = current.id; samplesRef.current = []; }, [current.id]);
+
+  // Cada prueba se anuncia por voz y arranca sola cuando el cuerpo está
+  // estable — a 3 metros de la pantalla no hay botones que valgan.
+  useEffect(() => {
+    currentIdRef.current = current.id;
+    samplesRef.current = [];
+    stableRef.current = 0;
+    introAtRef.current = Date.now();
+    speak(`Prueba ${currentIdx + 1}. ${current.title}. ${current.instruction}`, { key: `mov-${currentIdx}`, minGap: 0 });
+  }, [current.id, current.title, current.instruction, currentIdx]);
+
+  // Cuenta regresiva hablada de 3 antes de medir.
+  useEffect(() => {
+    if (phase !== "prep") return;
+    setPrepLeft(3);
+    speak("Tres", { key: `prep-${currentIdx}-3`, minGap: 0 });
+    let n = 3;
+    const t = setInterval(() => {
+      n -= 1;
+      if (n <= 0) {
+        clearInterval(t);
+        speak("¡Ya!", { key: `prep-${currentIdx}-go`, minGap: 0 });
+        samplesRef.current = [];
+        setPhase("counting");
+      } else {
+        setPrepLeft(n);
+        speak(n === 2 ? "Dos" : "Uno", { key: `prep-${currentIdx}-${n}`, minGap: 0 });
+      }
+    }, 1000);
+    return () => clearInterval(t);
+  }, [phase, currentIdx]);
 
   const stopRuntime = useCallback(() => {
     runtimeRef.current?.stop();
@@ -682,6 +773,19 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
             if (phaseRef.current === "counting" && analysis.detected && analysis.score > 0) {
               samplesRef.current.push(analysis.score);
             }
+            // Arranque manos libres: cuerpo estable ~0.7s después de que
+            // terminó de leerse la consigna (3.5s de margen para la voz).
+            if (phaseRef.current === "intro") {
+              if (analysis.detected && Date.now() - introAtRef.current > 3500) {
+                stableRef.current += 1;
+                if (stableRef.current > 20) {
+                  stableRef.current = 0;
+                  setPhase("prep");
+                }
+              } else if (!analysis.detected) {
+                stableRef.current = 0;
+              }
+            }
           },
         });
         if (!active) { runtime.stop(); return; }
@@ -705,9 +809,11 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
     samplesRef.current = [];
 
     if (currentIdx < MOVEMENTS.length - 1) {
+      speak("¡Muy bien! Vamos con la siguiente.", { key: `done-${currentIdx}`, minGap: 0 });
       setPhase("intro");
       setCurrentIdx((i) => i + 1);
     } else {
+      speak("¡Excelente! Terminamos. Estoy analizando tus movimientos.", { key: "done-all", minGap: 0 });
       setPhase("done");
       stopRuntime();
       onComplete(collectedScoresRef.current);
@@ -738,10 +844,37 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
             <span style={{ color:"rgba(248,246,242,0.74)", fontSize:"0.72rem", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase" }}>{detected ? "Landmarks activos" : status}</span>
           </div>
 
+          {/* Cuenta regresiva gigante antes de medir */}
+          {phase === "prep" && (
+            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none", background:"rgba(8,11,15,0.30)" }}>
+              <motion.p key={prepLeft} initial={{ opacity:0, scale:1.6 }} animate={{ opacity:1, scale:1 }} transition={{ duration:0.35 }}
+                style={{ fontSize:"clamp(7rem,22vw,15rem)", fontWeight:900, color:"#F8F6F2", lineHeight:1, textShadow:"0 10px 60px rgba(0,0,0,0.65)" }}>
+                {prepLeft}
+              </motion.p>
+            </div>
+          )}
+
+          {/* Timer gigante mientras mide, legible a 3 metros */}
           {phase === "counting" && (
-            <div style={{ position:"absolute", top:16, right:16, background:"rgba(8,11,15,0.76)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:18, padding:"12px 16px", backdropFilter:"blur(12px)", textAlign:"center" }}>
-              <p style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase", marginBottom:3 }}>Midiendo</p>
-              <p style={{ color:"#F8F6F2", fontWeight:900, fontFamily:"monospace", fontSize:"1.7rem", lineHeight:1 }}>0:{pad(timer)}</p>
+            <div style={{ position:"absolute", top:"8%", left:0, right:0, display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+              <p style={{ fontSize:"clamp(4rem,12vw,8rem)", fontWeight:900, fontFamily:"monospace", color:"rgba(248,246,242,0.92)", lineHeight:1, textShadow:"0 8px 50px rgba(0,0,0,0.6)" }}>
+                {timer}
+              </p>
+            </div>
+          )}
+
+          {/* Consigna en intro, grande sobre el video */}
+          {phase === "intro" && (
+            <div style={{ position:"absolute", left:0, right:0, top:"50%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", pointerEvents:"none", padding:"0 20px" }}>
+              <div style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.7)" }}>
+                <p style={{ fontSize:"clamp(2.4rem,6vw,4rem)", lineHeight:1, marginBottom:10 }}>{current.emoji}</p>
+                <p style={{ color:"#F8F6F2", fontSize:"clamp(1.5rem,3.6vw,2.6rem)", fontWeight:900, letterSpacing:"-0.02em", lineHeight:1.25, maxWidth:720 }}>
+                  {current.instruction}
+                </p>
+                <p style={{ color:"rgba(248,246,242,0.72)", fontSize:"clamp(0.95rem,2vw,1.3rem)", fontWeight:600, marginTop:14 }}>
+                  {detected ? "Quedate así — arrancamos solos en un momento" : "Esperando verte entero…"}
+                </p>
+              </div>
             </div>
           )}
 
@@ -749,10 +882,10 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:14, marginBottom:10 }}>
               <div>
                 <p style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase" }}>{detail}</p>
-                <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"0.95rem", marginTop:3 }}>{feedback}</p>
+                <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"clamp(1rem,2.2vw,1.5rem)", marginTop:3 }}>{feedback}</p>
               </div>
               <div style={{ textAlign:"right" }}>
-                <span style={{ color: liveScore >= 70 ? "#AFC3A5" : liveScore >= 50 ? "#F0C36A" : "#F17464", fontSize:"2rem", fontWeight:900, lineHeight:1 }}>{Math.round(liveScore)}</span>
+                <span style={{ color: liveScore >= 70 ? "#AFC3A5" : liveScore >= 50 ? "#F0C36A" : "#F17464", fontSize:"clamp(2rem,4vw,3rem)", fontWeight:900, lineHeight:1 }}>{Math.round(liveScore)}</span>
                 <span style={{ color:"rgba(248,246,242,0.35)", fontSize:"0.75rem", fontWeight:700 }}>%</span>
               </div>
             </div>
@@ -784,13 +917,13 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
           </div>
 
           {phase === "intro" && (
-            <motion.button initial={{ opacity:0,y:10 }} animate={{ opacity:1,y:0 }}
-              disabled={!detected}
-              onClick={() => { samplesRef.current = []; setPhase("counting"); }}
-              whileHover={detected ? { scale:1.035 } : undefined} whileTap={detected ? { scale:0.98 } : undefined}
-              style={{ background:detected?C.sage:"rgba(255,255,255,0.12)", color:detected?"#fff":"rgba(248,246,242,0.32)", fontWeight:900, fontSize:"1rem", padding:"16px 34px", borderRadius:999, border:"none", cursor:detected?"pointer":"not-allowed" }}>
-              {detected ? "Empezar medición →" : "Esperando detección corporal"}
-            </motion.button>
+            <div style={{ display:"flex", alignItems:"center", gap:12, color:"rgba(248,246,242,0.55)", fontSize:"0.92rem", lineHeight:1.6 }}>
+              <motion.span animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.2, repeat:Infinity }}
+                style={{ width:9, height:9, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A", flexShrink:0 }} />
+              {detected
+                ? "Manos libres: la medición arranca sola con cuenta regresiva hablada."
+                : "Ubicate frente a la cámara — te guío por voz, no hace falta tocar nada."}
+            </div>
           )}
 
           {phase === "counting" && (
@@ -878,6 +1011,15 @@ function StepReveal({ movementAge, chronoAge, onNext }: { movementAge: number; c
   const isYounger = diff < 0;
   const isEqual = Math.abs(diff) <= 1;
   const color = isYounger ? "#4ade80" : isEqual ? C.sage : C.red;
+
+  useEffect(() => {
+    const diffPhrase = isYounger
+      ? `Tu cuerpo se mueve ${Math.abs(diff)} años más joven que tu edad real. ¡Felicitaciones!`
+      : isEqual
+      ? "Tu movimiento está alineado con tu edad."
+      : `Tu cuerpo se mueve ${diff} años más viejo que tu edad real. Ese es tu punto de partida, y se puede mejorar.`;
+    speak(`Tu edad de movimiento es ${movementAge} años. ${diffPhrase}`, { key: "reveal", minGap: 0 });
+  }, []); // eslint-disable-line
 
   return (
     <motion.div key="reveal" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
@@ -1009,6 +1151,12 @@ export function OnboardingFlow() {
   const [movementAge, setMovementAge] = useState(0);
   // We use chronoAge=40 as default; real app would ask before/after reveal
   const CHRONO_AGE = 40;
+
+  // Precarga las voces del navegador y corta cualquier locución al salir.
+  useEffect(() => {
+    warmVoices();
+    return () => stopSpeaking();
+  }, []);
 
   const handleMovementsComplete = useCallback((scores: number[]) => {
     setStep("calculating");
