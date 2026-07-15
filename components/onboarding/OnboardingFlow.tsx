@@ -8,7 +8,7 @@ const C = {
   dark: "#080B0F", dark2: "#111821", red: "#ef4444",
 };
 
-const EVAL_BUILD = "v8 · feed único + monitor";
+const EVAL_BUILD = "v9 · encuadre + mobile";
 
 /* ─── Types ─────────────────────────────── */
 type Step = "hook" | "camera" | "movement" | "calculating" | "reveal" | "save";
@@ -352,13 +352,16 @@ async function startPoseTracking({
   let stopped = false;
 
   const pose = new Pose({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}` });
+  // En celular el modelo pesado no llega a buen framerate: bajamos a 1.
+  const isMobile = typeof navigator !== "undefined" && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
   pose.setOptions({
-    modelComplexity: 2, // máxima precisión de landmarks (desktop lo banca)
+    modelComplexity: isMobile ? 1 : 2,
     smoothLandmarks: true,
     enableSegmentation: false,
     minDetectionConfidence: 0.4,
     minTrackingConfidence: 0.4,
   });
+  logEvent("modelo", `complexity ${isMobile ? 1 : 2} (${isMobile ? "mobile" : "desktop"})`);
 
   pose.onResults((results) => {
     if (stopped) return;
@@ -600,6 +603,8 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
   const detectedFrames = useRef(0);
   const presentFrames = useRef(0);
   const advancedRef = useRef(false);
+  const prevMidRef = useRef<{ x: number; y: number } | null>(null);
+  const startedAtRef = useRef(0);
   const [detected, setDetected] = useState(false);
   const [partial, setPartial] = useState(false);
   const [quality, setQuality] = useState(0);
@@ -616,17 +621,34 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
 
   useEffect(() => {
     if (cameraState !== "on") return;
+    startedAtRef.current = Date.now();
     setPoseHandler((landmarks, poseConfidence) => {
       const ok = bodyPresent(landmarks);
       setDetected(ok);
       setPartial(!!landmarks && !ok);
       setQuality(poseConfidence);
-      if (ok) detectedFrames.current += 1;
-      else detectedFrames.current = 0;
       if (landmarks) presentFrames.current += 1;
+
+      // Quietud: si vos o la cámara se están moviendo (acomodando la laptop,
+      // buscando el ángulo), los landmarks se mueven y NO arrancamos.
+      let motion = 1;
+      if (ok && landmarks) {
+        const mid = shoulderMidpoint(landmarks);
+        const prev = prevMidRef.current;
+        motion = prev ? Math.hypot(mid.x - prev.x, mid.y - prev.y) : 1;
+        prevMidRef.current = mid;
+      } else {
+        prevMidRef.current = null;
+      }
+
+      if (ok && motion < 0.012) detectedFrames.current += 1;
+      else if (!ok || motion > 0.025) detectedFrames.current = 0;
 
       if (detectedFrames.current === 1) logEvent("pose", `cuerpo detectado (vis ${poseConfidence}%)`);
 
+      if (ok && motion > 0.025) {
+        speak("Terminá de acomodar la cámara y quedate quieto un momento.", { key: "cam-moving", minGap: 9000 });
+      }
       if (!ok && landmarks) {
         speak("Casi. Necesito ver tus hombros y tu cadera. Si no avanzo, decime: listo.", { key: "cam-partial", minGap: 10000 });
       }
@@ -634,10 +656,14 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
         speak("No logro verte. Prendé una luz de frente y ponete a dos o tres metros.", { key: "cam-nobody", minGap: 12000 });
       }
 
-      if (detectedFrames.current > 20) {
+      // Tiempo mínimo de encuadre: nunca antes de 4s de cámara activa,
+      // y solo tras ~2s de cuerpo detectado Y quieto.
+      const elapsed = Date.now() - startedAtRef.current;
+      if (elapsed > 4000 && detectedFrames.current > 50) {
         forceAdvance("¡Te veo! Arrancamos con la primera prueba.");
       }
-      if (presentFrames.current > 200) {
+      // Red de seguridad anti-trabas (~12s de esqueleto presente).
+      if (elapsed > 6000 && presentFrames.current > 300) {
         forceAdvance("La luz no ayuda, pero te veo lo suficiente. Seguimos.");
       }
     });
@@ -721,6 +747,7 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
             style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.6)" }}>
             <p style={{ fontSize:"clamp(3.5rem,9vw,6.5rem)", lineHeight:1 }}>✓</p>
             <p style={{ color:"#F8F6F2", fontSize:"clamp(1.8rem,4.5vw,3.2rem)", fontWeight:900, letterSpacing:"-0.02em" }}>¡Te veo!</p>
+            <p style={{ color:"rgba(248,246,242,0.75)", fontSize:"clamp(1.1rem,2.4vw,1.6rem)", fontWeight:700, marginTop:8 }}>Quedate quieto un momento…</p>
           </motion.div>
         </div>
       )}
@@ -817,33 +844,39 @@ function StepMovement({ setPoseHandler, onComplete }: {
       setLiveScore(analysis.score);
       setFeedback(analysis.feedback);
 
+      // Movimiento frame a frame (sirve para quietud y para validar postura).
+      let motion = 1;
+      if (analysis.detected && landmarks) {
+        const mid = shoulderMidpoint(landmarks);
+        const prev = prevMidRef.current;
+        motion = prev ? Math.hypot(mid.x - prev.x, mid.y - prev.y) : 1;
+        prevMidRef.current = mid;
+      } else {
+        prevMidRef.current = null;
+      }
+
       // Un frame cuenta solo si el movimiento pedido está pasando.
       let doingIt = analysis.detected;
       if (doingIt && landmarks) {
         const id = currentIdRef.current;
         if (id === "arms") doingIt = armsRaised(landmarks);
         else if (id === "balance") doingIt = kneeRaised(landmarks);
-        else if (id === "posture") {
-          const mid = shoulderMidpoint(landmarks);
-          const prev = prevMidRef.current;
-          const motion = prev ? Math.hypot(mid.x - prev.x, mid.y - prev.y) : 1;
-          prevMidRef.current = mid;
-          doingIt = motion < 0.012;
-        }
+        else if (id === "posture") doingIt = motion < 0.012;
       }
       if (phaseRef.current === "counting" && doingIt && analysis.score > 0) {
         samplesRef.current.push(analysis.score);
       }
 
-      // Arranque manos libres: consigna terminada + 1s de aire + cuerpo estable.
+      // Arranque manos libres: consigna terminada + 1s de aire + cuerpo
+      // detectado Y QUIETO ~1.5s (acomodar la cámara/caminar resetea).
       if (phaseRef.current === "intro") {
-        if (introReadyRef.current && analysis.detected && Date.now() - introAtRef.current > 1000) {
+        if (introReadyRef.current && analysis.detected && motion < 0.012 && Date.now() - introAtRef.current > 1000) {
           stableRef.current += 1;
-          if (stableRef.current > 20) {
+          if (stableRef.current > 40) {
             stableRef.current = 0;
             setPhase("prep");
           }
-        } else if (!analysis.detected) {
+        } else if (!analysis.detected || motion > 0.025) {
           stableRef.current = 0;
         }
       }
