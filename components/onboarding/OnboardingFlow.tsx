@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { movementAgeV2, type TestId, type TestResults, type MovementAgeResult } from "@/lib/movementAge";
 import { OLS_SOURCE, STS_SOURCE, PUSHUP_SOURCE, SQUAT_SOURCE, type Sex } from "@/lib/norms";
 import { IS_DEV, logEvent } from "@/lib/evlog";
-import { speak, stopSpeaking, warmVoices } from "@/lib/voice";
+import { speak, stopSpeaking, warmVoices, loadVoiceManifest } from "@/lib/voice";
 import {
   type PoseRuntime, type PoseHandler,
   bodyPresent, shoulderMidpoint, clamp, startPoseTracking,
@@ -1207,6 +1207,7 @@ export function OnboardingFlow() {
   // Captura global de errores + limpieza al desmontar.
   useEffect(() => {
     warmVoices();
+    loadVoiceManifest();
     logEvent("app", `journey iniciado (${EVAL_BUILD})`);
     const onErr = (e: ErrorEvent) => logEvent("error", `${e.message} @ ${e.filename?.split("/").pop() ?? "?"}:${e.lineno}`);
     const onRej = (e: PromiseRejectionEvent) => logEvent("promise", String(e.reason).slice(0, 140));

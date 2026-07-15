@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { IS_DEV, logEvent } from "@/lib/evlog";
-import { speak, stopSpeaking, warmVoices, ADVANCE_WORDS, SKIP_WORDS } from "@/lib/voice";
+import { speak, speakSeq, stopSpeaking, warmVoices, ADVANCE_WORDS, SKIP_WORDS, loadVoiceManifest, setCoach, getCoach, availableCoaches } from "@/lib/voice";
 import {
   type PoseRuntime, type Landmark,
   bodyPresent, startPoseTracking, stepReps, holdConditionMet,
@@ -17,6 +17,7 @@ import { useVoiceCommands, useCountdown } from "@/components/shared/hooks";
 import { EventMonitor } from "@/components/shared/EventMonitor";
 import {
   buildTodaySession, instructionFor, restSecondsFor,
+  seriesSpoken, rangoSpoken, restSpoken, ejercicioSpoken,
   type StoredPlan, type Progress, type TodaySession, type TodayExercise,
   type SessionLog, type EjercicioLog,
 } from "@/lib/planRuntime";
@@ -33,6 +34,7 @@ interface StoredRecord {
   sex: "M" | "F";
   plan: StoredPlan | null;
   progress?: Progress;
+  coach?: string;
 }
 
 type View = "loading" | "notfound" | "noplan" | "blockdone" | "resumen" | "training" | "fin";
@@ -61,6 +63,23 @@ export function SesionGuiada() {
   const [detected, setDetected] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [saving, setSaving] = useState<"idle" | "saving" | "ok" | "error">("idle");
+  const [coaches, setCoaches] = useState<Array<{ id: string; nombre: string; emoji: string }>>([]);
+  const [coachSel, setCoachSel] = useState<string>(getCoach());
+
+  const pickCoach = useCallback((id: string) => {
+    setCoach(id);
+    setCoachSel(id);
+    // Preview inmediato: el coach elegido saluda con su propia voz.
+    speak("Dale, seguimos.", { key: `coach-preview-${id}`, minGap: 0 });
+    // Persistir la elección en el registro del usuario.
+    if (idRef.current) {
+      fetch("/api/evaluacion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: idRef.current, coach: id }),
+      }).catch(() => {});
+    }
+  }, []);
 
   // ── Cámara (feed único, se crea una vez) ──
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -74,6 +93,7 @@ export function SesionGuiada() {
   /* ── Carga del registro ── */
   useEffect(() => {
     warmVoices();
+    loadVoiceManifest().then(() => setCoaches(availableCoaches()));
     const id = new URLSearchParams(window.location.search).get("id")
       ?? (() => { try { return localStorage.getItem("calistenia_result_id"); } catch { return null; } })();
     if (!id) { setView("notfound"); return; }
@@ -83,6 +103,7 @@ export function SesionGuiada() {
       .then((data: { ok: boolean; item?: StoredRecord }) => {
         if (!data.ok || !data.item) { setView("notfound"); return; }
         setRecord(data.item);
+        if (data.item.coach) { setCoach(data.item.coach); setCoachSel(data.item.coach); }
         if (!data.item.plan?.sesiones?.length) { setView("noplan"); return; }
         progressRef.current = data.item.progress ?? { sessions: [] };
         const today = buildTodaySession(data.item.plan, progressRef.current);
@@ -120,7 +141,7 @@ export function SesionGuiada() {
         speak(String(st.reps), { key: `rep-${st.reps}-${Date.now() >> 11}`, minGap: 0 });
         const target = ex.presc.repMax;
         if (st.reps === target) {
-          speak(`¡${target}! Tope del rango. Si vas con buena técnica seguí, o decí listo.`, { key: `top-${Date.now() >> 12}`, minGap: 0 });
+          speak("¡Tope del rango! Si vas con buena técnica seguí, o decí listo.", { key: `top-${Date.now() >> 12}`, minGap: 0 });
         }
       }
     } else if (ex.measure.kind === "hold") {
@@ -154,7 +175,7 @@ export function SesionGuiada() {
         ? "Semana de descarga: hoy va la mitad de series, sin exigirte al límite. Es la semana donde el esfuerzo del mes se convierte en resultado. Activando tu cámara."
         : minima
         ? "Sesión mínima: quince minutos, los dos ejercicios que más mueven la aguja. Cuenta para tu consistencia. Activando tu cámara."
-        : `Sesión ${today.sessionNumber}. ${today.dia}, ${today.titulo}. Semana ${today.week} del bloque. Activando tu cámara.`,
+        : "Arrancamos con tu sesión de hoy. Activando tu cámara.",
       { key: "ses-start", minGap: 0 }
     );
     try {
@@ -182,15 +203,18 @@ export function SesionGuiada() {
   const ex = session?.ejercicios[exIdx] ?? null;
   useEffect(() => { exRef.current = ex; }, [ex]);
 
-  /* ── Intro de cada ejercicio ── */
+  /* ── Intro de cada ejercicio (secuencia de átomos con clip) ── */
   useEffect(() => {
     if (view !== "training" || phase !== "exIntro" || !ex || !session) return;
-    const rango = ex.presc.isTime ? `${ex.presc.repMin} a ${ex.presc.repMax} segundos` : `${ex.presc.repMin} a ${ex.presc.repMax} repeticiones`;
-    const perSide = ex.presc.perSide ? " Cada pierna, en la misma serie." : "";
-    speak(
-      `Ejercicio ${exIdx + 1} de ${session.ejercicios.length}: ${ex.nombre}. ${ex.setsHoy} series de ${rango}.${perSide} ${instructionFor(ex.nombre)} Cuando arranques, yo cuento. Decí listo al terminar la serie.`,
-      { key: `ex-${exIdx}`, minGap: 0 }
-    ).then(() => {
+    const parts = [
+      ejercicioSpoken(exIdx + 1, session.ejercicios.length),
+      seriesSpoken(ex.setsHoy),
+      rangoSpoken(ex.presc),
+      ...(ex.presc.perSide ? ["Cada pierna, en la misma serie."] : []),
+      instructionFor(ex.nombre),
+      "Cuando arranques, yo cuento. Decí listo al terminar la serie.",
+    ];
+    speakSeq(parts, { key: `ex-${exIdx}`, minGap: 0 }).then(() => {
       startSerie();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,7 +250,7 @@ export function SesionGuiada() {
 
     if (serieNum < e.setsHoy) {
       const rest = restSecondsFor(e.nombre);
-      speak(`Buena serie: ${isHold ? `${Math.round(value)} segundos` : `${value}`}. Descanso de ${rest} segundos.`, { key: `rest-${exIdx}-${serieNum}`, minGap: 0 });
+      speak(restSpoken(rest), { key: `rest-${exIdx}-${serieNum}`, minGap: 0 });
       setSerieNum((n) => n + 1);
       setPhase("rest");
     } else {
@@ -240,7 +264,7 @@ export function SesionGuiada() {
   /* ── Descanso cronometrado ── */
   const currentRest = ex ? restSecondsFor(ex.nombre) : 90;
   const restLeft = useCountdown(currentRest, phase === "rest", () => {
-    speak(`¡Vamos! Serie ${serieNum} de ${exRef.current?.setsHoy ?? 0}.`, { key: `go-${exIdx}-${serieNum}`, minGap: 0 }).then(startSerie);
+    speak("¡Vamos! Siguiente serie.", { key: `go-${exIdx}-${serieNum}`, minGap: 0 }).then(startSerie);
   });
 
   /* ── RIR y pase al siguiente ejercicio ── */
@@ -301,8 +325,7 @@ export function SesionGuiada() {
     const newProgress: Progress = { sessions: [...progressRef.current.sessions, log] };
     progressRef.current = newProgress;
 
-    const totalSeries = logRef.current.reduce((a, e) => a + e.series.length, 0);
-    speak(`¡Sesión completa! ${totalSeries} series registradas. Nos vemos en la próxima — la consistencia es lo que manda.`, { key: "ses-fin", minGap: 0 });
+    speak("¡Sesión completa! Quedó todo registrado. Nos vemos en la próxima — la consistencia es lo que manda.", { key: "ses-fin", minGap: 0 });
 
     fetch("/api/evaluacion", {
       method: "POST",
@@ -390,6 +413,23 @@ export function SesionGuiada() {
             </div>
           ))}
         </div>
+        {coaches.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <p style={{ fontSize: "0.68rem", fontWeight: 800, color: C.sage, letterSpacing: "0.16em", textTransform: "uppercase" }}>¿Quién te entrena hoy?</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+              {coaches.map((c) => (
+                <button key={c.id} onClick={() => pickCoach(c.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 14px", borderRadius: 999, cursor: "pointer", fontSize: "0.84rem", fontWeight: 700,
+                    background: coachSel === c.id ? "rgba(122,143,116,0.3)" : "rgba(255,255,255,0.06)",
+                    border: `1px solid ${coachSel === c.id ? C.sage : "rgba(255,255,255,0.12)"}`,
+                    color: coachSel === c.id ? C.sage2 : "rgba(248,246,242,0.75)" }}>
+                  <span>{c.emoji}</span>{c.nombre}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: "0.72rem", color: "rgba(248,246,242,0.35)" }}>Tocá uno y escuchalo — misma inteligencia, tu estilo</p>
+          </div>
+        )}
         <p style={{ color: "rgba(248,246,242,0.45)", fontSize: "0.85rem", textAlign: "center", maxWidth: 440, lineHeight: 1.6 }}>
           Todo por voz: yo cuento tus repeticiones, cronometro tus descansos y registro la sesión. Decí «listo» para cerrar cada serie y «saltar» si un ejercicio no va.
         </p>

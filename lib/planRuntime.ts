@@ -180,3 +180,35 @@ export function restSecondsFor(nombre: string): number {
   if (/plancha|equilibrio|hollow|gemelo/i.test(nombre)) return 45;
   return 90;
 }
+
+/* ─── Frases habladas atómicas ───
+   Cada helper produce EXACTAMENTE una key del catálogo de clips
+   (lib/voice-script.json) para que la voz pre-generada haga hit; si el valor
+   no está contemplado, el texto igual se lee por síntesis del navegador. */
+const NUM_SPOKEN: Record<number, string> = {
+  2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 8: "ocho", 10: "diez",
+  12: "doce", 15: "quince", 20: "veinte", 25: "veinticinco", 30: "treinta",
+  40: "cuarenta", 45: "cuarenta y cinco",
+};
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+export function seriesSpoken(sets: number): string {
+  return `${cap(NUM_SPOKEN[sets] ?? String(sets))} series.`;
+}
+
+export function rangoSpoken(p: Prescripcion): string {
+  const unidad = p.isTime ? "segundos" : "repeticiones";
+  if (p.repMin === p.repMax) return `${cap(NUM_SPOKEN[p.repMin] ?? String(p.repMin))} ${unidad}.`;
+  return `De ${NUM_SPOKEN[p.repMin] ?? p.repMin} a ${NUM_SPOKEN[p.repMax] ?? p.repMax} ${unidad}.`;
+}
+
+export function restSpoken(secs: number): string {
+  if (secs === 120) return "Buena serie. Descanso de dos minutos.";
+  if (secs === 90) return "Buena serie. Descanso de un minuto y medio.";
+  if (secs === 45) return "Buena serie. Descanso de cuarenta y cinco segundos.";
+  return `Buena serie. Descanso de ${secs} segundos.`;
+}
+
+export function ejercicioSpoken(i: number, n: number): string {
+  return `Ejercicio ${i} de ${n}.`;
+}

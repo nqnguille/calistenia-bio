@@ -110,6 +110,7 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     maResult: (body.maResult as unknown) ?? existing?.maResult ?? null,
     plan: (body.plan as unknown) ?? existing?.plan ?? null,
     progress: (body.progress as unknown) ?? existing?.progress ?? { sessions: [] },
+    coach: typeof body.coach === "string" ? body.coach.slice(0, 24) : existing?.coach ?? null,
     build: String(body.build ?? existing?.build ?? "").slice(0, 40),
     ua: request.headers.get("user-agent") ?? existing?.ua ?? "",
   };
