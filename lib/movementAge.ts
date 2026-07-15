@@ -2,12 +2,13 @@
 // cada uno con norma publicada por edad (y sexo), en una sola edad-equivalente
 // ponderada y regularizada hacia la edad real. Reemplaza la heurística
 // arbitraria de v10 (72 - score, sin ninguna base).
-import { NORM_OLS, NORM_STS, NORM_PUSHUP, ageFromNorm, type Sex } from "./norms";
+import { NORM_OLS, NORM_STS, NORM_PUSHUP, MAP_DEEP_SQUAT, ageFromNorm, type Sex } from "./norms";
 
-export type TestId = "ols" | "sts" | "pushup";
+export type TestId = "ols" | "squat" | "sts" | "pushup";
 
 export interface TestResults {
   ols?: number; // segundos sostenidos, tope 45
+  squat?: 1 | 2 | 3; // ordinal FMS: 1 limitada, 2 parcial, 3 completa
   sts?: number; // repeticiones en 30s
   pushup?: number; // repeticiones máximas
 }
@@ -25,6 +26,7 @@ const TEST_WEIGHTS: Record<TestId, number> = {
   ols: 1.0,
   sts: 1.0,
   pushup: 0.9,
+  squat: 0.4, // ordinal sin norma poblacional: pesa menos que los tests con curva real
 };
 
 function clamp(n: number, min: number, max: number) {
@@ -34,6 +36,7 @@ function clamp(n: number, min: number, max: number) {
 export function movementAgeV2(chronoAge: number, sex: Sex, results: TestResults): MovementAgeResult {
   const equiv: Partial<Record<TestId, number>> = {};
   if (results.ols != null) equiv.ols = clamp(ageFromNorm(NORM_OLS, results.ols), 18, 90);
+  if (results.squat != null) equiv.squat = MAP_DEEP_SQUAT[results.squat];
   if (results.sts != null) equiv.sts = clamp(ageFromNorm(NORM_STS[sex], results.sts), 18, 90);
   if (results.pushup != null) equiv.pushup = clamp(ageFromNorm(NORM_PUSHUP[sex], results.pushup), 18, 90);
 
@@ -53,7 +56,7 @@ export function movementAgeV2(chronoAge: number, sex: Sex, results: TestResults)
   // Regulariza hacia la edad real (α=0.15): evita que un solo test raro
   // desplace demasiado el resultado.
   const age = Math.round(clamp(0.85 * raw + 0.15 * chronoAge, 18, 90));
-  const ci = measured.length >= 3 ? 5 : 7;
+  const ci = measured.length >= 4 ? 4 : measured.length >= 3 ? 5 : 7;
 
   return { age, ci, breakdown: equiv, measured };
 }

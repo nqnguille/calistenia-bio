@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { movementAgeV2, type TestId, type TestResults, type MovementAgeResult } from "@/lib/movementAge";
-import { OLS_SOURCE, STS_SOURCE, PUSHUP_SOURCE, type Sex } from "@/lib/norms";
+import { OLS_SOURCE, STS_SOURCE, PUSHUP_SOURCE, SQUAT_SOURCE, type Sex } from "@/lib/norms";
 
 const C = {
   cream: "#F8F6F2", ink: "#151716", ink2: "#343A36",
@@ -10,13 +10,13 @@ const C = {
   dark: "#080B0F", dark2: "#111821", red: "#ef4444",
 };
 
-const EVAL_BUILD = "v12 · autoguardado + link";
+const EVAL_BUILD = "v13 · 4 tests + email real";
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 /* ─── Types ─────────────────────────────── */
 type Step = "hook" | "intake" | "camera" | "movement" | "calculating" | "reveal" | "plan" | "save";
 
-type TestMode = "maxHold" | "timedReps" | "amrap";
+type TestMode = "maxHold" | "timedReps" | "amrap" | "holdCheck";
 
 interface MovementTest {
   id: TestId;
@@ -29,6 +29,10 @@ interface MovementTest {
   metricLabel: string;
 }
 
+// Orden pensado para alternar esfuerzo y descanso: equilibrio (liviano) →
+// piernas (exigente) → movilidad (liviano, sin fatiga, pausa activa) →
+// flexiones (exigente, cierra el bloque — y se puede terminar antes diciendo
+// "listo", no hace falta llegar al fallo).
 const MOVEMENTS: MovementTest[] = [
   {
     id: "ols", title: "Equilibrio a una pierna", emoji: "🦩", mode: "maxHold", duration: 45,
@@ -43,8 +47,14 @@ const MOVEMENTS: MovementTest[] = [
     metricLabel: "repeticiones",
   },
   {
-    id: "pushup", title: "Flexiones de brazos", emoji: "💪", mode: "amrap", duration: 60,
-    instruction: "Hacé flexiones completas, bajando hasta noventa grados de codo. Las que puedas con buena técnica. Decime listo cuando termines.",
+    id: "squat", title: "Movilidad de piernas", emoji: "🧘", mode: "holdCheck", duration: 8,
+    instruction: "Con los brazos estirados arriba de la cabeza, agachate lo más profundo que puedas y sostenete dos segundos.",
+    hint: "Test de movilidad, sin esfuerzo — una sola vez, no hay que repetir (Cook et al., FMS)",
+    metricLabel: "profundidad",
+  },
+  {
+    id: "pushup", title: "Flexiones de brazos", emoji: "💪", mode: "amrap", duration: 45,
+    instruction: "Hacé flexiones completas, bajando hasta noventa grados de codo. Las que puedas con buena técnica — no hace falta llegar al fallo, parás cuando quieras diciendo listo.",
     hint: "Predictor de salud cardiovascular (Yang 2019, JAMA)",
     metricLabel: "repeticiones",
   },
@@ -53,12 +63,14 @@ const MOVEMENTS: MovementTest[] = [
 const MOVEMENT_CUES: Record<TestId, string> = {
   ols: "Fijá la mirada en un punto quieto, eso ayuda a sostener el equilibrio.",
   sts: "Sin usar las manos. Parate del todo cada vez.",
-  pushup: "Bajá completo y estirá los brazos arriba. Cuando quieras parar, decime listo.",
+  squat: "Bajá un poco más si podés, con los brazos bien arriba.",
+  pushup: "Bajá completo. Si ya te cuesta, decime listo y lo dejamos ahí.",
 };
 
 const TEST_META: Record<TestId, { label: string; source: string; fmt: (v: number) => string }> = {
   ols: { label: "Equilibrio", source: OLS_SOURCE, fmt: (v) => `${Math.round(v)} s` },
   sts: { label: "Fuerza de piernas", source: STS_SOURCE, fmt: (v) => `${Math.round(v)} reps` },
+  squat: { label: "Movilidad de piernas", source: SQUAT_SOURCE, fmt: (v) => (v >= 3 ? "Profundidad completa" : v >= 2 ? "Profundidad parcial" : "Profundidad limitada") },
   pushup: { label: "Flexiones", source: PUSHUP_SOURCE, fmt: (v) => `${Math.round(v)} reps` },
 };
 
@@ -277,6 +289,32 @@ function stepPushup(lms: Landmark[] | null, prev: RepState): RepState {
     return { phase: "up", reps: prev.reps };
   }
   return prev;
+}
+
+// Sentadilla profunda: test de UN intento, sin fatiga — se registra la mejor
+// posición sostenida en la ventana de tiempo, no se cuentan repeticiones.
+interface SquatState { bestDelta: number; armsUpAtBest: boolean; }
+const SQUAT_INIT: SquatState = { bestDelta: -1, armsUpAtBest: false };
+
+function stepSquat(lms: Landmark[] | null, prev: SquatState): SquatState {
+  if (!lms) return prev;
+  const lh = lms[LM.L_HIP], rh = lms[LM.R_HIP], lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE];
+  const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER], lw = lms[LM.L_WRIST], rw = lms[LM.R_WRIST];
+  if (![lh, rh, lk, rk].every((p) => visOk(p, 0.3))) return prev;
+  const hipY = avg([lh.y, rh.y]);
+  const kneeY = avg([lk.y, rk.y]);
+  const delta = hipY - kneeY; // más alto = sentadilla más profunda (cadera a la altura de rodilla o más abajo)
+  const armsUp = [ls, rs, lw, rw].every((p) => visOk(p, 0.3)) && avg([lw.y, rw.y]) < avg([ls.y, rs.y]) - 0.03;
+  if (delta > prev.bestDelta) return { bestDelta: delta, armsUpAtBest: armsUp };
+  return prev;
+}
+
+// 0 = sin datos todavía; 1 limitada, 2 parcial, 3 profundidad completa.
+function squatScore(state: SquatState): 0 | 1 | 2 | 3 {
+  if (state.bestDelta <= -1) return 0;
+  if (state.bestDelta >= 0 && state.armsUpAtBest) return 3;
+  if (state.bestDelta >= -0.06) return 2;
+  return 1;
 }
 
 /* ─── Canvas / dibujo del esqueleto ──────── */
@@ -549,6 +587,7 @@ const FOCUS_META: Record<TestId, { label: string; detalle: string; extra: Ejerci
   ols: { label: "equilibrio y control", detalle: "Tu equilibrio fue el punto más flojo: el bloque suma trabajo a una pierna en cada sesión.", extra: { n: "Equilibrio a una pierna (ojos al frente)", series: "2 × 30-45 s c/p" } },
   sts: { label: "fuerza de piernas", detalle: "Tu fuerza de piernas fue el punto más flojo: el bloque prioriza sentadillas y trabajo unilateral.", extra: { n: "Sentadilla búlgara (mochila opcional)", series: "3 × 8-12 c/p" } },
   pushup: { label: "fuerza de tren superior", detalle: "Tus flexiones fueron el punto más flojo: el bloque suma volumen de empuje en cada sesión.", extra: { n: "Flexiones con pausa abajo", series: "3 × 6-10" } },
+  squat: { label: "movilidad de piernas", detalle: "Tu movilidad de sentadilla fue el punto más flojo: el bloque suma trabajo de rango completo en cada sesión.", extra: { n: "Sentadilla profunda con pausa (movilidad)", series: "3 × 8-10" } },
 };
 
 function buildPlanFlora(breakdown: Partial<Record<TestId, number>>, movementAge: number | null, chronoAge: number): PlanFlora {
@@ -703,18 +742,9 @@ function StepHook({ onNext }: { onNext: () => void }) {
 }
 
 /* ─── STEP: INTAKE (edad + sexo, antes de la cámara) ── */
-const AGE_BUCKETS = [
-  { label: "18-29", value: 24 },
-  { label: "30-39", value: 35 },
-  { label: "40-49", value: 45 },
-  { label: "50-59", value: 55 },
-  { label: "60-69", value: 65 },
-  { label: "70+", value: 75 },
-];
-
 function StepIntake({ onDone }: { onDone: (age: number, sex: Sex) => void }) {
   const [sub, setSub] = useState<"age" | "sex">("age");
-  const [age, setAge] = useState<number | null>(null);
+  const [age, setAge] = useState("");
 
   useEffect(() => {
     if (sub === "age") {
@@ -723,6 +753,11 @@ function StepIntake({ onDone }: { onDone: (age: number, sex: Sex) => void }) {
       speak("¿Cuál es tu sexo? Las normas de fuerza son distintas por sexo, así que ajusto la comparación a eso.", { key: "intake-sex", minGap: 0 });
     }
   }, [sub]);
+
+  const ageNum = parseInt(age, 10);
+  const ageValid = Number.isFinite(ageNum) && ageNum >= 14 && ageNum <= 95;
+
+  const confirmAge = () => { if (ageValid) setSub("sex"); };
 
   return (
     <motion.div key="intake" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -737,17 +772,19 @@ function StepIntake({ onDone }: { onDone: (age: number, sex: Sex) => void }) {
             ¿Cuántos años tenés?
           </h2>
           <p style={{ color: "rgba(248,246,242,0.55)", fontSize: "0.95rem", maxWidth: 460, fontWeight: 300 }}>
-            Lo uso para comparar tu desempeño con las normas publicadas de tu edad.
+            Tu edad exacta — la uso para comparar tu desempeño con las normas publicadas.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, maxWidth: 420, width: "100%" }}>
-            {AGE_BUCKETS.map((b) => (
-              <motion.button key={b.label} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                onClick={() => { setAge(b.value); setSub("sex"); }}
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 16, padding: "18px 8px", color: "#F8F6F2", fontWeight: 800, fontSize: "1.05rem", cursor: "pointer" }}>
-                {b.label}
-              </motion.button>
-            ))}
-          </div>
+          <form onSubmit={(e) => { e.preventDefault(); confirmAge(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, width: "100%", maxWidth: 260 }}>
+            <input
+              type="number" inputMode="numeric" min={14} max={95} placeholder="Ej: 34"
+              value={age} onChange={(e) => setAge(e.target.value)} autoFocus
+              style={{ width: "100%", textAlign: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 16, padding: "20px 12px", color: "#F8F6F2", fontWeight: 900, fontSize: "2.4rem", outline: "none" }}
+            />
+            <motion.button type="submit" disabled={!ageValid} whileHover={ageValid ? { scale: 1.04 } : undefined} whileTap={ageValid ? { scale: 0.96 } : undefined}
+              style={{ width: "100%", background: ageValid ? C.sage : "rgba(255,255,255,0.1)", color: ageValid ? "#fff" : "rgba(248,246,242,0.35)", fontWeight: 800, fontSize: "1rem", padding: "16px", borderRadius: 999, border: "none", cursor: ageValid ? "pointer" : "not-allowed" }}>
+              Confirmar →
+            </motion.button>
+          </form>
         </>
       ) : (
         <>
@@ -760,12 +797,15 @@ function StepIntake({ onDone }: { onDone: (age: number, sex: Sex) => void }) {
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
             {([["F", "Mujer"], ["M", "Hombre"]] as const).map(([val, label]) => (
               <motion.button key={val} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                onClick={() => onDone(age ?? 40, val)}
+                onClick={() => onDone(ageNum, val)}
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 20, padding: "28px 40px", color: "#F8F6F2", fontWeight: 800, fontSize: "1.15rem", cursor: "pointer", minWidth: 160 }}>
                 {label}
               </motion.button>
             ))}
           </div>
+          <button onClick={() => setSub("age")} style={{ background: "transparent", border: "none", color: "rgba(248,246,242,0.35)", fontSize: "0.85rem", cursor: "pointer" }}>
+            ← Volver a editar la edad ({ageNum})
+          </button>
         </>
       )}
     </motion.div>
@@ -946,6 +986,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
   const introReadyRef = useRef(false);
   const olsRef = useRef<OlsState>(OLS_INIT);
   const repRef = useRef<RepState>(REP_INIT);
+  const squatRef = useRef<SquatState>(SQUAT_INIT);
   const cueFiredRef = useRef(false);
   const resultsRef = useRef<TestResults>({});
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -962,6 +1003,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
   const resetAttempt = useCallback(() => {
     olsRef.current = OLS_INIT;
     repRef.current = REP_INIT;
+    squatRef.current = SQUAT_INIT;
     stableRef.current = 0;
     framesWithBodyRef.current = 0;
     cueFiredRef.current = false;
@@ -1017,6 +1059,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
 
   const getRaw = useCallback((id: TestId) => {
     if (id === "ols") return Math.round(olsRef.current.heldMs / 100) / 10;
+    if (id === "squat") return Math.max(1, squatScore(squatRef.current));
     return repRef.current.reps;
   }, []);
 
@@ -1037,7 +1080,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
       return;
     }
 
-    resultsRef.current = { ...resultsRef.current, [id]: raw };
+    resultsRef.current = { ...resultsRef.current, [id]: raw } as TestResults;
     logEvent("test", `resultado ${id}: ${raw}`);
 
     if (currentIdx < MOVEMENTS.length - 1) {
@@ -1084,6 +1127,12 @@ function StepMovement({ setPoseHandler, onComplete }: {
           repRef.current = st;
           setLiveMetric(st.reps);
           setFeedback(st.phase === "down" ? "Ahora parate del todo" : "Sentate y volvé a pararte");
+        } else if (id === "squat") {
+          const st = stepSquat(landmarks, squatRef.current);
+          squatRef.current = st;
+          const score = squatScore(st);
+          setLiveMetric(score);
+          setFeedback(score >= 3 ? "¡Ahí! Profundidad completa" : score >= 2 ? "Cerca — un poco más abajo" : "Bajá más, brazos bien arriba");
         } else if (id === "pushup") {
           const st = stepPushup(landmarks, repRef.current);
           repRef.current = st;
@@ -1115,7 +1164,9 @@ function StepMovement({ setPoseHandler, onComplete }: {
     }
   }, [timer, phase, current.duration, current.id, currentIdx]);
 
-  const metricDisplay = current.id === "ols" ? liveMetric.toFixed(1) : String(liveMetric);
+  const metricDisplay = current.id === "ols" ? liveMetric.toFixed(1)
+    : current.id === "squat" ? "●".repeat(clamp(liveMetric, 0, 3)) + "○".repeat(3 - clamp(liveMetric, 0, 3))
+    : String(liveMetric);
 
   return (
     <motion.div key="movement" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
@@ -1457,6 +1508,7 @@ function resultUrl(id: string) {
 function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: number | null; chronoAge: number; results: TestResults; resultId: string | null }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -1484,12 +1536,14 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
     try {
       // Actualiza el mismo registro ya guardado, sumándole el email
       // (en vez de crear uno nuevo con datos incompletos).
-      await fetch("/api/evaluacion", {
+      const r = await fetch("/api/evaluacion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: resultId, email, chronoAge, sex: undefined, build: EVAL_BUILD }),
+        body: JSON.stringify({ id: resultId, email, chronoAge, build: EVAL_BUILD }),
       });
-      logEvent("save", `email sumado: ${email}`);
+      const data: { ok: boolean; emailSent?: boolean } = await r.json();
+      setEmailSent(!!data.emailSent);
+      logEvent("save", `email sumado: ${email} · enviado=${data.emailSent}`);
     } catch (err) {
       logEvent("error", `save email falló: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -1506,7 +1560,9 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
           style={{ fontSize:"4rem" }}>🎉</motion.div>
         <h2 style={{ fontSize:"1.8rem", fontWeight:900, color:"#F8F6F2", letterSpacing:"-0.02em" }}>¡Listo!</h2>
         <p style={{ color:"rgba(248,246,242,0.55)", fontSize:"1rem", lineHeight:1.7, maxWidth:380, fontWeight:300 }}>
-          Guardamos tu resultado. Todavía no mandamos email automático — usá el link de abajo para verlo cuando quieras.
+          {emailSent
+            ? <>Guardamos tu resultado y te lo mandamos a <strong style={{ color:C.sage }}>{email}</strong>.</>
+            : "Guardamos tu resultado. Usá el link de abajo para verlo cuando quieras."}
         </p>
         {link && (
           <div style={{ display:"flex", gap:8, width:"min(480px, 92vw)" }}>

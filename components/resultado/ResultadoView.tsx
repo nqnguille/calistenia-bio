@@ -7,14 +7,15 @@ const C = {
   dark: "#080B0F", red: "#ef4444",
 };
 
-type TestId = "ols" | "sts" | "pushup";
+type TestId = "ols" | "squat" | "sts" | "pushup";
 
 const TEST_META: Record<TestId, { label: string; source: string; fmt: (v: number) => string }> = {
   ols: { label: "Equilibrio", source: "Springer 2007, J Geriatr Phys Ther", fmt: (v) => `${Math.round(v)} s` },
+  squat: { label: "Movilidad de piernas", source: "Functional Movement Screen — Cook et al.", fmt: (v) => (v >= 3 ? "Profundidad completa" : v >= 2 ? "Profundidad parcial" : "Profundidad limitada") },
   sts: { label: "Fuerza de piernas (30s)", source: "Rikli & Jones 1999 / CDC STEADI", fmt: (v) => `${Math.round(v)} reps` },
   pushup: { label: "Flexiones", source: "ACSM / Cooper Institute; Yang 2019, JAMA", fmt: (v) => `${Math.round(v)} reps` },
 };
-const TEST_ORDER: TestId[] = ["ols", "sts", "pushup"];
+const TEST_ORDER: TestId[] = ["ols", "sts", "squat", "pushup"];
 
 interface Ejercicio { n: string; series: string }
 interface Sesion { dia: string; titulo: string; ejercicios: Ejercicio[] }

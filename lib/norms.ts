@@ -65,6 +65,13 @@ export const NORM_PUSHUP: Record<Sex, NormPoint[]> = {
 };
 export const PUSHUP_SOURCE = "ACSM / Cooper Institute; Yang et al. 2019, JAMA Netw Open";
 
+// Sentadilla profunda (FMS Deep Squat): test cualitativo, no de esfuerzo — se
+// mantiene una posición unos segundos, no hay fatiga. Sin norma poblacional
+// por edad (es ordinal), así que el mapeo a edad-equivalente es un ancla de
+// producto declarada, con peso bajo en la fórmula final.
+export const MAP_DEEP_SQUAT: Record<1 | 2 | 3, number> = { 3: 30, 2: 45, 1: 60 };
+export const SQUAT_SOURCE = "Functional Movement Screen — Cook et al., IJSPT 2014";
+
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
