@@ -2,10 +2,11 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 
 const links = [
-  { label: "Producto", href: "#producto" },
-  { label: "Ciencia", href: "#ciencia" },
-  { label: "Coaches", href: "#coaches" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Método", href: "/metodo/" },
+  { label: "Producto", href: "/#producto" },
+  { label: "Ciencia", href: "/#ciencia" },
+  { label: "Coaches", href: "/#coaches" },
+  { label: "FAQ", href: "/#faq" },
 ];
 
 export function Navbar() {
