@@ -27,59 +27,62 @@ const PILARES = [
     nombre: "Fuerza",
     frase: "Tu peso es el gimnasio.",
     texto:
-      "Dominadas, fondos, sentadillas a una pierna. Los movimientos grandes primero, los detalles después. Cada semana le pedís a tu cuerpo un poquito más que la anterior: una repetición, una serie, una variante más exigente. Eso —y no la motivación— es lo que construye músculo.",
+      "Dominadas, fondos, sentadillas a una pierna. Primero los ejercicios grandes, que son los que más resultado dan por minuto; después los detalles. Y una sola regla de progreso: cada semana, ganale en algo a la anterior — una repetición más, una serie más o una variante más difícil.",
   },
   {
     letra: "L",
     nombre: "Longevidad",
-    frase: "El músculo es el órgano de la juventud.",
+    frase: "El músculo es salud a largo plazo.",
     texto:
-      "No entrenamos para el verano: entrenamos para bajar tu Edad de Movimiento. La fuerza es el pilar mejor documentado de la salud a largo plazo — sostiene tu metabolismo, tus huesos y tu cabeza. Piernas fuertes hoy son independencia dentro de 40 años.",
+      "No entrenamos para el verano: entrenamos para bajar tu Edad de Movimiento. La fuerza es uno de los factores mejor documentados de la salud a largo plazo — sostiene tu metabolismo, tus huesos y tu independencia. Las piernas fuertes de hoy son la autonomía de tus 70.",
   },
   {
     letra: "O",
     nombre: "Orden",
     frase: "Lo que se registra, mejora.",
     texto:
-      "Entrenar “a sensación” es entrenar a ciegas: la sensación cambia con el ánimo y el sueño. El método vive en el registro — qué hiciste, cuántas veces, cuánto te costó. Tu único rival es tu semana anterior, y para ganarle primero hay que anotarla.",
+      "Entrenar “a sensación” no funciona: la sensación cambia con el sueño y el ánimo, y te engaña. Por eso el método registra todo — series, repeticiones y cuánto te costó. Con datos, tu único rival es tu semana anterior; sin datos, estás adivinando.",
   },
   {
     letra: "R",
     nombre: "Recuperación",
-    frase: "El cuerpo crece cuando descansás.",
+    frase: "El progreso se consolida descansando.",
     texto:
-      "El entrenamiento es la semilla; el crecimiento pasa después, durmiendo y comiendo bien. Si dormís poco o vivís estresado, tu capacidad de absorber entrenamiento baja — y el método se adapta: menos dosis, mejor ejecutada.",
+      "El entrenamiento genera el estímulo; el músculo se construye después, mientras dormís y comés bien. Si dormiste mal o venís muy exigido, tu capacidad de recuperación baja — y el plan se ajusta ese día: menos series, mejor ejecutadas. No es aflojar, es entrenar con la biología a favor.",
   },
   {
     letra: "A",
     nombre: "Alimentación",
     frase: "Consciente, real, sin dietas mágicas.",
     texto:
-      "Plato en tercios: verduras, proteína, energía. Proteína en cada comida, comida real cocinada en casa, y un margen para disfrutar sin culpa — la restricción total no se sostiene, y lo que no se sostiene no funciona. Comer consciente es saber qué estás eligiendo y por qué.",
+      "Ninguna dieta con nombre tiene magia: todas funcionan cuando te ayudan a comer comida real en la cantidad que necesitás. El método lo baja a lo concreto: plato en tercios, proteína en cada comida, ultraprocesados afuera y un margen para disfrutar sin culpa.",
   },
 ];
 
-const RIEGO = [
+const ZONAS = [
   {
-    nivel: "Sequía",
-    nivelPct: 18,
+    zona: "Te falta",
+    pos: 16,
     tono: "#C9A227",
+    titulo: "Menos series de las que tu cuerpo necesita",
     texto:
-      "Le das a tu cuerpo menos estímulo del que necesita para cambiar. Vas, te movés, transpirás — pero nada crece. Es lo que le pasa a la mayoría: no falta esfuerzo, falta dosis.",
+      "Vas, entrenás, transpirás — pero ese músculo no recibe suficiente estímulo para cambiar. Es el motivo más común por el que alguien entrena hace meses y no ve resultados: no falta esfuerzo, faltan series.",
   },
   {
-    nivel: "Riego justo",
-    nivelPct: 62,
+    zona: "En rango",
+    pos: 55,
     tono: "#7A8F74",
+    titulo: "La cantidad que estimula y se recupera",
     texto:
-      "La dosis que tu cuerpo puede absorber y convertir en progreso. Suficiente para crecer, recuperable por completo antes de la próxima sesión. Acá vive el método: en la dosis justa, no en la dosis máxima.",
+      "Suficientes series para progresar, pocas como para llegar recuperado a la próxima sesión. Acá vive tu plan: para la mayoría de los músculos, entre 10 y 20 series semanales, repartidas en dos o más días.",
   },
   {
-    nivel: "Inundación",
-    nivelPct: 96,
+    zona: "Te pasaste",
+    pos: 92,
     tono: "#B0673F",
+    titulo: "Más trabajo del que podés recuperar",
     texto:
-      "Más de lo que podés recuperar. No sos más disciplinado: te estás ahogando. Rendís peor cada semana, duele todo y el progreso se frena. Más no es mejor — mejor es mejor.",
+      "Rendís peor cada semana, te duele todo y el progreso se frena. No es más disciplina: es fatiga acumulada. La señal es clara — si tus números bajan dos semanas seguidas, sobran series o falta descanso.",
   },
 ];
 
@@ -120,7 +123,7 @@ export function MetodoFlora() {
               marginBottom: 40,
             }}
           >
-            Cultivá tu cuerpo.
+            Ciencia simple, aplicada con constancia.
           </motion.p>
           <motion.p
             {...reveal}
@@ -134,9 +137,9 @@ export function MetodoFlora() {
               margin: "0 auto 64px",
             }}
           >
-            Un sistema para entrenar con tu propio peso y comer consciente,
-            construido sobre ciencia simple y aplicado con constancia. Cinco
-            pilares. Cero fórmulas mágicas.
+            Un sistema para progresar con tu propio peso y comer mejor, sin
+            fórmulas mágicas: la cantidad justa de trabajo, el descanso que lo
+            convierte en resultado, y datos para no adivinar. Cinco pilares.
           </motion.p>
 
           {/* Acrónimo */}
@@ -189,7 +192,7 @@ export function MetodoFlora() {
       <section style={{ backgroundColor: C.cream, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
         <div style={{ maxWidth: 880, margin: "0 auto", textAlign: "center" }}>
           <motion.p {...reveal} className="section-label" style={{ justifyContent: "center", width: "100%" }}>
-            Manifiesto
+            La idea central
           </motion.p>
           <motion.h2
             {...reveal}
@@ -202,18 +205,18 @@ export function MetodoFlora() {
               margin: "28px 0 32px",
             }}
           >
-            El cuerpo se cultiva,{" "}
-            <span style={{ color: C.sage }}>igual que una planta.</span>
+            El 80% del resultado está en{" "}
+            <span style={{ color: C.sage }}>hacer lo simple, sostenido.</span>
           </motion.h2>
           <motion.p
             {...reveal}
             style={{ fontSize: "1.15rem", color: C.ink2, lineHeight: 1.8, fontWeight: 300, maxWidth: 680, margin: "0 auto" }}
           >
-            Necesita la dosis justa de estímulo — ni sequía ni inundación.
-            Crece de noche, cuando descansa. Da frutos por temporadas, no en
-            línea recta. Y depende menos del jardinero inspirado que del riego
-            constante. El Método FLORA es eso: agronomía aplicada a tu cuerpo,
-            medida con tecnología y sostenida con hábitos simples.
+            Entrenar lo suficiente, recuperarte bien, comer comida real y medir
+            tu progreso. Nada de esto es novedoso — lo difícil es sostenerlo. Por
+            eso el Método FLORA está diseñado alrededor de una sola métrica que
+            manda: tu consistencia. Una rutina buena que cumplís le gana siempre
+            a una rutina perfecta que abandonás.
           </motion.p>
         </div>
       </section>
@@ -287,10 +290,10 @@ export function MetodoFlora() {
         </div>
       </section>
 
-      {/* ───────────────────────── El riego justo ───────────────────────── */}
+      {/* ───────────────────────── Series semanales ───────────────────────── */}
       <section style={{ backgroundColor: C.cream, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
         <div style={{ maxWidth: 1152, margin: "0 auto" }}>
-          <motion.p {...reveal} className="section-tag">La regla central</motion.p>
+          <motion.p {...reveal} className="section-tag">La unidad de medida</motion.p>
           <motion.h2
             {...reveal}
             style={{
@@ -300,78 +303,73 @@ export function MetodoFlora() {
               lineHeight: 1.02,
               letterSpacing: "-0.03em",
               margin: "24px 0 20px",
-              maxWidth: 760,
+              maxWidth: 800,
             }}
           >
-            El riego justo: la dosis que tu cuerpo puede absorber.
+            Series semanales: el número que decide si crecés.
           </motion.h2>
           <motion.p
             {...reveal}
-            style={{ fontSize: "1.05rem", color: C.ink2, lineHeight: 1.75, fontWeight: 300, maxWidth: 640, marginBottom: 64 }}
+            style={{ fontSize: "1.05rem", color: C.ink2, lineHeight: 1.75, fontWeight: 300, maxWidth: 660, marginBottom: 64 }}
           >
-            El error más común no es entrenar mal: es regar mal. Cada grupo
-            muscular tiene una dosis semanal de trabajo que lo hace crecer — por
-            debajo no pasa nada, por arriba te ahogás. El método arranca
-            conservador y sube el riego de a poco, mirando cómo responde tu
-            cuerpo.
+            El progreso de cada músculo depende de cuántas series que de verdad
+            cuestan hace por semana — no de cuántos días vas ni de cuánto
+            transpirás. Ese número tiene tres zonas, y el trabajo del método es
+            mantenerte en la del medio:
           </motion.p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20 }}>
-            {RIEGO.map((r, i) => (
+            {ZONAS.map((z, i) => (
               <motion.div
-                key={r.nivel}
+                key={z.zona}
                 initial={{ opacity: 0, y: 28 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: i * 0.1, ease: "easeOut" }}
                 className="soft-card"
-                style={{ borderRadius: 24, padding: 32, display: "flex", flexDirection: "column", gap: 18 }}
+                style={{ borderRadius: 24, padding: 32, display: "flex", flexDirection: "column", gap: 16 }}
               >
-                {/* indicador de nivel de agua */}
-                <div
-                  aria-hidden
+                <span
                   style={{
-                    position: "relative",
-                    height: 96,
-                    borderRadius: 16,
-                    border: `1px solid ${C.border}`,
-                    background: "rgba(255,255,255,0.6)",
-                    overflow: "hidden",
+                    alignSelf: "flex-start",
+                    fontSize: "0.72rem",
+                    fontWeight: 800,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: z.tono,
+                    border: `1px solid ${z.tono}55`,
+                    background: `${z.tono}14`,
+                    borderRadius: 99,
+                    padding: "6px 14px",
                   }}
                 >
-                  <motion.div
-                    initial={{ height: 0 }}
-                    whileInView={{ height: `${r.nivelPct}%` }}
+                  {z.zona}
+                </span>
+
+                {/* medidor horizontal */}
+                <div aria-hidden style={{ position: "relative", height: 10, borderRadius: 99, background: C.cream2, border: `1px solid ${C.border}` }}>
+                  <motion.span
+                    initial={{ left: 0, opacity: 0 }}
+                    whileInView={{ left: `calc(${z.pos}% - 9px)`, opacity: 1 }}
                     viewport={{ once: true }}
-                    transition={{ duration: 1.1, delay: 0.25 + i * 0.1, ease: "easeOut" }}
+                    transition={{ duration: 0.9, delay: 0.3 + i * 0.1, ease: "easeOut" }}
                     style={{
                       position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      background: `linear-gradient(180deg, ${r.tono}55, ${r.tono}99)`,
+                      top: -5,
+                      width: 18,
+                      height: 18,
+                      borderRadius: 99,
+                      background: z.tono,
+                      boxShadow: `0 0 0 4px ${z.tono}26`,
                     }}
                   />
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: 10,
-                      right: 14,
-                      fontSize: "0.7rem",
-                      fontWeight: 800,
-                      letterSpacing: "0.16em",
-                      textTransform: "uppercase",
-                      color: r.tono,
-                    }}
-                  >
-                    {r.nivel}
-                  </span>
                 </div>
-                <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: C.ink, letterSpacing: "-0.02em", margin: 0 }}>
-                  {r.nivel}
+
+                <h3 style={{ fontSize: "1.1rem", fontWeight: 800, color: C.ink, letterSpacing: "-0.015em", margin: 0 }}>
+                  {z.titulo}
                 </h3>
                 <p style={{ fontSize: "0.95rem", color: C.ink2, lineHeight: 1.7, fontWeight: 300, margin: 0 }}>
-                  {r.texto}
+                  {z.texto}
                 </p>
               </motion.div>
             ))}
@@ -379,28 +377,22 @@ export function MetodoFlora() {
 
           <motion.p
             {...reveal}
-            style={{
-              marginTop: 40,
-              fontSize: "0.95rem",
-              color: C.muted,
-              lineHeight: 1.7,
-              maxWidth: 640,
-            }}
+            style={{ marginTop: 40, fontSize: "0.95rem", color: C.muted, lineHeight: 1.7, maxWidth: 660 }}
           >
-            ¿Cómo sabés cuál es tu riego justo? Registrando. Si a la semana
-            siguiente rendís más, la dosis era buena. Si rendís menos o seguís
-            molido, era inundación. CalistenIA hace esta lectura por vos, sesión
-            a sesión, con la cámara de tu compu.
+            ¿Cómo sabés en qué zona estás? Por tu respuesta, no por una tabla:
+            si la semana siguiente rendís igual o mejor, la cantidad era buena;
+            si rendís peor, te pasaste. CalistenIA hace esa lectura por vos,
+            sesión a sesión, y ajusta tus series semanales según cómo venís.
           </motion.p>
         </div>
       </section>
 
-      {/* ───────────────────────── Temporadas ───────────────────────── */}
+      {/* ───────────────────────── Bloques y descarga ───────────────────────── */}
       <section style={{ backgroundColor: C.cream2, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
         <div style={{ maxWidth: 1152, margin: "0 auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 64, alignItems: "center" }}>
             <div>
-              <motion.p {...reveal} className="section-tag">Temporadas</motion.p>
+              <motion.p {...reveal} className="section-tag">La planificación</motion.p>
               <motion.h2
                 {...reveal}
                 style={{
@@ -412,40 +404,43 @@ export function MetodoFlora() {
                   margin: "24px 0 24px",
                 }}
               >
-                Nada crece en línea recta.
+                Bloques de 5 semanas, no rutinas eternas.
               </motion.h2>
               <motion.p {...reveal} style={{ fontSize: "1.05rem", color: C.ink2, lineHeight: 1.8, fontWeight: 300, marginBottom: 20 }}>
-                El método organiza el año en <strong style={{ fontWeight: 700 }}>temporadas de cinco semanas</strong>:
-                cuatro de crecimiento, donde el riego sube de a poco, y una{" "}
-                <strong style={{ fontWeight: 700 }}>semana de raíces</strong>, donde bajás la carga a propósito
-                para que el cuerpo consolide todo lo que sembró.
+                Entrenar igual todo el año no funciona: la fatiga se acumula más
+                rápido de lo que el cuerpo se adapta. Por eso el método trabaja
+                en <strong style={{ fontWeight: 700 }}>bloques de 5 semanas</strong>: cuatro donde las series
+                semanales suben de a poco, y una{" "}
+                <strong style={{ fontWeight: 700 }}>semana de descarga</strong> — mitad de series, sin exigirte
+                al límite.
               </motion.p>
               <motion.p {...reveal} style={{ fontSize: "1.05rem", color: C.ink2, lineHeight: 1.8, fontWeight: 300, margin: 0 }}>
-                La semana de raíces no es una semana perdida: es la que hace
-                posible la próxima temporada. Saltearla es la forma más rápida
-                de pasar de riego justo a inundación.
+                La descarga no es una semana perdida: es donde el esfuerzo del
+                mes se convierte en resultado, y lo que te permite arrancar el
+                próximo bloque un escalón más arriba. Saltearla es la vía rápida
+                al estancamiento.
               </motion.p>
             </div>
 
-            {/* Ciclo visual */}
+            {/* Bloque visual */}
             <motion.div
               {...reveal}
               className="soft-card"
               style={{ borderRadius: 28, padding: "clamp(28px,4vw,48px)" }}
             >
               <p style={{ fontSize: "0.7rem", fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", color: C.sage, marginBottom: 28 }}>
-                Una temporada
+                Un bloque tipo
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {[
-                  { s: "Semana 1", l: "Siembra — arrancás conservador", w: 34 },
-                  { s: "Semana 2", l: "Crecimiento — sube el riego", w: 52 },
-                  { s: "Semana 3", l: "Crecimiento — sube el riego", w: 70 },
-                  { s: "Semana 4", l: "Floración — tu mejor semana", w: 92 },
-                  { s: "Semana 5", l: "Raíces — bajás, consolidás", w: 26, root: true },
+                  { s: "Semana 1", l: "Arranque conservador", w: 34 },
+                  { s: "Semana 2", l: "Suben las series", w: 52 },
+                  { s: "Semana 3", l: "Suben las series", w: 70 },
+                  { s: "Semana 4", l: "Semana pico — tu mejor semana", w: 92 },
+                  { s: "Semana 5", l: "Descarga — 50% del trabajo", w: 26, deload: true },
                 ].map((w, i) => (
                   <div key={w.s} style={{ display: "grid", gridTemplateColumns: "88px 1fr", gap: 16, alignItems: "center" }}>
-                    <span style={{ fontSize: "0.78rem", fontWeight: 700, color: w.root ? C.forest : C.ink2 }}>{w.s}</span>
+                    <span style={{ fontSize: "0.78rem", fontWeight: 700, color: w.deload ? C.forest : C.ink2 }}>{w.s}</span>
                     <div>
                       <motion.div
                         initial={{ width: 0 }}
@@ -455,7 +450,7 @@ export function MetodoFlora() {
                         style={{
                           height: 12,
                           borderRadius: 99,
-                          background: w.root
+                          background: w.deload
                             ? `linear-gradient(90deg, ${C.forest}, ${C.sage})`
                             : `linear-gradient(90deg, ${C.sage2}, ${C.sage})`,
                           marginBottom: 5,
@@ -471,7 +466,7 @@ export function MetodoFlora() {
         </div>
       </section>
 
-      {/* ───────────────────────── Al borde, no al fallo ───────────────────────── */}
+      {/* ───────────────────────── Repeticiones en reserva ───────────────────────── */}
       <section style={{ backgroundColor: C.cream, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
         <div style={{ maxWidth: 880, margin: "0 auto", textAlign: "center" }}>
           <motion.p {...reveal} className="section-label" style={{ justifyContent: "center", width: "100%" }}>
@@ -488,26 +483,26 @@ export function MetodoFlora() {
               margin: "28px 0 28px",
             }}
           >
-            Al borde, <span style={{ color: C.sage }}>no al fallo.</span>
+            Repeticiones <span style={{ color: C.sage }}>en reserva.</span>
           </motion.h2>
           <motion.p
             {...reveal}
-            style={{ fontSize: "1.1rem", color: C.ink2, lineHeight: 1.8, fontWeight: 300, maxWidth: 660, margin: "0 auto 48px" }}
+            style={{ fontSize: "1.1rem", color: C.ink2, lineHeight: 1.8, fontWeight: 300, maxWidth: 680, margin: "0 auto 48px" }}
           >
-            Una serie que termina fresca no le dice nada a tu cuerpo. Una serie
-            que termina rota te cobra más de lo que te da. La zona del método:
-            terminar cada serie sintiendo que te quedaban una o dos repeticiones
-            buenas en el tanque. Las últimas tienen que costar — las de más,
-            sobran.
+            La intensidad se maneja con una pregunta simple al final de cada
+            serie: ¿cuántas repeticiones más podrías haber hecho bien? El punto
+            ideal para construir músculo es terminar con 1 o 2 en reserva — las
+            últimas tienen que costar. Cero en reserva es el fallo: se usa poco
+            y a propósito, porque cuesta caro de recuperar.
           </motion.p>
           <motion.div
             {...reveal}
             style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap" }}
           >
             {[
-              { t: "Demasiado fácil", d: "5+ reps en el tanque · no cuenta", on: false },
-              { t: "Al borde", d: "1–2 reps en el tanque · acá se crece", on: true },
-              { t: "Al fallo siempre", d: "0 reps · caro de recuperar", on: false },
+              { t: "5+ en reserva", d: "Demasiado fácil · esa serie no cuenta", on: false },
+              { t: "1–2 en reserva", d: "El punto ideal · acá se progresa", on: true },
+              { t: "0 en reserva (fallo)", d: "Caro de recuperar · con moderación", on: false },
             ].map((z) => (
               <div
                 key={z.t}
@@ -516,7 +511,7 @@ export function MetodoFlora() {
                   padding: "18px 26px",
                   border: `1px solid ${z.on ? C.sage : C.border}`,
                   background: z.on ? "rgba(122,143,116,0.12)" : "rgba(255,255,255,0.6)",
-                  minWidth: 200,
+                  minWidth: 210,
                 }}
               >
                 <p style={{ fontSize: "0.95rem", fontWeight: 800, color: z.on ? C.forest : C.ink2, margin: "0 0 4px" }}>{z.t}</p>
@@ -527,8 +522,79 @@ export function MetodoFlora() {
         </div>
       </section>
 
-      {/* ───────────────────────── Alimentación consciente ───────────────────────── */}
+      {/* ───────────────────────── Consistencia ───────────────────────── */}
       <section style={{ backgroundColor: C.cream2, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
+        <div style={{ maxWidth: 1152, margin: "0 auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 64, alignItems: "center" }}>
+            <div>
+              <motion.p {...reveal} className="section-tag">La métrica que manda</motion.p>
+              <motion.h2
+                {...reveal}
+                style={{
+                  fontSize: "clamp(2.2rem,4.6vw,3.4rem)",
+                  fontWeight: 900,
+                  color: C.ink,
+                  lineHeight: 1.02,
+                  letterSpacing: "-0.03em",
+                  margin: "24px 0 24px",
+                }}
+              >
+                Tu consistencia vale más que tu mejor sesión.
+              </motion.h2>
+              <motion.p {...reveal} style={{ fontSize: "1.05rem", color: C.ink2, lineHeight: 1.8, fontWeight: 300, marginBottom: 20 }}>
+                El método mide tu consistencia como un porcentaje: cuántas de
+                las sesiones del mes cumpliste. Arriba del 80%, los resultados
+                llegan solos — la evidencia sobre adherencia es contundente. Por
+                debajo, no hay rutina que te salve.
+              </motion.p>
+              <motion.p {...reveal} style={{ fontSize: "1.05rem", color: C.ink2, lineHeight: 1.8, fontWeight: 300, margin: 0 }}>
+                ¿Día complicado, poco tiempo? En vez de saltear, la app te
+                ofrece la <strong style={{ fontWeight: 700 }}>sesión mínima</strong>: 15 minutos, los 2 o 3
+                ejercicios que más mueven la aguja. Cuenta para tu consistencia
+                — porque mantener el hábito importa más que la sesión perfecta.
+              </motion.p>
+            </div>
+
+            {/* Score visual */}
+            <motion.div
+              {...reveal}
+              className="soft-card"
+              style={{ borderRadius: 28, padding: "clamp(28px,4vw,48px)", textAlign: "center" }}
+            >
+              <p style={{ fontSize: "0.7rem", fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", color: C.sage, marginBottom: 24 }}>
+                Consistencia del mes
+              </p>
+              <p style={{ fontSize: "clamp(3.5rem,7vw,5.5rem)", fontWeight: 900, color: C.forest, letterSpacing: "-0.04em", lineHeight: 1, margin: "0 0 8px" }}>
+                92%
+              </p>
+              <p style={{ fontSize: "0.9rem", color: C.muted, marginBottom: 32 }}>11 de 12 sesiones cumplidas</p>
+              <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap", marginBottom: 28 }}>
+                {[1, 1, 1, 1, 2, 1, 1, 1, 0, 1, 1, 1].map((s, i) => (
+                  <span
+                    key={i}
+                    title={s === 2 ? "Sesión mínima" : s === 1 ? "Sesión completa" : "No cumplida"}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 7,
+                      background: s === 1 ? C.sage : s === 2 ? C.sage2 : "transparent",
+                      border: `1px solid ${s === 0 ? C.border : "transparent"}`,
+                    }}
+                  />
+                ))}
+              </div>
+              <p style={{ fontSize: "0.78rem", color: C.muted, margin: 0 }}>
+                <span style={{ color: C.sage, fontWeight: 700 }}>■</span> completa ·{" "}
+                <span style={{ color: C.sage2, fontWeight: 700 }}>■</span> sesión mínima ·{" "}
+                <span style={{ fontWeight: 700 }}>□</span> no cumplida
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ───────────────────────── Alimentación consciente ───────────────────────── */}
+      <section style={{ backgroundColor: C.cream, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
         <div style={{ maxWidth: 1152, margin: "0 auto" }}>
           <motion.p {...reveal} className="section-tag">Alimentación consciente</motion.p>
           <motion.h2
@@ -543,7 +609,7 @@ export function MetodoFlora() {
               maxWidth: 760,
             }}
           >
-            Se cocina en casa, se come sin culpa.
+            Cuatro decisiones por día. Ninguna dieta.
           </motion.h2>
           <motion.p
             {...reveal}
@@ -551,26 +617,26 @@ export function MetodoFlora() {
           >
             Ninguna dieta con nombre propio tiene magia: todas funcionan cuando
             te ayudan a comer comida real en la cantidad que tu cuerpo necesita.
-            El método lo reduce a cuatro decisiones conscientes por día.
+            El método lo reduce a cuatro decisiones conscientes:
           </motion.p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 20 }}>
             {[
               {
                 t: "El plato en tercios",
-                d: "Un tercio de verduras, un tercio de proteína, un tercio de energía (arroz, papa, legumbres). ¿Querés bajar? Agrandá el tercio verde. ¿Querés subir? Agrandá el de energía.",
+                d: "Un tercio de verduras, un tercio de proteína, un tercio de energía (arroz, papa, legumbres). ¿Querés bajar? Agrandá el tercio de verduras. ¿Querés subir? Agrandá el de energía.",
               },
               {
                 t: "Proteína en cada comida",
-                d: "El músculo que entrenás a la mañana se construye con lo que comés durante el día. Un puñado generoso de proteína por comida, tres o cuatro veces al día — animal o vegetal, da igual.",
+                d: "El músculo que entrenás a la mañana se construye con lo que comés durante el día. Una porción firme de proteína por comida, 3 o 4 veces al día — animal o vegetal, da igual.",
               },
               {
                 t: "Comida real primero",
-                d: "Lo que más resultados da no es sumar superalimentos: es restar ultraprocesados. Si tiene más ingredientes que una receta de tu abuela, probablemente no te está ayudando.",
+                d: "Lo que más resultado da no es sumar superalimentos: es restar ultraprocesados. Regla práctica: si tiene una lista de ingredientes que no reconocés, no te está ayudando.",
               },
               {
                 t: "Margen para disfrutar",
-                d: "Una porción de tu vida alimentaria es para la pizza con amigos y la torta de cumpleaños, sin culpa ni compensación. La restricción total siempre termina igual: en el atracón y el abandono.",
+                d: "Un 10-20% de tus comidas es para la pizza con amigos y la torta de cumpleaños, sin culpa ni compensación. La restricción total termina siempre igual: en el abandono.",
               },
             ].map((c, i) => (
               <motion.div
@@ -612,7 +678,7 @@ export function MetodoFlora() {
       </section>
 
       {/* ───────────────────────── CTA final ───────────────────────── */}
-      <section style={{ backgroundColor: C.cream, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
+      <section style={{ backgroundColor: C.cream2, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
         <div style={{ maxWidth: 1152, margin: "0 auto" }}>
           <motion.div
             {...reveal}
@@ -635,7 +701,8 @@ export function MetodoFlora() {
             </h2>
             <p style={{ fontSize: "1.05rem", color: "rgba(248,246,242,0.65)", lineHeight: 1.7, fontWeight: 300, maxWidth: 560, margin: "0 auto 48px" }}>
               Cuatro minutos frente a tu cámara alcanzan para conocer tu punto
-              de partida. Desde ahí, el riego justo lo calculamos juntos.
+              de partida. Desde ahí, tus series semanales las calculamos con
+              datos, no a ojo.
             </p>
             <motion.a
               href="/evaluacion"
