@@ -96,15 +96,25 @@ const LM = {
   L_ANKLE: 27, R_ANKLE: 28,
 } as const;
 
-const CONNECTIONS: Array<[number, number]> = [
-  [LM.L_SHOULDER, LM.R_SHOULDER],
-  [LM.L_SHOULDER, LM.L_ELBOW], [LM.L_ELBOW, LM.L_WRIST],
-  [LM.R_SHOULDER, LM.R_ELBOW], [LM.R_ELBOW, LM.R_WRIST],
-  [LM.L_SHOULDER, LM.L_HIP], [LM.R_SHOULDER, LM.R_HIP],
-  [LM.L_HIP, LM.R_HIP],
-  [LM.L_HIP, LM.L_KNEE], [LM.L_KNEE, LM.L_ANKLE],
-  [LM.R_HIP, LM.R_KNEE], [LM.R_KNEE, LM.R_ANKLE],
+// Esqueleto COMPLETO de BlazePose: 33 landmarks (cara, torso, manos y pies).
+const FULL_CONNECTIONS: Array<[number, number]> = [
+  // cara
+  [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], [9, 10],
+  // torso
+  [11, 12], [11, 23], [12, 24], [23, 24],
+  // brazo izquierdo + mano
+  [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19],
+  // brazo derecho + mano
+  [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20],
+  // pierna izquierda + pie
+  [23, 25], [25, 27], [27, 29], [29, 31], [27, 31],
+  // pierna derecha + pie
+  [24, 26], [26, 28], [28, 30], [30, 32], [28, 32],
 ];
+
+// Articulaciones grandes (se dibujan más gruesas que cara/manos/pies).
+const CORE_POINTS = new Set<number>([11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28]);
+const isDetailPoint = (i: number) => !CORE_POINTS.has(i) && i !== LM.NOSE;
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
 function avg(nums: number[]) { return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0; }
@@ -125,6 +135,14 @@ function essentialVisible(lms: Landmark[]) {
   return [LM.L_SHOULDER, LM.R_SHOULDER, LM.L_HIP, LM.R_HIP].every((i) => visOk(lms[i], 0.22));
 }
 
+// Gate tolerante: si el modelo devuelve un esqueleto coherente, hay un cuerpo.
+// La visibilidad por punto castiga demasiado la luz tenue, así que aceptamos
+// también un promedio razonable aunque algún punto individual quede bajo.
+function bodyPresent(lms: Landmark[] | null): lms is Landmark[] {
+  if (!lms || lms.length < 33) return false;
+  return essentialVisible(lms) || poseQuality(lms) >= 28;
+}
+
 // Confianza de detección 0-100: promedio de visibilidad de hombros, cadera y rodillas.
 function poseQuality(lms: Landmark[] | null) {
   if (!lms) return 0;
@@ -133,7 +151,7 @@ function poseQuality(lms: Landmark[] | null) {
 }
 
 function analyzePose(lms: Landmark[] | null, testId: MovementTest["id"]): PoseAnalysis {
-  if (!lms || !essentialVisible(lms)) {
+  if (!bodyPresent(lms)) {
     return { detected: false, score: 0, feedback: "Posicionate frente a la cámara", detail: "Necesitamos ver hombros y cadera" };
   }
 
@@ -230,27 +248,29 @@ function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landm
   ctx.shadowColor = color;
   ctx.shadowBlur = 14 * u;
 
-  const armPointSet = new Set<number>([LM.L_ELBOW, LM.R_ELBOW, LM.L_WRIST, LM.R_WRIST]);
-  for (const [a, b] of CONNECTIONS) {
+  // Umbral de dibujo bien bajo: preferimos mostrar el esqueleto completo
+  // (33 puntos) aunque tirite, a que el usuario crea que no lo vemos.
+  const DRAW_VIS = 0.15;
+  for (const [a, b] of FULL_CONNECTIONS) {
     const la = lms[a], lb = lms[b];
-    if (!visOk(la, 0.32) || !visOk(lb, 0.32)) continue;
+    if (!la || !lb || !visOk(la, DRAW_VIS) || !visOk(lb, DRAW_VIS)) continue;
     const pa = toCanvas(la), pb = toCanvas(lb);
-    const isArm = armPointSet.has(a) || armPointSet.has(b);
+    const detail = isDetailPoint(a) && isDetailPoint(b);
     ctx.beginPath();
-    ctx.strokeStyle = isArm ? color : dim;
-    ctx.lineWidth = (isArm ? 6 : 4) * u;
+    ctx.strokeStyle = detail ? dim : color;
+    ctx.lineWidth = (detail ? 2.5 : 5) * u;
     ctx.moveTo(pa.x, pa.y);
     ctx.lineTo(pb.x, pb.y);
     ctx.stroke();
   }
 
-  for (const i of Object.values(LM)) {
+  for (let i = 0; i < lms.length; i++) {
     const lm = lms[i];
-    if (!visOk(lm, 0.32)) continue;
+    if (!lm || !visOk(lm, DRAW_VIS)) continue;
     const p = toCanvas(lm);
     ctx.beginPath();
-    ctx.fillStyle = color;
-    ctx.arc(p.x, p.y, (i === LM.NOSE ? 8 : 7) * u, 0, Math.PI * 2);
+    ctx.fillStyle = isDetailPoint(i) ? dim : color;
+    ctx.arc(p.x, p.y, (i === LM.NOSE ? 7 : isDetailPoint(i) ? 3 : 6) * u, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -276,11 +296,11 @@ async function startPoseTracking({
 
   const pose = new Pose({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${file}` });
   pose.setOptions({
-    modelComplexity: 1,
+    modelComplexity: 2, // máxima precisión de landmarks (desktop lo banca)
     smoothLandmarks: true,
     enableSegmentation: false,
-    minDetectionConfidence: 0.55,
-    minTrackingConfidence: 0.55,
+    minDetectionConfidence: 0.4, // más tolerante con luz tenue
+    minTrackingConfidence: 0.4,
   });
 
   pose.onResults((results) => {
@@ -357,6 +377,55 @@ function speak(text: string, opts: { key?: string; minGap?: number } = {}) {
 function stopSpeaking() {
   if (typeof window !== "undefined") window.speechSynthesis?.cancel();
 }
+
+/* ─── Reconocimiento de voz (órdenes del usuario) ── */
+// A distancia el usuario no puede tocar nada: puede decir "listo", "dale",
+// "avanzar", etc. para forzar el paso siguiente si la detección no engancha.
+const ADVANCE_WORDS = ["listo", "lista", "avanzar", "avanza", "continuar", "continua", "seguir", "empezar", "empeza", "dale", "vamos", "ya estoy"];
+
+function matchesAdvance(text: string) {
+  const t = text.toLowerCase();
+  return ADVANCE_WORDS.some((w) => t.includes(w));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SpeechRecognitionCtor = new () => any;
+
+function useVoiceCommands(enabled: boolean, onAdvance: () => void) {
+  const cbRef = useRef(onAdvance);
+  useEffect(() => { cbRef.current = onAdvance; }, [onAdvance]);
+
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined") return;
+    const w = window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor };
+    const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!Ctor) return;
+
+    let alive = true;
+    const rec = new Ctor();
+    rec.lang = "es-AR";
+    rec.continuous = true;
+    rec.interimResults = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (e: any) => {
+      // Evita que la app se responda a sí misma por los parlantes.
+      if (window.speechSynthesis?.speaking) return;
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const text: string = e.results[i]?.[0]?.transcript ?? "";
+        if (matchesAdvance(text)) { cbRef.current(); break; }
+      }
+    };
+    rec.onend = () => { if (alive) { try { rec.start(); } catch {} } };
+    rec.onerror = () => {};
+    try { rec.start(); } catch {}
+    return () => {
+      alive = false;
+      try { rec.onend = null; rec.stop(); } catch {}
+    };
+  }, [enabled]);
+}
+
+const EVAL_BUILD = "v5 · voz + 33 puntos";
 
 /* ─── Helpers ────────────────────────────── */
 function pad(n: number) { return String(n).padStart(2, "0"); }
@@ -501,6 +570,7 @@ function StepCamera({ onNext }: { onNext: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<PoseRuntime | null>(null);
   const detectedFrames = useRef(0);
+  const presentFrames = useRef(0);
   const advancedRef = useRef(false);
   const bootRef = useRef(false);
   const [permission, setPermission] = useState<"idle"|"requesting"|"granted"|"denied">("idle");
@@ -508,6 +578,7 @@ function StepCamera({ onNext }: { onNext: () => void }) {
   const [partial, setPartial] = useState(false);
   const [status, setStatus] = useState("Listo para activar cámara");
   const [quality, setQuality] = useState(0);
+  const [hud, setHud] = useState("iniciando…");
 
   const stopRuntime = useCallback(() => {
     runtimeRef.current?.stop();
@@ -516,12 +587,27 @@ function StepCamera({ onNext }: { onNext: () => void }) {
 
   useEffect(() => () => stopRuntime(), [stopRuntime]);
 
+  const forceAdvance = useCallback((phrase: string) => {
+    if (advancedRef.current) return;
+    advancedRef.current = true;
+    setStatus("Cuerpo detectado · preparando evaluación…");
+    speak(phrase, { key: "cam-advance", minGap: 0 });
+    setTimeout(() => {
+      stopRuntime();
+      onNext();
+    }, 1200);
+  }, [onNext, stopRuntime]);
+
+  // Orden por voz: "listo", "dale", "avanzar"… destraba el paso a mano.
+  useVoiceCommands(permission === "granted", () => forceAdvance("Dale, seguimos."));
+
   const requestCamera = useCallback(() => {
     stopRuntime();
     setDetected(false);
     setQuality(0);
     setStatus("Preparando panel de cámara…");
     detectedFrames.current = 0;
+    presentFrames.current = 0;
     advancedRef.current = false;
     bootRef.current = false;
     setPermission("requesting");
@@ -544,26 +630,30 @@ function StepCamera({ onNext }: { onNext: () => void }) {
           onStatus: (value) => active && setStatus(value),
           onResults: (landmarks, _analysis, poseConfidence) => {
             if (!active) return;
-            const ok = !!landmarks && essentialVisible(landmarks);
+            const ok = bodyPresent(landmarks);
             setDetected(ok);
             setPartial(!!landmarks && !ok);
             setQuality(poseConfidence);
+            setHud(`${EVAL_BUILD} · ${videoRef.current?.videoWidth ?? 0}×${videoRef.current?.videoHeight ?? 0} · ${landmarks?.length ?? 0} pts · vis ${(poseConfidence / 100).toFixed(2)}`);
             if (ok) detectedFrames.current += 1;
             else detectedFrames.current = 0;
+            if (landmarks) presentFrames.current += 1;
 
             if (!ok && landmarks) {
-              speak("Casi. Necesito ver tus hombros y tu cadera dentro del cuadro.", { key: "cam-partial", minGap: 9000 });
+              speak("Casi. Necesito ver tus hombros y tu cadera. Si no avanzo, decime: listo.", { key: "cam-partial", minGap: 10000 });
+            }
+            if (!landmarks && presentFrames.current === 0) {
+              speak("No logro verte. Prendé una luz de frente y ponete a dos o tres metros.", { key: "cam-nobody", minGap: 12000 });
             }
 
-            if (detectedFrames.current > 22 && !advancedRef.current) {
-              advancedRef.current = true;
-              setStatus("Cuerpo detectado · preparando evaluación…");
-              speak("¡Te veo! Arrancamos con la primera prueba.", { key: "cam-found", minGap: 3000 });
-              setTimeout(() => {
-                if (!active) return;
-                stopRuntime();
-                onNext();
-              }, 1400);
+            if (detectedFrames.current > 20) {
+              forceAdvance("¡Te veo! Arrancamos con la primera prueba.");
+            }
+            // Red de seguridad: si hay esqueleto hace ~8 segundos aunque la
+            // confianza sea baja (luz mala), avanzamos igual — trabarse es
+            // peor que medir con menos precisión.
+            if (presentFrames.current > 200) {
+              forceAdvance("La luz no ayuda, pero te veo lo suficiente. Seguimos.");
             }
           },
         });
@@ -658,12 +748,22 @@ function StepCamera({ onNext }: { onNext: () => void }) {
       )}
 
       {permission === "granted" && !detected && (
-        <div style={{ position:"absolute", left:24, right:24, bottom:36, display:"flex", justifyContent:"center", pointerEvents:"none" }}>
+        <div style={{ position:"absolute", left:24, right:24, bottom:36, display:"flex", flexDirection:"column", alignItems:"center", gap:12, pointerEvents:"none" }}>
           <div style={{ maxWidth:900, background:"rgba(8,11,15,0.68)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"22px 34px", color:"#F8F6F2", fontSize:"clamp(1.3rem,3vw,2.1rem)", fontWeight:700, lineHeight:1.35, letterSpacing:"-0.01em", textAlign:"center", backdropFilter:"blur(16px)", boxShadow:"0 20px 70px rgba(0,0,0,0.35)" }}>
             {partial
               ? "Casi: que entren hombros y cadera en el cuadro"
               : "Ponete a 2-3 metros, de frente y con luz"}
           </div>
+          <div style={{ color:"rgba(248,246,242,0.65)", fontSize:"clamp(1rem,2.2vw,1.4rem)", fontWeight:600, textShadow:"0 4px 20px rgba(0,0,0,0.6)" }}>
+            🎤 Si no avanzo solo, decí «listo»
+          </div>
+        </div>
+      )}
+
+      {/* HUD de diagnóstico */}
+      {permission === "granted" && (
+        <div style={{ position:"absolute", left:16, bottom:10, color:"rgba(248,246,242,0.38)", fontSize:"0.68rem", fontFamily:"monospace", pointerEvents:"none" }}>
+          {hud}
         </div>
       )}
 
@@ -725,6 +825,23 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
     introAtRef.current = Date.now();
     speak(`Prueba ${currentIdx + 1}. ${current.title}. ${current.instruction}`, { key: `mov-${currentIdx}`, minGap: 0 });
   }, [current.id, current.title, current.instruction, currentIdx]);
+
+  // Orden por voz para destrabar la intro ("listo", "dale", "vamos"…).
+  useVoiceCommands(phase === "intro", () => setPhase("prep"));
+
+  // Red de seguridad: si a los 20 s la detección no enganchó, recordamos la
+  // orden por voz; a los 35 s arrancamos igual.
+  useEffect(() => {
+    if (phase !== "intro") return;
+    const remind = setTimeout(() => {
+      speak("Si estás en posición, decime: listo. Y arrancamos.", { key: `mov-remind-${currentIdx}`, minGap: 0 });
+    }, 20000);
+    const force = setTimeout(() => {
+      speak("Arrancamos igual. Hacé el movimiento lo mejor que puedas.", { key: `mov-force-${currentIdx}`, minGap: 0 });
+      setPhase("prep");
+    }, 35000);
+    return () => { clearTimeout(remind); clearTimeout(force); };
+  }, [phase, currentIdx]);
 
   // Cuenta regresiva hablada de 3 antes de medir.
   useEffect(() => {
@@ -872,7 +989,7 @@ function StepMovement({ onComplete }: { onComplete: (scores: number[]) => void }
                   {current.instruction}
                 </p>
                 <p style={{ color:"rgba(248,246,242,0.72)", fontSize:"clamp(0.95rem,2vw,1.3rem)", fontWeight:600, marginTop:14 }}>
-                  {detected ? "Quedate así — arrancamos solos en un momento" : "Esperando verte entero…"}
+                  {detected ? "Quedate así — arrancamos solos en un momento" : "Esperando verte entero… o decí «listo» y arrancamos"}
                 </p>
               </div>
             </div>
