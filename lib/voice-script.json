@@ -8,7 +8,7 @@
     { "id": "zen", "nombre": "El Zen", "emoji": "🌿", "voiceId": "L7pBVwjueW3IPcQt4Ej9", "voiceName": "Manuel", "settings": { "stability": 0.7, "similarity_boost": 0.8, "style": 0.15 } }
   ],
   "atoms": {
-    "numeros": { "range": [1, 60], "ttsPrefix": "¡", "ttsSuffix": "!" },
+    "numeros": { "range": [1, 90], "ttsPrefix": "¡", "ttsSuffix": "!" },
     "countdown": [
       { "key": "Tres" }, { "key": "Dos" }, { "key": "Uno" }, { "key": "¡Ya!" }
     ],
@@ -100,7 +100,31 @@
       { "key": "Si estás en posición, decime: listo. Y arrancamos." },
       { "key": "Arrancamos igual. Hacé el movimiento lo mejor que puedas." },
       { "key": "¡Buenísimo! Vamos con la siguiente." },
-      { "key": "¡Terminamos! Estoy calculando tu resultado." }
+      { "key": "¡Terminamos! Estoy calculando tu resultado." },
+      { "key": "No pude verte bien en esa prueba. Probemos de nuevo." },
+      { "key": "Levantá un pie del piso y sostenete parado en la otra pierna, sin apoyarte en nada." },
+      { "key": "Sentate en el borde de una silla firme, brazos cruzados sobre el pecho. Parate del todo y sentate, tantas veces como puedas." },
+      { "key": "Con los brazos estirados arriba de la cabeza, agachate lo más profundo que puedas y sostenete dos segundos." },
+      { "key": "Hacé flexiones completas, bajando hasta noventa grados de codo. Las que puedas con buena técnica — no hace falta llegar al fallo, parás cuando quieras diciendo listo." }
+    ],
+    "resultado": [
+      { "key": "Tu Edad de Movimiento es" },
+      { "key": "años." },
+      { "key": "con un margen de más menos" },
+      { "key": "Tu cuerpo rinde como el de alguien más joven que tu edad, comparado con las normas publicadas. ¡Felicitaciones!" },
+      { "key": "Tu desempeño está alineado con tu edad, según las normas publicadas." },
+      { "key": "Tu cuerpo rinde como el de alguien mayor, comparado con las normas publicadas. Es tu punto de partida, y se puede mejorar." },
+      { "key": "No junté suficientes datos para calcular tu Edad de Movimiento esta vez. Mirá el detalle de cada prueba en pantalla." }
+    ],
+    "plan": [
+      { "key": "Tu plan está listo. Un bloque de cinco semanas." },
+      { "key": "Tres días por semana." },
+      { "key": "Cuatro días por semana." },
+      { "key": "Con foco en equilibrio y control." },
+      { "key": "Con foco en fuerza de piernas." },
+      { "key": "Con foco en fuerza de tren superior." },
+      { "key": "Con foco en movilidad de piernas." },
+      { "key": "Cuatro semanas subiendo de a poco y una de descarga. En cada serie guardate una o dos repeticiones. Y si un día estás corto de tiempo, hacé la sesión mínima: quince minutos y tu consistencia sigue arriba." }
     ]
   }
 }

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { movementAgeV2, type TestId, type TestResults, type MovementAgeResult } from "@/lib/movementAge";
 import { OLS_SOURCE, STS_SOURCE, PUSHUP_SOURCE, SQUAT_SOURCE, type Sex } from "@/lib/norms";
 import { IS_DEV, logEvent } from "@/lib/evlog";
-import { speak, stopSpeaking, warmVoices, loadVoiceManifest } from "@/lib/voice";
+import { speak, speakSeq, stopSpeaking, warmVoices, loadVoiceManifest } from "@/lib/voice";
 import {
   type PoseRuntime, type PoseHandler,
   bodyPresent, shoulderMidpoint, clamp, startPoseTracking,
@@ -93,7 +93,7 @@ type PlanFlora = {
   foco: string;
   focoDetalle: string;
   sesiones: Sesion[];
-  vozResumen: string;
+  vozPartes: string[];
 };
 
 const FOCUS_META: Record<TestId, { label: string; detalle: string; extra: Ejercicio }> = {
@@ -185,13 +185,15 @@ function buildPlanFlora(breakdown: Partial<Record<TestId, number>>, movementAge:
 
   const sesiones = base.map((s) => ({ ...s, ejercicios: [...s.ejercicios, foco.extra] }));
 
-  const diffFrase = movementAge != null && movementAge > chronoAge
-    ? "para bajar tu edad de movimiento"
-    : "para seguir moviéndote joven";
+  // Secuencia de átomos con clip pre-generado (una sola voz, sin cortes a síntesis).
+  const vozPartes = [
+    "Tu plan está listo. Un bloque de cinco semanas.",
+    dias === 3 ? "Tres días por semana." : "Cuatro días por semana.",
+    `Con foco en ${foco.label}.`,
+    "Cuatro semanas subiendo de a poco y una de descarga. En cada serie guardate una o dos repeticiones. Y si un día estás corto de tiempo, hacé la sesión mínima: quince minutos y tu consistencia sigue arriba.",
+  ];
 
-  const vozResumen = `Tu plan está listo. Un bloque de cinco semanas, ${dias} días por semana, con foco en ${foco.label}, ${diffFrase}. Cuatro semanas subiendo de a poco y una de descarga. En cada serie guardate una o dos repeticiones. Y si un día estás corto de tiempo, hacé la sesión mínima: quince minutos y tu consistencia sigue arriba.`;
-
-  return { nivel, dias, foco: foco.label, focoDetalle: foco.detalle, sesiones, vozResumen };
+  return { nivel, dias, foco: foco.label, focoDetalle: foco.detalle, sesiones, vozPartes };
 }
 
 /* ─── Progress dots ───────────────────── */
@@ -442,7 +444,7 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
     <motion.div key="camera-live" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
       style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
 
-      <div style={{ position:"absolute", top:74, left:20, right:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:16 }}>
+      <div style={{ position:"absolute", top:"calc(env(safe-area-inset-top) + 66px)", left:16, right:16, display:"flex", flexWrap:"wrap", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
         <div style={{ maxWidth:"min(560px, 58vw)", background:"rgba(8,11,15,0.56)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"10px 16px", display:"flex", alignItems:"center", gap:10, backdropFilter:"blur(16px)" }}>
           <motion.div animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.25, repeat:Infinity }}
             style={{ width:9, height:9, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A", flexShrink:0 }} />
@@ -461,7 +463,7 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
       </div>
 
       {!detected && (
-        <div style={{ position:"absolute", left:24, right:24, bottom:60, display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}>
+        <div style={{ position:"absolute", left:16, right:16, bottom:"calc(env(safe-area-inset-bottom) + 48px)", display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}>
           <div style={{ maxWidth:900, background:"rgba(8,11,15,0.68)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"22px 34px", color:"#F8F6F2", fontSize:"clamp(1.3rem,3vw,2.1rem)", fontWeight:700, lineHeight:1.35, letterSpacing:"-0.01em", textAlign:"center", backdropFilter:"blur(16px)" }}>
             {partial
               ? "Casi: que entren hombros y cadera en el cuadro"
@@ -593,7 +595,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
       introReadyRef.current = false;
       introAtRef.current = Date.now();
       setPhase("intro");
-      speak(`No pude verte bien en esa prueba. Probemos de nuevo. ${current.instruction}`, { key: `retry-${currentIdx}`, minGap: 0 })
+      speakSeq(["No pude verte bien en esa prueba. Probemos de nuevo.", current.instruction], { key: `retry-${currentIdx}`, minGap: 0 })
         .then(() => { introReadyRef.current = true; introAtRef.current = Date.now(); });
       return;
     }
@@ -694,7 +696,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
       style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
 
       {/* Barra superior: qué prueba es + métrica en vivo */}
-      <div style={{ position:"absolute", top:74, left:20, right:20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:14 }}>
+      <div style={{ position:"absolute", top:"calc(env(safe-area-inset-top) + 66px)", left:16, right:16, display:"flex", flexWrap:"wrap", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
         <div style={{ background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"14px 22px", backdropFilter:"blur(14px)" }}>
           <p style={{ color:C.sage, fontWeight:900, letterSpacing:"0.14em", fontSize:"0.72rem", textTransform:"uppercase", marginBottom:6 }}>
             Prueba {currentIdx + 1} de {MOVEMENTS.length}
@@ -747,7 +749,7 @@ function StepMovement({ setPoseHandler, onComplete }: {
       )}
 
       {/* Abajo: feedback del trainer + barra + progreso */}
-      <div style={{ position:"absolute", left:20, right:20, bottom:40, display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
+      <div style={{ position:"absolute", left:16, right:16, bottom:"calc(env(safe-area-inset-bottom) + 30px)", display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
         <div style={{ maxWidth:1000, background:"rgba(8,11,15,0.70)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"18px 34px", textAlign:"center", backdropFilter:"blur(16px)" }}>
           <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"clamp(1.4rem,3.4vw,2.4rem)", lineHeight:1.3, letterSpacing:"-0.01em" }}>
             {phase === "counting" ? feedback : current.hint}
@@ -826,12 +828,13 @@ function StepReveal({ maResult, chronoAge, results, onNext }: {
       speak("No junté suficientes datos para calcular tu Edad de Movimiento esta vez. Mirá el detalle de cada prueba en pantalla.", { key: "reveal", minGap: 0 });
       return;
     }
+    // Secuencia de átomos con clip: la edad es un número pre-generado (1-90).
     const diffPhrase = isYounger
-      ? `Tu cuerpo rinde como el de alguien ${Math.abs(diff)} años más joven, comparado con las normas publicadas.`
+      ? "Tu cuerpo rinde como el de alguien más joven que tu edad, comparado con las normas publicadas. ¡Felicitaciones!"
       : isEqual
       ? "Tu desempeño está alineado con tu edad, según las normas publicadas."
-      : `Tu cuerpo rinde como el de alguien ${diff} años mayor, comparado con las normas publicadas. Es tu punto de partida.`;
-    speak(`Tu Edad de Movimiento es ${age} años, con un margen de más menos ${ci}. ${diffPhrase}`, { key: "reveal", minGap: 0 });
+      : "Tu cuerpo rinde como el de alguien mayor, comparado con las normas publicadas. Es tu punto de partida, y se puede mejorar.";
+    speakSeq(["Tu Edad de Movimiento es", String(age), "años.", "con un margen de más menos", String(ci ?? 5), diffPhrase], { key: "reveal", minGap: 0 });
   }, []); // eslint-disable-line
 
   return (
@@ -923,7 +926,7 @@ function StepPlan({ breakdown, movementAge, chronoAge, onNext }: {
 
   useEffect(() => {
     logEvent("plan", `nivel ${plan.nivel} · ${plan.dias} días · foco ${plan.foco}`);
-    speak(plan.vozResumen, { key: "plan", minGap: 0 });
+    speakSeq(plan.vozPartes, { key: "plan", minGap: 0 });
   }, []); // eslint-disable-line
 
   const SEMANAS = [
@@ -1280,7 +1283,7 @@ export function OnboardingFlow() {
       </div>
 
       {/* Top bar */}
-      <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"16px 24px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+      <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"calc(env(safe-area-inset-top) + 12px) 24px 12px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
         <a href="/" style={{ fontWeight:900, fontSize:"1.1rem", letterSpacing:"-0.03em", color:"#F8F6F2", textDecoration:"none" }}>
           CALISTENIA<span style={{ color:C.sage }}>.bio</span>
         </a>

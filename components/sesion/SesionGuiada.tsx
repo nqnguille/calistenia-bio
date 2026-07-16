@@ -487,7 +487,7 @@ export function SesionGuiada() {
 
       {/* Barra superior */}
       {view === "training" && session && ex && (
-        <div style={{ position: "absolute", top: 20, left: 20, right: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, zIndex: 10 }}>
+        <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 14px)", left: 16, right: 16, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 10, zIndex: 10 }}>
           <div style={{ background: "rgba(8,11,15,0.62)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: "14px 22px", backdropFilter: "blur(14px)" }}>
             <p style={{ color: C.sage, fontWeight: 900, letterSpacing: "0.14em", fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6 }}>
               {session.dia} · Ejercicio {exIdx + 1}/{session.ejercicios.length} · Serie {serieNum}/{ex.setsHoy}
@@ -565,7 +565,7 @@ export function SesionGuiada() {
 
       {/* Feedback inferior */}
       {view === "training" && phase !== "rir" && (
-        <div style={{ position: "absolute", left: 20, right: 20, bottom: 30, display: "flex", justifyContent: "center", zIndex: 10, pointerEvents: "none" }}>
+        <div style={{ position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 20px)", display: "flex", justifyContent: "center", zIndex: 10, pointerEvents: "none" }}>
           <div style={{ maxWidth: 900, background: "rgba(8,11,15,0.68)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 24, padding: "14px 28px", textAlign: "center", backdropFilter: "blur(16px)" }}>
             <p style={{ color: "rgba(248,246,242,0.8)", fontWeight: 700, fontSize: "clamp(0.95rem,2.2vw,1.3rem)" }}>
               {feedback || (detected ? "🎤 «listo» cierra la serie · «saltar» saltea el ejercicio" : "Ubicate donde te vea entera la cámara")}

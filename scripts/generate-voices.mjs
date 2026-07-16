@@ -20,7 +20,7 @@ const OUT = path.join(ROOT, "public/audio/voz");
 const DRY = process.argv.includes("--dry-run");
 const onlyCoach = process.argv.includes("--coach") ? process.argv[process.argv.indexOf("--coach") + 1] : null;
 
-const NUM_WORDS = ["", "uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","dieciséis","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintidós","veintitrés","veinticuatro","veinticinco","veintiséis","veintisiete","veintiocho","veintinueve","treinta","treinta y uno","treinta y dos","treinta y tres","treinta y cuatro","treinta y cinco","treinta y seis","treinta y siete","treinta y ocho","treinta y nueve","cuarenta","cuarenta y uno","cuarenta y dos","cuarenta y tres","cuarenta y cuatro","cuarenta y cinco","cuarenta y seis","cuarenta y siete","cuarenta y ocho","cuarenta y nueve","cincuenta","cincuenta y uno","cincuenta y dos","cincuenta y tres","cincuenta y cuatro","cincuenta y cinco","cincuenta y seis","cincuenta y siete","cincuenta y ocho","cincuenta y nueve","sesenta"];
+const NUM_WORDS = ["", "uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","dieciséis","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintidós","veintitrés","veinticuatro","veinticinco","veintiséis","veintisiete","veintiocho","veintinueve","treinta","treinta y uno","treinta y dos","treinta y tres","treinta y cuatro","treinta y cinco","treinta y seis","treinta y siete","treinta y ocho","treinta y nueve","cuarenta","cuarenta y uno","cuarenta y dos","cuarenta y tres","cuarenta y cuatro","cuarenta y cinco","cuarenta y seis","cuarenta y siete","cuarenta y ocho","cuarenta y nueve","cincuenta","cincuenta y uno","cincuenta y dos","cincuenta y tres","cincuenta y cuatro","cincuenta y cinco","cincuenta y seis","cincuenta y siete","cincuenta y ocho","cincuenta y nueve","sesenta","sesenta y uno","sesenta y dos","sesenta y tres","sesenta y cuatro","sesenta y cinco","sesenta y seis","sesenta y siete","sesenta y ocho","sesenta y nueve","setenta","setenta y uno","setenta y dos","setenta y tres","setenta y cuatro","setenta y cinco","setenta y seis","setenta y siete","setenta y ocho","setenta y nueve","ochenta","ochenta y uno","ochenta y dos","ochenta y tres","ochenta y cuatro","ochenta y cinco","ochenta y seis","ochenta y siete","ochenta y ocho","ochenta y nueve","noventa"];
 
 // La evaluación (experiencia de una sola vez) habla solo con la voz insignia;
 // las sesiones diarias tienen los 5 coaches. Esto hace entrar todo en un
@@ -36,7 +36,7 @@ function expandAtoms(includeEval) {
     lines.push({ key: String(n), tts: `${a.numeros.ttsPrefix}${NUM_WORDS[n]}${a.numeros.ttsSuffix}` });
   }
   const groups = ["countdown", "sesion", "series", "rangos", "instrucciones"];
-  if (includeEval) groups.push("evaluacion");
+  if (includeEval) groups.push("evaluacion", "resultado", "plan");
   for (const grp of groups) {
     for (const item of a[grp]) lines.push({ key: item.key, tts: item.tts ?? item.key });
   }

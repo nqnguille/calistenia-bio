@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -14,6 +14,12 @@ export const metadata: Metadata = {
   description:
     "La primera evaluación física con IA usando solo tu webcam. Descubrí tu Edad de Movimiento y comenzá a rejuvenecer tu cuerpo semana a semana.",
   keywords: "edad de movimiento, evaluación física IA, salud longevidad, healthtech, calistenia",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "CALISTENIA.bio",
+  },
   openGraph: {
     title: "CALISTENIA.bio",
     description: "Descubrí la edad real de tu movimiento.",
@@ -21,6 +27,17 @@ export const metadata: Metadata = {
     locale: "es_AR",
     type: "website",
   },
+};
+
+// App mobile-first: fullscreen vertical, sin zoom accidental durante el
+// entrenamiento, y contenido extendido hasta los bordes (notch incluido).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#080B0F",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

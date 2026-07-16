@@ -96,7 +96,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; min-height: 100%; }
+html { scroll-behavior: smooth; min-height: 100%; overscroll-behavior-y: none; }
 
 body {
   min-height: 100%;

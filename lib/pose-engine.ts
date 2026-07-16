@@ -114,9 +114,30 @@ export function poseQuality(lms: Landmark[] | null) {
   return Math.round(clamp(avg(pts.map((i) => lms[i]?.visibility ?? 0)) * 100, 0, 100));
 }
 
-// Gate tolerante: si el modelo devuelve un esqueleto coherente, hay un cuerpo.
+// Un landmark "cuenta" solo si además de visibilidad está DENTRO del cuadro:
+// MediaPipe devuelve siempre 33 puntos y alucina posiciones fuera de pantalla
+// (ej. cara en primer plano → caderas inventadas debajo del encuadre).
+function inFrame(lm?: Landmark, margin = 0.03) {
+  return !!lm && lm.x > -margin && lm.x < 1 + margin && lm.y > -margin && lm.y < 1 + margin;
+}
+
+// Gate tolerante pero anti-primer-plano: esqueleto coherente + torso completo
+// dentro del cuadro + extensión vertical real (una cara en primer plano tiene
+// hombros y "caderas" apiladas sin distancia entre sí).
 export function bodyPresent(lms: Landmark[] | null): lms is Landmark[] {
   if (!lms || lms.length < 33) return false;
+  const ls = lms[LM.L_SHOULDER], rs = lms[LM.R_SHOULDER], lh = lms[LM.L_HIP], rh = lms[LM.R_HIP];
+  const lk = lms[LM.L_KNEE], rk = lms[LM.R_KNEE];
+  if (![ls, rs, lh, rh].every((p) => inFrame(p))) return false;
+  if (!inFrame(lk, 0.08) && !inFrame(rk, 0.08)) return false;
+  // Torso con extensión real (euclidiana: vale parado u horizontal en plancha):
+  // con el cuerpo entero en cuadro, hombro→cadera mide ≥ ~14% de la imagen.
+  // Una cara en primer plano tiene los puntos apilados y no llega.
+  const torso = Math.hypot(
+    avg([lh.x, rh.x]) - avg([ls.x, rs.x]),
+    avg([lh.y, rh.y]) - avg([ls.y, rs.y])
+  );
+  if (torso < 0.14) return false;
   return essentialVisible(lms) || poseQuality(lms) >= 28;
 }
 
@@ -245,10 +266,27 @@ export async function startPoseTracking({
   onStatus?.("Cámara activa · buscando cuerpo…");
   logEvent("camara", "stream iniciado");
 
+  // Wake Lock: que la pantalla del celu no se apague en medio de una serie.
+  // Se re-adquiere al volver de background (el SO lo libera solo).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let wakeLock: any = null;
+  const acquireWakeLock = async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      wakeLock = await (navigator as any).wakeLock?.request("screen");
+      if (wakeLock) logEvent("camara", "wake lock activo");
+    } catch { /* no soportado o denegado: seguimos igual */ }
+  };
+  const onVisible = () => { if (!stopped && document.visibilityState === "visible") acquireWakeLock(); };
+  acquireWakeLock();
+  document.addEventListener("visibilitychange", onVisible);
+
   return {
     stop: () => {
       stopped = true;
       logEvent("camara", "stream detenido");
+      document.removeEventListener("visibilitychange", onVisible);
+      try { wakeLock?.release(); } catch {}
       try { camera.stop(); } catch {}
       try { pose.close(); } catch {}
       const stream = video.srcObject as MediaStream | null;
