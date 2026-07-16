@@ -22,15 +22,22 @@ const onlyCoach = process.argv.includes("--coach") ? process.argv[process.argv.i
 
 const NUM_WORDS = ["", "uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","dieciséis","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintidós","veintitrés","veinticuatro","veinticinco","veintiséis","veintisiete","veintiocho","veintinueve","treinta","treinta y uno","treinta y dos","treinta y tres","treinta y cuatro","treinta y cinco","treinta y seis","treinta y siete","treinta y ocho","treinta y nueve","cuarenta","cuarenta y uno","cuarenta y dos","cuarenta y tres","cuarenta y cuatro","cuarenta y cinco","cuarenta y seis","cuarenta y siete","cuarenta y ocho","cuarenta y nueve","cincuenta","cincuenta y uno","cincuenta y dos","cincuenta y tres","cincuenta y cuatro","cincuenta y cinco","cincuenta y seis","cincuenta y siete","cincuenta y ocho","cincuenta y nueve","sesenta"];
 
+// La evaluación (experiencia de una sola vez) habla solo con la voz insignia;
+// las sesiones diarias tienen los 5 coaches. Esto hace entrar todo en un
+// plan Starter (30k créditos).
+const EVAL_COACH = process.env.EVAL_COACH || "cientifica";
+
 // Expande el catálogo a la lista final {key, tts}.
-function expandAtoms() {
+function expandAtoms(includeEval) {
   const lines = [];
   const a = SCRIPT.atoms;
   const [lo, hi] = a.numeros.range;
   for (let n = lo; n <= hi; n++) {
     lines.push({ key: String(n), tts: `${a.numeros.ttsPrefix}${NUM_WORDS[n]}${a.numeros.ttsSuffix}` });
   }
-  for (const grp of ["countdown", "sesion", "series", "rangos", "instrucciones", "evaluacion"]) {
+  const groups = ["countdown", "sesion", "series", "rangos", "instrucciones"];
+  if (includeEval) groups.push("evaluacion");
+  for (const grp of groups) {
     for (const item of a[grp]) lines.push({ key: item.key, tts: item.tts ?? item.key });
   }
   const ej = a.ejercicioNum;
@@ -48,12 +55,15 @@ function hash(key) {
   return createHash("sha1").update(key).digest("hex").slice(0, 12);
 }
 
-const lines = expandAtoms();
 const coaches = SCRIPT.coaches.filter((c) => !onlyCoach || c.id === onlyCoach);
-const charsPerCoach = lines.reduce((s, l) => s + l.tts.length, 0);
-
-console.log(`Guion: ${lines.length} clips por coach · ${charsPerCoach.toLocaleString()} caracteres por coach`);
-console.log(`Coaches: ${coaches.map((c) => c.id).join(", ")} → TOTAL ${(charsPerCoach * coaches.length).toLocaleString()} créditos`);
+let grandTotal = 0;
+for (const c of coaches) {
+  const ls = expandAtoms(c.id === EVAL_COACH);
+  const chars = ls.reduce((s, l) => s + l.tts.length, 0);
+  grandTotal += chars;
+  console.log(`${c.id}: ${ls.length} clips · ${chars.toLocaleString()} caracteres${c.id === EVAL_COACH ? " (incluye evaluación)" : ""}`);
+}
+console.log(`TOTAL: ${grandTotal.toLocaleString()} créditos`);
 
 if (DRY) process.exit(0);
 
@@ -75,6 +85,7 @@ const manifest = existsSync(path.join(OUT, "manifest.json"))
 
 let generated = 0, skipped = 0, failed = 0;
 for (const coach of coaches) {
+  const lines = expandAtoms(coach.id === EVAL_COACH);
   const dir = path.join(OUT, coach.id);
   mkdirSync(dir, { recursive: true });
   manifest.coaches[coach.id] ??= { nombre: coach.nombre, emoji: coach.emoji, clips: {} };

@@ -20,7 +20,13 @@ export function loadVoiceManifest(): Promise<void> {
     .then((r) => (r.ok ? r.json() : null))
     .then((m) => {
       manifest = m;
-      if (m) logEvent("voz", `manifest: ${Object.keys(m.coaches ?? {}).length} coaches con clips`);
+      if (m) {
+        const ids = Object.keys(m.coaches ?? {});
+        logEvent("voz", `manifest: ${ids.length} coaches con clips`);
+        // Si el coach elegido no tiene clips (ej. demo con una sola voz),
+        // pasamos al primero disponible para que la voz premium suene.
+        if (ids.length && !m.coaches[getCoach()]) setCoach(ids[0]);
+      }
     })
     .catch(() => { manifest = null; });
   return manifestPromise;
