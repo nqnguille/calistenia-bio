@@ -246,7 +246,7 @@ function StepHook({ onNext }: { onNext: () => void }) {
 
       <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.7 }}
         style={{ display:"flex", gap:24, flexWrap:"wrap", justifyContent:"center" }}>
-        {["Sin registro previo","Solo tu cámara","Con fuentes citadas"].map(t => (
+        {["Demo pública gratuita","Sin registro previo","Solo tu cámara","Con fuentes citadas"].map(t => (
           <span key={t} style={{ display:"flex", alignItems:"center", gap:6, fontSize:"0.8rem", color:"rgba(248,246,242,0.4)", fontWeight:500 }}>
             <span style={{ color:C.sage }}>✓</span>{t}
           </span>
@@ -1298,7 +1298,7 @@ export function OnboardingFlow() {
         )}
         {step === "hook" && (
           <div style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.25)", fontWeight:500 }}>
-            ~6 minutos · Sin registro
+            Demo gratuita · ~6 minutos · Sin registro
           </div>
         )}
       </div>

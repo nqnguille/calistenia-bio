@@ -37,7 +37,7 @@ export function Footer() {
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4 pt-8 text-sm text-cream/28">
-          <p>© 2026 CALISTENIA.bio — Todos los derechos reservados</p>
+          <p>© 2026 CALISTENIA.bio — Demo pública gratuita · Producto en construcción</p>
           <p>Hecho con IA · Basado en evidencia · Para vivir más joven</p>
         </div>
       </div>

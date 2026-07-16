@@ -137,8 +137,8 @@ export function SesionGuiada() {
       if (st.reps !== prev.reps) {
         setLiveMetric(st.reps);
         lastProgressAtRef.current = Date.now();
-        // El trainer cuenta en voz alta cada repetición.
-        speak(String(st.reps), { key: `rep-${st.reps}-${Date.now() >> 11}`, minGap: 0 });
+        // El trainer cuenta en voz alta cada repetición (clips hasta 90).
+        if (st.reps <= 90) speak(String(st.reps), { key: `rep-${st.reps}-${Date.now() >> 11}`, minGap: 0 });
         const target = ex.presc.repMax;
         if (st.reps === target) {
           speak("¡Tope del rango! Si vas con buena técnica seguí, o decí listo.", { key: `top-${Date.now() >> 12}`, minGap: 0 });
@@ -597,8 +597,9 @@ const btnStyle: React.CSSProperties = {
 function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 40, overflowY: "auto", background: "#080B0F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: wide ? "60px 20px" : "0 24px" }}>
-      <a href="/" style={{ position: "fixed", top: 18, left: 24, fontWeight: 900, fontSize: "1.05rem", letterSpacing: "-0.03em", color: "#F8F6F2", textDecoration: "none" }}>
+      <a href="/" style={{ position: "fixed", top: 18, left: 24, display: "flex", alignItems: "center", gap: 8, fontWeight: 900, fontSize: "1.05rem", letterSpacing: "-0.03em", color: "#F8F6F2", textDecoration: "none" }}>
         CALISTENIA<span style={{ color: "#7A8F74" }}>.bio</span>
+        <span style={{ fontSize: "0.55rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7A8F74", border: "1px solid rgba(122,143,116,0.45)", borderRadius: 999, padding: "3px 8px" }}>Demo gratis</span>
       </a>
       {children}
     </div>

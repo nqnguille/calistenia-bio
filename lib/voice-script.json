@@ -30,7 +30,7 @@
       { "key": "Sesión mínima: quince minutos, los dos ejercicios que más mueven la aguja. Cuenta para tu consistencia. Activando tu cámara." }
     ],
     "series": [
-      { "key": "Dos series." }, { "key": "Tres series." }, { "key": "Cuatro series." }, { "key": "Cinco series." }, { "key": "Seis series." }
+      { "key": "Una serie." }, { "key": "Dos series." }, { "key": "Tres series." }, { "key": "Cuatro series." }, { "key": "Cinco series." }, { "key": "Seis series." }
     ],
     "ejercicioNum": { "maxEjercicios": 6, "template": "Ejercicio {i} de {n}.", "numeros": ["uno", "dos", "tres", "cuatro", "cinco", "seis"] },
     "rangos": [
@@ -49,7 +49,9 @@
       { "key": "De quince a veinticinco repeticiones." },
       { "key": "De veinte a treinta segundos." },
       { "key": "De veinte a cuarenta segundos." },
-      { "key": "De treinta a cuarenta y cinco segundos." }
+      { "key": "De treinta a cuarenta y cinco segundos." },
+      { "key": "Veinte segundos." },
+      { "key": "Treinta segundos." }
     ],
     "instrucciones": [
       { "key": "Colgate de la barra y subí hasta pasar el mentón. Bajá controlado, estirando del todo." },

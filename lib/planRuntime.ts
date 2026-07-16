@@ -193,6 +193,7 @@ const NUM_SPOKEN: Record<number, string> = {
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function seriesSpoken(sets: number): string {
+  if (sets === 1) return "Una serie.";
   return `${cap(NUM_SPOKEN[sets] ?? String(sets))} series.`;
 }
 

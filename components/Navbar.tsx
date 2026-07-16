@@ -31,6 +31,7 @@ export function Navbar() {
             <span className="absolute inset-1 rounded-full border border-sage/30" />
           </span>
           <span className="text-lg md:text-xl">CALISTENIA<span className="text-sage">.bio</span></span>
+          <span style={{ fontSize:"0.58rem", fontWeight:800, letterSpacing:"0.12em", textTransform:"uppercase", color:"#7A8F74", border:"1px solid rgba(122,143,116,0.45)", borderRadius:999, padding:"3px 8px" }}>Demo gratis</span>
         </motion.a>
 
         <div className="hidden items-center gap-1 rounded-full border border-current/10 bg-white/[0.035] p-1 md:flex">
