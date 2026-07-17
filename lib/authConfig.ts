@@ -3,7 +3,7 @@
 // https://calistenia.bio, https://www.calistenia.bio,
 // https://calistenia-bio.pages.dev y http://localhost:4000.
 // Mientras diga PENDIENTE, el botón de login no se muestra (deploy seguro).
-export const GOOGLE_CLIENT_ID = "PENDIENTE.apps.googleusercontent.com";
+export const GOOGLE_CLIENT_ID = "782647387527-9p6jlts7mn16fctb4151bt8euuj16vrj.apps.googleusercontent.com";
 
 export interface AuthUser {
   email: string;
