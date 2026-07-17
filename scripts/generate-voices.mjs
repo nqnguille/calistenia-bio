@@ -27,18 +27,25 @@ const NUM_WORDS = ["", "uno","dos","tres","cuatro","cinco","seis","siete","ocho"
 // plan Starter (30k créditos).
 const EVAL_COACH = process.env.EVAL_COACH || "cientifica";
 
-// Expande el catálogo a la lista final {key, tts}.
-function expandAtoms(includeEval) {
+// Expande el catálogo a la lista final {key, tts}. El tts puede diferir por
+// coach (ttsPorCoach / ttsPrefixPorCoach): misma key y mismo archivo, pero la
+// ENTREGA cambia con la personalidad — el Zen dice "cuatro." en calma donde
+// el Militar grita "¡cuatro!".
+function expandAtoms(includeEval, coachId) {
   const lines = [];
   const a = SCRIPT.atoms;
   const [lo, hi] = a.numeros.range;
+  const pre = a.numeros.ttsPrefixPorCoach?.[coachId] ?? a.numeros.ttsPrefix;
+  const suf = a.numeros.ttsSuffixPorCoach?.[coachId] ?? a.numeros.ttsSuffix;
   for (let n = lo; n <= hi; n++) {
-    lines.push({ key: String(n), tts: `${a.numeros.ttsPrefix}${NUM_WORDS[n]}${a.numeros.ttsSuffix}` });
+    lines.push({ key: String(n), tts: `${pre}${NUM_WORDS[n]}${suf}` });
   }
   const groups = ["countdown", "sesion", "series", "rangos", "instrucciones"];
   if (includeEval) groups.push("evaluacion", "resultado", "plan");
   for (const grp of groups) {
-    for (const item of a[grp]) lines.push({ key: item.key, tts: item.tts ?? item.key });
+    for (const item of a[grp]) {
+      lines.push({ key: item.key, tts: item.ttsPorCoach?.[coachId] ?? item.tts ?? item.key });
+    }
   }
   const ej = a.ejercicioNum;
   for (let i = 1; i <= ej.maxEjercicios; i++) {
@@ -58,7 +65,7 @@ function hash(key) {
 const coaches = SCRIPT.coaches.filter((c) => !onlyCoach || c.id === onlyCoach);
 let grandTotal = 0;
 for (const c of coaches) {
-  const ls = expandAtoms(c.id === EVAL_COACH);
+  const ls = expandAtoms(c.id === EVAL_COACH, c.id);
   const chars = ls.reduce((s, l) => s + l.tts.length, 0);
   grandTotal += chars;
   console.log(`${c.id}: ${ls.length} clips · ${chars.toLocaleString()} caracteres${c.id === EVAL_COACH ? " (incluye evaluación)" : ""}`);
@@ -85,7 +92,7 @@ const manifest = existsSync(path.join(OUT, "manifest.json"))
 
 let generated = 0, skipped = 0, failed = 0;
 for (const coach of coaches) {
-  const lines = expandAtoms(coach.id === EVAL_COACH);
+  const lines = expandAtoms(coach.id === EVAL_COACH, coach.id);
   const dir = path.join(OUT, coach.id);
   mkdirSync(dir, { recursive: true });
   manifest.coaches[coach.id] ??= { nombre: coach.nombre, emoji: coach.emoji, clips: {} };

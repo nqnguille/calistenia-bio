@@ -8,9 +8,9 @@
     { "id": "zen", "nombre": "El Zen", "emoji": "🌿", "voiceId": "L7pBVwjueW3IPcQt4Ej9", "voiceName": "Manuel", "settings": { "stability": 0.7, "similarity_boost": 0.8, "style": 0.15 } }
   ],
   "atoms": {
-    "numeros": { "range": [1, 90], "ttsPrefix": "¡", "ttsSuffix": "!" },
+    "numeros": { "range": [1, 90], "ttsPrefix": "¡", "ttsSuffix": "!", "ttsPrefixPorCoach": { "zen": "" }, "ttsSuffixPorCoach": { "zen": "." } },
     "countdown": [
-      { "key": "Tres" }, { "key": "Dos" }, { "key": "Uno" }, { "key": "¡Ya!" }
+      { "key": "Tres" }, { "key": "Dos" }, { "key": "Uno" }, { "key": "¡Ya!", "ttsPorCoach": { "zen": "Ya." } }
     ],
     "sesion": [
       { "key": "Cuando arranques, yo cuento. Decí listo al terminar la serie." },
@@ -18,13 +18,13 @@
       { "key": "Buena serie. Descanso de dos minutos." },
       { "key": "Buena serie. Descanso de un minuto y medio." },
       { "key": "Buena serie. Descanso de cuarenta y cinco segundos." },
-      { "key": "¡Vamos! Siguiente serie." },
-      { "key": "Última serie del ejercicio, ¡bien ahí! ¿Cuántas repeticiones te quedaban en el tanque? Marcalo en pantalla, o decí listo para seguir." },
+      { "key": "¡Vamos! Siguiente serie.", "ttsPorCoach": { "zen": "Bien. Siguiente serie." } },
+      { "key": "Última serie del ejercicio, ¡bien ahí! ¿Cuántas repeticiones te quedaban en el tanque? Marcalo en pantalla, o decí listo para seguir.", "ttsPorCoach": { "zen": "Última serie del ejercicio. ¿Cuántas repeticiones te quedaban en el tanque? Marcalo en pantalla, o decí listo para seguir." } },
       { "key": "Lo salteamos, no pasa nada. Seguimos." },
       { "key": "Dale, seguimos." },
       { "key": "¿Todo bien? Decí listo para descansar, o saltar si este ejercicio no va." },
-      { "key": "¡Sesión completa! Quedó todo registrado. Nos vemos en la próxima — la consistencia es lo que manda." },
-      { "key": "¡Tope del rango! Si vas con buena técnica seguí, o decí listo." },
+      { "key": "¡Sesión completa! Quedó todo registrado. Nos vemos en la próxima — la consistencia es lo que manda.", "ttsPorCoach": { "zen": "Sesión completa. Quedó todo registrado. Nos vemos en la próxima — la consistencia es lo que manda." } },
+      { "key": "¡Tope del rango! Si vas con buena técnica seguí, o decí listo.", "ttsPorCoach": { "zen": "Tope del rango. Si vas con buena técnica seguí, o decí listo." } },
       { "key": "Arrancamos con tu sesión de hoy. Activando tu cámara." },
       { "key": "Semana de descarga: hoy va la mitad de series, sin exigirte al límite. Es la semana donde el esfuerzo del mes se convierte en resultado. Activando tu cámara." },
       { "key": "Sesión mínima: quince minutos, los dos ejercicios que más mueven la aguja. Cuenta para tu consistencia. Activando tu cámara." }
@@ -89,7 +89,7 @@
       { "key": "Terminá de acomodar la cámara y quedate quieto un momento." },
       { "key": "Casi. Necesito ver tus hombros y tu cadera. Si no avanzo, decime: listo." },
       { "key": "No logro verte. Prendé una luz de frente y ponete a dos o tres metros." },
-      { "key": "¡Te veo! Arrancamos con la primera prueba." },
+      { "key": "¡Te veo! Arrancamos con la primera prueba.", "ttsPorCoach": { "zen": "Te veo. Arrancamos con la primera prueba." } },
       { "key": "La luz no ayuda, pero te veo lo suficiente. Seguimos." },
       { "key": "Prueba 1. Equilibrio a una pierna. Levantá un pie del piso y sostenete parado en la otra pierna, sin apoyarte en nada." },
       { "key": "Prueba 2. Fuerza de piernas — 30 segundos. Sentate en el borde de una silla firme, brazos cruzados sobre el pecho. Parate del todo y sentate, tantas veces como puedas." },
@@ -101,8 +101,8 @@
       { "key": "Bajá completo. Si ya te cuesta, decime listo y lo dejamos ahí." },
       { "key": "Si estás en posición, decime: listo. Y arrancamos." },
       { "key": "Arrancamos igual. Hacé el movimiento lo mejor que puedas." },
-      { "key": "¡Buenísimo! Vamos con la siguiente." },
-      { "key": "¡Terminamos! Estoy calculando tu resultado." },
+      { "key": "¡Buenísimo! Vamos con la siguiente.", "ttsPorCoach": { "zen": "Buenísimo. Vamos con la siguiente." } },
+      { "key": "¡Terminamos! Estoy calculando tu resultado.", "ttsPorCoach": { "zen": "Terminamos. Estoy calculando tu resultado." } },
       { "key": "No pude verte bien en esa prueba. Probemos de nuevo." },
       { "key": "Levantá un pie del piso y sostenete parado en la otra pierna, sin apoyarte en nada." },
       { "key": "Sentate en el borde de una silla firme, brazos cruzados sobre el pecho. Parate del todo y sentate, tantas veces como puedas." },
@@ -113,7 +113,7 @@
       { "key": "Tu Edad de Movimiento es" },
       { "key": "años." },
       { "key": "con un margen de más menos" },
-      { "key": "Tu cuerpo rinde como el de alguien más joven que tu edad, comparado con las normas publicadas. ¡Felicitaciones!" },
+      { "key": "Tu cuerpo rinde como el de alguien más joven que tu edad, comparado con las normas publicadas. ¡Felicitaciones!", "ttsPorCoach": { "zen": "Tu cuerpo rinde como el de alguien más joven que tu edad, comparado con las normas publicadas. Felicitaciones." } },
       { "key": "Tu desempeño está alineado con tu edad, según las normas publicadas." },
       { "key": "Tu cuerpo rinde como el de alguien mayor, comparado con las normas publicadas. Es tu punto de partida, y se puede mejorar." },
       { "key": "No junté suficientes datos para calcular tu Edad de Movimiento esta vez. Mirá el detalle de cada prueba en pantalla." }
