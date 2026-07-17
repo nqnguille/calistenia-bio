@@ -14,6 +14,8 @@ import {
 } from "@/lib/pose-engine";
 import { useVoiceCommands, useCountdown } from "@/components/shared/hooks";
 import { EventMonitor } from "@/components/shared/EventMonitor";
+import { GoogleLogin } from "@/components/shared/GoogleLogin";
+import type { AuthUser } from "@/lib/authConfig";
 
 const C = {
   cream: "#F8F6F2", ink: "#151716", ink2: "#343A36",
@@ -1045,6 +1047,7 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
   const [emailSent, setEmailSent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
 
   // Persistir localmente SIEMPRE (además del autoguardado en el servidor
   // que ya ocurrió apenas se calculó el resultado, en handleMovementsComplete).
@@ -1142,6 +1145,15 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
           <button onClick={handleCopy} style={{ background:"rgba(122,143,116,0.2)", color:C.sage, fontWeight:700, fontSize:"0.85rem", padding:"0 18px", borderRadius:12, border:`1px solid ${C.sage}55`, cursor:"pointer", whiteSpace:"nowrap" }}>
             {copied ? "¡Copiado!" : "Copiar link"}
           </button>
+        </div>
+      )}
+
+      {authUser ? (
+        <p style={{ color:C.sage, fontSize:"0.88rem", fontWeight:600 }}>✓ Progreso guardado en tu cuenta ({authUser.email})</p>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+          <GoogleLogin evalId={resultId} onLogin={(u) => setAuthUser(u)} />
+          <p style={{ color:"rgba(248,246,242,0.3)", fontSize:"0.72rem" }}>Creá tu cuenta y retomá tu plan desde cualquier dispositivo</p>
         </div>
       )}
 

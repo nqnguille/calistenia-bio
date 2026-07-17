@@ -15,6 +15,8 @@ import {
 } from "@/lib/pose-engine";
 import { useVoiceCommands, useCountdown } from "@/components/shared/hooks";
 import { EventMonitor } from "@/components/shared/EventMonitor";
+import { GoogleLogin } from "@/components/shared/GoogleLogin";
+import type { AuthUser } from "@/lib/authConfig";
 import {
   buildTodaySession, instructionFor, restSecondsFor,
   seriesSpoken, rangoSpoken, restSpoken, ejercicioSpoken,
@@ -65,6 +67,7 @@ export function SesionGuiada() {
   const [saving, setSaving] = useState<"idle" | "saving" | "ok" | "error">("idle");
   const [coaches, setCoaches] = useState<Array<{ id: string; nombre: string; emoji: string }>>([]);
   const [coachSel, setCoachSel] = useState<string>(getCoach());
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
 
   const pickCoach = useCallback((id: string) => {
     setCoach(id);
@@ -91,12 +94,7 @@ export function SesionGuiada() {
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   /* ── Carga del registro ── */
-  useEffect(() => {
-    warmVoices();
-    loadVoiceManifest().then(() => setCoaches(availableCoaches()));
-    const id = new URLSearchParams(window.location.search).get("id")
-      ?? (() => { try { return localStorage.getItem("calistenia_result_id"); } catch { return null; } })();
-    if (!id) { setView("notfound"); return; }
+  const loadRecord = useCallback((id: string) => {
     idRef.current = id;
     fetch(`/api/evaluacion?id=${encodeURIComponent(id)}`)
       .then((r) => r.json())
@@ -112,13 +110,36 @@ export function SesionGuiada() {
         logEvent("sesion", `cargada: sesión #${today.sessionNumber}, ${today.dia}, semana ${today.week}${today.isDeload ? " (descarga)" : ""}`);
       })
       .catch(() => setView("notfound"));
+  }, []);
+
+  useEffect(() => {
+    warmVoices();
+    loadVoiceManifest().then(() => setCoaches(availableCoaches()));
+    const id = new URLSearchParams(window.location.search).get("id")
+      ?? (() => { try { return localStorage.getItem("calistenia_result_id"); } catch { return null; } })();
+
+    // Resolución de identidad: link/dispositivo primero; si no hay nada,
+    // la CUENTA (cookie de sesión) recupera el progreso desde cualquier lado.
+    fetch("/api/auth")
+      .then((r) => r.json())
+      .then((auth: { ok: boolean; user?: AuthUser; currentEvalId?: string | null }) => {
+        if (auth.ok && auth.user) setAuthUser(auth.user);
+        const resolved = id ?? (auth.ok ? auth.currentEvalId ?? null : null);
+        if (!resolved) { setView("notfound"); return; }
+        if (!id && resolved) { try { localStorage.setItem("calistenia_result_id", resolved); } catch {} }
+        loadRecord(resolved);
+      })
+      .catch(() => {
+        if (!id) { setView("notfound"); return; }
+        loadRecord(id);
+      });
 
     return () => {
       runtimeRef.current?.stop();
       runtimeRef.current = null;
       stopSpeaking();
     };
-  }, []);
+  }, [loadRecord]);
 
   /* ── Handler de pose por frame ── */
   const onPoseFrame = useCallback((landmarks: Landmark[] | null) => {
@@ -433,6 +454,16 @@ export function SesionGuiada() {
         <p style={{ color: "rgba(248,246,242,0.45)", fontSize: "0.85rem", textAlign: "center", maxWidth: 440, lineHeight: 1.6 }}>
           Todo por voz: yo cuento tus repeticiones, cronometro tus descansos y registro la sesión. Decí «listo» para cerrar cada serie y «saltar» si un ejercicio no va.
         </p>
+        {authUser ? (
+          <p style={{ display: "flex", alignItems: "center", gap: 8, color: C.sage2, fontSize: "0.82rem", fontWeight: 600 }}>
+            ✓ Progreso guardado en tu cuenta ({authUser.email})
+          </p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+            <GoogleLogin evalId={idRef.current} onLogin={(u) => setAuthUser(u)} />
+            <p style={{ color: "rgba(248,246,242,0.35)", fontSize: "0.72rem" }}>Guardá tu progreso y retomalo desde cualquier dispositivo</p>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
           <button onClick={() => startTraining(false)} style={btnStyle}>
             {cameraState === "starting" ? "Activando cámara…" : "Empezar la sesión →"}
