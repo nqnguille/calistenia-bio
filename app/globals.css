@@ -12,6 +12,17 @@
   --color-border: #DED9CE;
   --color-dark: #080B0F;
   --color-dark2: #111821;
+
+  /* Sistema brutalista (landing) */
+  --color-void: #0A0A0A;
+  --color-concrete: #1A1A1A;
+  --color-concrete2: #242424;
+  --color-cement: #8A8A8A;
+  --color-chalk: #EDEDED;
+  --color-cyan: #00E5FF;
+
+  --font-display: var(--font-anton), Impact, "Arial Narrow", sans-serif;
+  --font-mono-b: var(--font-mono-brut), "JetBrains Mono", monospace;
 }
 
 @layer utilities {
@@ -93,6 +104,123 @@
     background: linear-gradient(90deg, transparent, rgba(175,195,165,0.95), transparent);
     filter: drop-shadow(0 0 18px rgba(175,195,165,0.72));
   }
+
+  /* ── Sistema brutalista (landing) ── */
+
+  /* Titulares condensados XXL, siempre en mayúsculas */
+  .brut-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    line-height: 0.92;
+  }
+
+  /* Etiquetas mono: [SECCION_01 // NOMBRE] */
+  .brut-label {
+    font-family: var(--font-mono-b);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-cyan);
+  }
+
+  .brut-mono {
+    font-family: var(--font-mono-b);
+  }
+
+  /* Panel de concreto: borde duro, sin redondeos, sin sombras blandas */
+  .brut-panel {
+    background: var(--color-concrete);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 0;
+  }
+  .brut-panel-raised {
+    background: var(--color-concrete);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 0;
+    box-shadow: 6px 6px 0 rgba(0,229,255,0.14);
+  }
+
+  /* Botón bloque: cian pleno, texto negro, desplazamiento duro al hover */
+  .brut-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: var(--color-cyan);
+    color: #000;
+    font-family: var(--font-mono-b);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 1px solid var(--color-cyan);
+    border-radius: 0;
+    box-shadow: 5px 5px 0 rgba(255,255,255,0.18);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .brut-btn:hover { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 rgba(255,255,255,0.22); }
+  .brut-btn:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 rgba(255,255,255,0.18); }
+
+  .brut-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: transparent;
+    color: var(--color-chalk);
+    font-family: var(--font-mono-b);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 1px solid rgba(255,255,255,0.32);
+    border-radius: 0;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .brut-btn-ghost:hover { border-color: var(--color-cyan); background: rgba(0,229,255,0.06); }
+
+  /* Textura concreto: ruido sutil + veta diagonal */
+  .brut-concrete {
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.016) 0 2px, transparent 2px 7px),
+      radial-gradient(circle at 30% 40%, rgba(255,255,255,0.03) 0 1px, transparent 1px),
+      radial-gradient(circle at 70% 70%, rgba(255,255,255,0.025) 0 1px, transparent 1px);
+    background-size: auto, 17px 17px, 23px 23px;
+  }
+
+  /* Grilla técnica dura, sin máscara suave */
+  .brut-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* Franja de peligro cian */
+  .brut-hazard {
+    background: repeating-linear-gradient(-45deg, var(--color-cyan) 0 14px, transparent 14px 28px);
+  }
+
+  /* Texto contorneado (solo borde) para números gigantes de fondo */
+  .brut-outline-text {
+    -webkit-text-stroke: 1.5px rgba(255,255,255,0.16);
+    color: transparent;
+  }
+  .brut-outline-cyan {
+    -webkit-text-stroke: 1.5px rgba(0,229,255,0.5);
+    color: transparent;
+  }
+
+  /* Glow de máquina para elementos cian activos */
+  .brut-glow {
+    filter: drop-shadow(0 0 14px rgba(0,229,255,0.55));
+  }
+
+  .brut-scan-line {
+    background: linear-gradient(90deg, transparent, rgba(0,229,255,0.95), transparent);
+    filter: drop-shadow(0 0 16px rgba(0,229,255,0.7));
+  }
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -118,6 +246,9 @@ main > section[class*="py-52"] {
   padding-top: clamp(7.5rem, 12vw, 12.5rem) !important;
   padding-bottom: clamp(7.5rem, 12vw, 12.5rem) !important;
 }
+
+/* Las secciones brutalistas de la landing anulan los radiales sage heredados */
+main > section.brut-sec::before { background: none !important; }
 
 main > section:not(:first-child)::before {
   content: "";

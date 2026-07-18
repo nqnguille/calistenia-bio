@@ -1,87 +1,91 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE" };
 const active = new Set([0,1,2,4,5,7,8,9,11,14,15,16,17,18,21,22,23,24,25,28,29,30,31,32,33,34]);
 const streak = new Set([21,22,23,24,25,28,29,30,31,32,33,34]);
 const days = Array.from({ length:35 },(_,i) => ({ active:active.has(i), streak:streak.has(i) }));
 
 export function Adherence() {
   return (
-    <section style={{ backgroundColor:C.cream2, borderTop:`1px solid ${C.border}` }} className="py-52 px-8">
-      <div style={{ maxWidth:1152, margin:"0 auto" }}>
+    <section className="brut-sec brut-concrete relative overflow-hidden bg-concrete px-8 py-52 text-chalk">
+      {/* Número de sección gigante contorneado de fondo */}
+      <div className="brut-display brut-outline-text pointer-events-none absolute -right-8 top-10 select-none text-[18rem] leading-none opacity-50 max-lg:hidden" aria-hidden>
+        08
+      </div>
+
+      <div className="relative mx-auto max-w-6xl">
 
         {/* Centered header */}
-        <div style={{ textAlign:"center", marginBottom:104 }}>
-          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
-            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
-            <span style={{ width:24, height:1, background:C.sage }} />Adherencia<span style={{ width:24, height:1, background:C.sage }} />
-          </motion.div>
+        <div className="mb-24 text-center">
+          <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+            className="brut-label mb-6">
+            [SEC_08 // ADHERENCIA]
+          </motion.p>
           <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
-            style={{ fontSize:"clamp(2.8rem,5vw,4.5rem)", fontWeight:900, color:C.ink, lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:28 }}>
+            className="brut-display mb-7 text-[clamp(2.6rem,6vw,4.6rem)] text-chalk">
             El entrenamiento más importante<br/>
-            <span style={{ color:C.muted, fontWeight:300 }}>es el que no abandonás.</span>
+            <span className="text-cyan">es el que no abandonás.</span>
           </motion.h2>
           <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.2 }}
-            style={{ fontSize:"1.1rem", color:C.ink2, lineHeight:1.7, fontWeight:300, maxWidth:480, margin:"0 auto" }}>
+            className="mx-auto max-w-[480px] text-lg leading-7 text-chalk/70">
             4 minutos cuentan tanto como 45. Lo que importa es que mañana también lo hagas.
           </motion.p>
         </div>
 
         {/* 2-col: features + calendar */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:72, alignItems:"start" }}>
+        <div className="grid items-start gap-16 lg:grid-cols-2">
           <motion.div initial={{ opacity:0,x:-24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }}
-            style={{ display:"flex", flexDirection:"column", gap:28 }}>
+            className="flex flex-col">
             {[
               { icon:"⏱", text:"Micro-sesiones desde 4 minutos" },
               { icon:"🧠", text:"Recordatorios basados en tu ritmo circadiano" },
               { icon:"🎯", text:"Objetivos semanales adaptados a tu vida real" },
               { icon:"📈", text:"El progreso visible genera su propio momentum" },
             ].map(f => (
-              <div key={f.text} style={{ display:"flex", alignItems:"flex-start", gap:16 }}>
-                <span style={{ fontSize:"1.4rem", flexShrink:0 }}>{f.icon}</span>
-                <span style={{ fontSize:"1.05rem", lineHeight:1.65, color:C.ink2, fontWeight:300 }}>{f.text}</span>
+              <div key={f.text} className="-mt-px flex items-center gap-5 border border-white/[0.14] bg-white/[0.03] px-5 py-5 first:mt-0">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center border border-white/[0.14] bg-black/40 text-xl" aria-hidden>{f.icon}</span>
+                <span className="text-base leading-7 text-chalk/70">{f.text}</span>
               </div>
             ))}
           </motion.div>
 
           <motion.div initial={{ opacity:0,x:24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }} transition={{ delay:0.15 }}
-            style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:24, padding:"44px", boxShadow:"0 16px 48px rgba(27,27,27,0.07)" }}>
+            className="brut-panel-raised p-8 md:p-10">
 
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:24 }}>
+            <div className="mb-6 flex items-start justify-between">
               <div>
-                <p style={{ fontSize:"0.7rem", color:C.muted, textTransform:"uppercase", letterSpacing:"0.1em", fontWeight:600, marginBottom:4 }}>Racha actual</p>
-                <p style={{ fontSize:"2.5rem", fontWeight:900, color:C.ink, lineHeight:1 }}>12 <span style={{ fontSize:"1rem", fontWeight:400, color:C.muted }}>días</span></p>
+                <p className="brut-label mb-2 text-[0.62rem]">[racha_actual]</p>
+                <p className="brut-display text-6xl leading-none text-chalk">12 <span className="brut-mono text-base font-bold uppercase text-chalk/40">días</span></p>
               </div>
-              <span style={{ fontSize:"2rem" }}>🔥</span>
+              <span className="text-3xl" aria-hidden>🔥</span>
             </div>
 
             {/* Heatmap */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:16 }}>
+            <div className="mb-4 grid grid-cols-7 gap-1">
               {["L","M","X","J","V","S","D"].map(d => (
-                <p key={d} style={{ textAlign:"center", fontSize:"0.65rem", color:C.muted, fontWeight:600, marginBottom:4 }}>{d}</p>
+                <p key={d} className="brut-mono mb-1 text-center text-[0.62rem] font-bold text-chalk/40">{d}</p>
               ))}
               {days.map((d,i) => (
                 <motion.div key={i} initial={{ scale:0,opacity:0 }} whileInView={{ scale:1,opacity:1 }}
                   viewport={{ once:true }} transition={{ delay:0.01*i, duration:0.2 }}
-                  style={{ aspectRatio:"1", borderRadius:4, background: d.streak ? C.sage : d.active ? `${C.sage}44` : C.border }} />
+                  className={`aspect-square ${d.streak ? "bg-cyan" : d.active ? "bg-cyan/25" : "bg-white/10"}`} />
               ))}
             </div>
 
-            <div style={{ display:"flex", gap:28, fontSize:"0.72rem", color:C.muted, marginBottom:24 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <div style={{ width:10, height:10, borderRadius:2, background:C.sage }} /><span>Racha activa</span>
+            <div className="brut-mono mb-6 flex gap-7 text-[0.68rem] font-bold uppercase tracking-[0.06em] text-chalk/45">
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 bg-cyan" /><span>Racha activa</span>
               </div>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <div style={{ width:10, height:10, borderRadius:2, background:`${C.sage}44` }} /><span>Día activo</span>
+              <div className="flex items-center gap-2">
+                <div className="h-2.5 w-2.5 bg-cyan/25" /><span>Día activo</span>
               </div>
             </div>
 
-            <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:20, display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+            <div className="grid grid-cols-3 border-t border-white/[0.14] pt-5">
               {[{ n:"26", l:"días activos" }, { n:"4min", l:"sesión mínima" }, { n:"87%", l:"consistencia" }].map(s => (
-                <div key={s.l} style={{ textAlign:"center" }}>
-                  <p style={{ fontSize:"1.4rem", fontWeight:900, color:C.ink }}>{s.n}</p>
-                  <p style={{ fontSize:"0.7rem", color:C.muted, marginTop:2 }}>{s.l}</p>
+                <div key={s.l} className="-ml-px border-l border-white/[0.14] text-center first:ml-0 first:border-l-0">
+                  <p className="brut-display text-3xl text-cyan">{s.n}</p>
+                  <p className="brut-mono mt-1 text-[0.62rem] font-bold uppercase tracking-[0.06em] text-chalk/45">{s.l}</p>
                 </div>
               ))}
             </div>

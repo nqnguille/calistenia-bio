@@ -2,8 +2,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE" };
-
 const faqs = [
   { q:"¿Necesito ser atleta o tener experiencia previa?", a:"No. CALISTENIA.bio está diseñado para personas sedentarias, activas y todo lo que hay en el medio. El sistema se adapta a tu nivel actual y parte desde donde estás." },
   { q:"¿Cómo funciona la evaluación con webcam?", a:"Te posicionás frente a tu cámara y el sistema te guía a través de una serie de movimientos simples. La IA detecta 33 puntos en tu cuerpo y analiza cómo te movés. Toma entre 4 y 8 minutos." },
@@ -17,19 +15,43 @@ const faqs = [
 function FAQItem({ q, a, i }: { q:string; a:string; i:number }) {
   const [open, setOpen] = useState(false);
   return (
-    <motion.div initial={{ opacity:0,y:12 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:i*0.06 }}
-      style={{ borderBottom:`1px solid ${C.border}` }}>
-      <button onClick={() => setOpen(!open)}
-        style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", padding:"24px 0", textAlign:"left", cursor:"pointer", gap:28, background:"transparent", border:"none" }}>
-        <span style={{ fontSize:"1rem", fontWeight:600, color:C.ink, lineHeight:1.4 }}>{q}</span>
-        <motion.span animate={{ rotate: open?45:0 }} transition={{ duration:0.2 }}
-          style={{ fontSize:"1.4rem", color:C.muted, flexShrink:0, fontWeight:300 }}>+</motion.span>
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: i * 0.06 }}
+      className={`border border-t-0 border-white/[0.14] first:border-t transition-colors duration-150 ${open ? "border-l-2 border-l-cyan bg-white/[0.03]" : "hover:bg-white/[0.02]"}`}
+    >
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full cursor-pointer items-center justify-between gap-7 px-5 py-6 text-left md:px-7"
+      >
+        <span className="flex items-baseline gap-4">
+          <span className="brut-mono text-[0.68rem] font-bold text-cyan" aria-hidden>
+            {String(i + 1).padStart(2, "0")}
+          </span>
+          <span className="text-base font-semibold leading-snug text-chalk">{q}</span>
+        </span>
+        <motion.span
+          animate={{ rotate: open ? 45 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="brut-mono flex-shrink-0 text-xl font-bold text-cyan"
+          aria-hidden
+        >
+          +
+        </motion.span>
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div initial={{ height:0,opacity:0 }} animate={{ height:"auto",opacity:1 }} exit={{ height:0,opacity:0 }}
-            transition={{ duration:0.3, ease:[0.16,1,0.3,1] }} style={{ overflow:"hidden" }}>
-            <p style={{ fontSize:"0.95rem", color:C.ink2, lineHeight:1.75, fontWeight:300, paddingBottom:24, maxWidth:640 }}>{a}</p>
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <p className="max-w-2xl px-5 pb-7 text-[0.95rem] leading-7 text-chalk/60 md:px-7 md:pl-[4.35rem]">{a}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -39,20 +61,34 @@ function FAQItem({ q, a, i }: { q:string; a:string; i:number }) {
 
 export function FAQ() {
   return (
-    <section style={{ backgroundColor:C.cream2, borderTop:`1px solid ${C.border}` }} className="py-52 px-8" id="faq">
-      <div style={{ maxWidth:720, margin:"0 auto" }}>
-        <div style={{ textAlign:"center", marginBottom:96 }}>
-          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
-            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
-            <span style={{ width:24, height:1, background:C.sage }} />Preguntas frecuentes<span style={{ width:24, height:1, background:C.sage }} />
-          </motion.div>
-          <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
-            style={{ fontSize:"clamp(2.5rem,4vw,4rem)", fontWeight:900, color:C.ink, lineHeight:0.95, letterSpacing:"-0.03em" }}>
+    <section className="brut-sec brut-concrete relative overflow-hidden bg-void px-8 py-52 text-chalk" id="faq">
+      {/* Número de sección gigante contorneado de fondo */}
+      <div className="brut-display brut-outline-text pointer-events-none absolute -right-8 top-16 select-none text-[18rem] leading-none opacity-50 max-lg:hidden" aria-hidden>
+        15
+      </div>
+
+      <div className="relative mx-auto max-w-[720px]">
+        <div className="mb-20 text-center">
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="brut-label mb-6"
+          >
+            [SEC_15 // PREGUNTAS_FRECUENTES]
+          </motion.p>
+          <motion.h2
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="brut-display text-[clamp(2.6rem,6vw,4.6rem)]"
+          >
             Todo lo que necesitás saber.
           </motion.h2>
         </div>
         <div>
-          {faqs.map((f,i) => <FAQItem key={f.q} q={f.q} a={f.a} i={i} />)}
+          {faqs.map((f, i) => <FAQItem key={f.q} q={f.q} a={f.a} i={i} />)}
         </div>
       </div>
     </section>

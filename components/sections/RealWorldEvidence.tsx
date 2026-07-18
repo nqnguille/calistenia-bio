@@ -1,19 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = {
-  cream: "#F8F6F2",
-  cream2: "#F1EEE8",
-  ink: "#151716",
-  ink2: "#343A36",
-  sage: "#7A8F74",
-  muted: "#8E9188",
-  border: "#DED9CE",
-  dark: "#080B0F",
-  dark2: "#111821",
-  petrol: "#203040",
-};
-
 const pillars = [
   {
     icon: "◎",
@@ -34,35 +21,25 @@ const pillars = [
 
 export function RealWorldEvidence() {
   return (
-    <section
-      style={{ backgroundColor: C.dark, overflow: "hidden", position: "relative" }}
-      className="py-52 px-8"
-    >
-      {/* Grid pattern overlay */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: `linear-gradient(rgba(122,143,116,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(122,143,116,0.04) 1px, transparent 1px)`,
-          backgroundSize: "48px 48px",
-          pointerEvents: "none",
-        }}
-      />
+    <section className="brut-sec brut-concrete relative overflow-hidden bg-concrete px-8 py-52 text-chalk">
+      <div className="brut-grid absolute inset-0 opacity-60" aria-hidden />
 
-      <div style={{ maxWidth:1152, margin:"0 auto" }}>
+      {/* Número de sección gigante contorneado de fondo */}
+      <div className="brut-display brut-outline-text pointer-events-none absolute -right-10 bottom-10 select-none text-[18rem] leading-none opacity-50 max-lg:hidden" aria-hidden>
+        12
+      </div>
+
+      <div className="relative mx-auto max-w-6xl">
         {/* Label */}
-        <motion.div
+        <motion.p
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="mb-6"
+          className="brut-label mb-6"
         >
-          <p className="section-tag" style={{ color: C.sage }}>
-            Evidencia del mundo real
-          </p>
-        </motion.div>
+          [SEC_12 // EVIDENCIA_DEL_MUNDO_REAL]
+        </motion.p>
 
         {/* Headline */}
         <motion.h2
@@ -70,15 +47,7 @@ export function RealWorldEvidence() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.65, delay: 0.1 }}
-          style={{
-            fontSize: "clamp(2.5rem,4.5vw,4.5rem)",
-            fontWeight: 900,
-            letterSpacing: "-0.03em",
-            lineHeight: 0.95,
-            color: C.cream,
-            maxWidth: 680,
-            marginBottom: 24,
-          }}
+          className="brut-display mb-6 max-w-2xl text-[clamp(2.6rem,6vw,4.6rem)] text-chalk"
         >
           Construimos evidencia del mundo real.
         </motion.h2>
@@ -89,21 +58,14 @@ export function RealWorldEvidence() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.18 }}
-          style={{
-            fontSize: "1.05rem",
-            lineHeight: 1.75,
-            fontWeight: 300,
-            color: C.muted,
-            maxWidth: 500,
-            marginBottom: 64,
-          }}
+          className="mb-16 max-w-lg text-base leading-7 text-chalk/60 md:text-lg"
         >
           Cada usuario contribuye —con su consentimiento— a la base de datos más grande
           del mundo sobre salud motora en adultos. No hipótesis. Datos reales.
         </motion.p>
 
         {/* Cards */}
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
+        <div className="mb-6 grid gap-4 md:grid-cols-3">
           {pillars.map((p, i) => (
             <motion.div
               key={p.title}
@@ -111,31 +73,11 @@ export function RealWorldEvidence() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 + i * 0.1, duration: 0.55 }}
-              style={{
-                backgroundColor: C.dark2,
-                border: "1px solid rgba(255,255,255,0.07)",
-                borderRadius: 20,
-                padding: "32px 28px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 16,
-                transition: "border-color 0.2s",
-              }}
-              whileHover={{ borderColor: `${C.sage}44` } as Record<string, string>}
+              className="flex flex-col gap-4 border border-white/[0.14] bg-white/[0.03] p-7 transition-colors duration-150 hover:border-cyan"
             >
-              <span style={{ fontSize: "1.6rem", color: C.sage }}>{p.icon}</span>
-              <h3 style={{ color: C.cream, fontWeight: 700, fontSize: "1.1rem" }}>{p.title}</h3>
-              <p
-                style={{
-                  fontSize: "1.05rem",
-                  lineHeight: 1.75,
-                  fontWeight: 300,
-                  color: C.muted,
-                  flex: 1,
-                }}
-              >
-                {p.desc}
-              </p>
+              <span className="text-2xl text-cyan" aria-hidden>{p.icon}</span>
+              <h3 className="brut-display text-2xl text-chalk">{p.title}</h3>
+              <p className="flex-1 text-base leading-7 text-chalk/60">{p.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -146,34 +88,10 @@ export function RealWorldEvidence() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.35 }}
-          style={{
-            border: `1px solid ${C.sage}44`,
-            backgroundColor: `${C.sage}0d`,
-            borderRadius: 20,
-            padding: "32px 36px",
-          }}
+          className="brut-panel-raised border-cyan/40 p-8 md:p-9"
         >
-          <p
-            style={{
-              fontSize: "0.7rem",
-              fontWeight: 600,
-              color: C.sage,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              marginBottom: 14,
-            }}
-          >
-            Compromiso de transparencia
-          </p>
-          <p
-            style={{
-              fontSize: "1.05rem",
-              lineHeight: 1.75,
-              fontWeight: 300,
-              color: `${C.cream}bb`,
-              maxWidth: 680,
-            }}
-          >
+          <p className="brut-label mb-4 text-[0.62rem]">[compromiso_de_transparencia]</p>
+          <p className="max-w-2xl text-base leading-7 text-chalk/75 md:text-lg">
             No hacemos afirmaciones médicas. No prometemos curaciones. Lo que sí prometemos:
             medición rigurosa, metodología transparente, y evidencia observable de que el
             movimiento consistente mejora cómo funciona tu cuerpo.

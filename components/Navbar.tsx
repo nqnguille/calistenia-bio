@@ -1,5 +1,6 @@
 "use client";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 
 const links = [
   { label: "Método", href: "/metodo/" },
@@ -11,52 +12,57 @@ const links = [
 ];
 
 export function Navbar() {
-  const { scrollY } = useScroll();
-  const bg = useTransform(scrollY, [0, 80], ["rgba(8,11,15,0.18)", "rgba(248,246,242,0.88)"]);
-  const border = useTransform(scrollY, [0, 80], ["rgba(255,255,255,0.08)", "rgba(222,217,206,0.92)"]);
-  const color = useTransform(scrollY, [0, 80], ["#F8F6F2", "#151716"]);
-  const muted = useTransform(scrollY, [0, 80], ["rgba(248,246,242,0.62)", "rgba(52,58,54,0.76)"]);
-  const ctaBg = useTransform(scrollY, [0, 80], ["rgba(248,246,242,0.96)", "rgba(21,23,22,0.96)"]);
-  const ctaColor = useTransform(scrollY, [0, 80], ["#151716", "#F8F6F2"]);
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <motion.nav
-      style={{ backgroundColor: bg, borderColor: border, backdropFilter: "blur(22px)", WebkitBackdropFilter: "blur(22px)" }}
-      className="fixed left-1/2 top-3 z-50 w-[calc(100%-24px)] max-w-6xl -translate-x-1/2 rounded-full border"
+    <nav
+      className="fixed inset-x-0 top-0 z-50 border-b transition-colors duration-200"
+      style={{
+        background: scrolled ? "rgba(10,10,10,0.94)" : "rgba(10,10,10,0.55)",
+        borderColor: scrolled ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+      }}
     >
-      <div className="flex h-14 items-center justify-between px-4 md:h-16 md:px-5">
-        <motion.a href="#" style={{ color }} className="flex items-center gap-3 font-black tracking-[-0.04em]">
-          <span className="relative flex h-8 w-8 items-center justify-center rounded-full border border-current/15 bg-current/[0.04]">
-            <span className="h-2.5 w-2.5 rounded-full bg-sage" />
-            <span className="absolute inset-1 rounded-full border border-sage/30" />
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:h-16 md:px-6">
+        <a href="/" className="flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center border border-cyan bg-cyan/10">
+            <span className="brut-mono text-sm font-bold text-cyan">C</span>
           </span>
-          <span className="text-lg md:text-xl">CALISTENIA<span className="text-sage">.bio</span></span>
-          <span style={{ fontSize:"0.58rem", fontWeight:800, letterSpacing:"0.12em", textTransform:"uppercase", color:"#7A8F74", border:"1px solid rgba(122,143,116,0.45)", borderRadius:999, padding:"3px 8px" }}>Demo gratis</span>
-        </motion.a>
+          <span className="brut-display text-lg tracking-wide text-chalk md:text-xl">
+            CALISTENIA<span className="text-cyan">.BIO</span>
+          </span>
+          <span className="brut-mono hidden border border-cyan/50 px-2 py-0.5 text-[0.58rem] font-bold uppercase tracking-[0.1em] text-cyan sm:inline-block">
+            demo_gratis
+          </span>
+        </a>
 
-        <div className="hidden items-center gap-1 rounded-full border border-current/10 bg-white/[0.035] p-1 md:flex">
+        <div className="hidden items-center md:flex">
           {links.map((item) => (
-            <motion.a
+            <a
               key={item.href}
               href={item.href}
-              style={{ color: muted }}
-              className="rounded-full px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/10"
+              className="brut-mono border-l border-white/10 px-4 py-2 text-[0.72rem] font-bold uppercase tracking-[0.08em] text-chalk/60 transition-colors last:border-r hover:bg-white/[0.06] hover:text-cyan"
             >
               {item.label}
-            </motion.a>
+            </a>
           ))}
         </div>
 
         <motion.a
           href="/evaluacion"
-          whileHover={{ scale: 1.035 }}
-          whileTap={{ scale: 0.98 }}
-          style={{ backgroundColor: ctaBg, color: ctaColor }}
-          className="rounded-full px-4 py-2.5 text-sm font-black shadow-[0_12px_38px_rgba(0,0,0,0.14)] md:px-5"
+          whileTap={{ scale: 0.97 }}
+          className="brut-btn px-4 py-2 text-[0.72rem] md:px-5"
         >
-          Evaluación gratis →
+          Evaluación →
         </motion.a>
       </div>
-    </motion.nav>
+    </nav>
   );
 }

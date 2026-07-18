@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", cream2:"#F1EEE8", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE" };
+const CYAN = "#00E5FF";
 
 const weeks = [
   { label:"Sem 1", val:54 }, { label:"Sem 4", val:51 }, { label:"Sem 8", val:48 },
@@ -16,73 +16,72 @@ const areaD = `${pathD} L ${pts[pts.length-1].x} ${H-PB} L ${pts[0].x} ${H-PB} Z
 
 export function WeeklyCheckpoints() {
   return (
-    <section style={{ backgroundColor:C.cream2, borderTop:`1px solid ${C.border}` }} className="py-52 px-8">
-      <div style={{ maxWidth:1152, margin:"0 auto" }}>
+    <section className="brut-sec brut-concrete relative overflow-hidden bg-concrete px-8 py-52 text-chalk">
+      {/* Número de sección gigante contorneado de fondo */}
+      <div className="brut-display brut-outline-text pointer-events-none absolute -left-6 top-10 select-none text-[18rem] leading-none opacity-50 max-lg:hidden" aria-hidden>
+        06
+      </div>
+
+      <div className="relative mx-auto max-w-6xl">
 
         {/* Centered header */}
-        <div style={{ textAlign:"center", marginBottom:104 }}>
-          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
-            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
-            <span style={{ width:24, height:1, background:C.sage }} />Evaluaciones semanales<span style={{ width:24, height:1, background:C.sage }} />
-          </motion.div>
+        <div className="mb-24 text-center">
+          <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+            className="brut-label mb-6">
+            [SEC_06 // EVALUACIONES_SEMANALES]
+          </motion.p>
           <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
-            style={{ fontSize:"clamp(2.8rem,5vw,4.5rem)", fontWeight:900, color:C.ink, lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:28 }}>
-            Evolucionás. <span style={{ color:C.muted, fontWeight:300 }}>Lo medimos cada semana.</span>
+            className="brut-display mb-7 text-[clamp(2.6rem,6vw,4.6rem)] text-chalk">
+            Evolucionás. <span className="text-cyan">Lo medimos cada semana.</span>
           </motion.h2>
           <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.2 }}
-            style={{ fontSize:"1.1rem", color:C.ink2, lineHeight:1.7, fontWeight:300, maxWidth:500, margin:"0 auto" }}>
+            className="mx-auto max-w-[500px] text-lg leading-7 text-chalk/70">
             Cada 7 días, la misma evaluación. Una nueva medición. Observás en tiempo real cómo tu cuerpo responde al movimiento.
           </motion.p>
         </div>
 
         {/* 2-col: bullets + chart */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))", gap:72, alignItems:"center" }}>
+        <div className="grid items-center gap-16 lg:grid-cols-2">
           <motion.div initial={{ opacity:0,x:-24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }}
-            style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            className="flex flex-col">
             {["Evaluación biomecánica de 5 min con webcam","Edad de Movimiento actualizada cada 7 días","Comparativa automática semana a semana","Plan ajustado en base a tu progreso real"].map((b,i) => (
-              <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
-                <span style={{ width:8, height:8, borderRadius:"50%", background:C.sage, marginTop:9, flexShrink:0 }} />
-                <span style={{ fontSize:"1.05rem", lineHeight:1.75, fontWeight:300, color:C.ink2 }}>{b}</span>
+              <div key={i} className="-mt-px flex items-start gap-4 border border-white/[0.14] bg-white/[0.03] px-5 py-4 first:mt-0">
+                <span className="brut-mono mt-0.5 shrink-0 text-[0.68rem] font-bold text-cyan">{String(i+1).padStart(2,"0")}</span>
+                <span className="text-base leading-7 text-chalk/70">{b}</span>
               </div>
             ))}
           </motion.div>
 
           <motion.div initial={{ opacity:0,x:24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }} transition={{ delay:0.15 }}
-            style={{ background:"#fff", border:`1px solid ${C.border}`, borderRadius:24, padding:"44px 40px", boxShadow:"0 16px 56px rgba(27,27,27,0.07)" }}>
-            <p style={{ fontSize:"0.7rem", fontWeight:600, color:C.muted, letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:4 }}>Edad de Movimiento</p>
-            <p style={{ fontSize:"1.1rem", fontWeight:700, color:C.ink, marginBottom:24 }}>Progreso — 20 semanas</p>
+            className="brut-panel-raised p-8 md:p-10">
+            <p className="brut-label text-[0.62rem]">[edad_de_movimiento]</p>
+            <p className="brut-mono mb-6 mt-2 text-sm font-bold uppercase tracking-[0.08em] text-chalk/60">Progreso — 20 semanas</p>
 
-            <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", overflow:"visible" }} aria-hidden>
-              <defs>
-                <linearGradient id="wc-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={C.sage} stopOpacity="0.18" />
-                  <stop offset="100%" stopColor={C.sage} stopOpacity="0" />
-                </linearGradient>
-              </defs>
+            <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible" aria-hidden>
               {[41,45,48,51,54].map(v => (
                 <g key={v}>
-                  <line x1={PL} y1={yOf(v)} x2={W-PR} y2={yOf(v)} stroke={C.border} strokeWidth={1} strokeDasharray="4 4" />
-                  <text x={PL-6} y={yOf(v)+4} fontSize={9} fill={C.muted} textAnchor="end" fontWeight={500}>{v}</text>
+                  <line x1={PL} y1={yOf(v)} x2={W-PR} y2={yOf(v)} stroke="rgba(255,255,255,0.12)" strokeWidth={1} strokeDasharray="4 4" />
+                  <text x={PL-6} y={yOf(v)+4} fontSize={9} fill="rgba(237,237,237,0.4)" textAnchor="end" fontWeight={700} fontFamily="var(--font-mono-b)">{v}</text>
                 </g>
               ))}
               {weeks.map((w,i) => (
-                <text key={i} x={xOf(i)} y={H-4} fontSize={9} fill={C.muted} textAnchor="middle" fontWeight={500}>{w.label}</text>
+                <text key={i} x={xOf(i)} y={H-4} fontSize={9} fill="rgba(237,237,237,0.4)" textAnchor="middle" fontWeight={700} fontFamily="var(--font-mono-b)">{w.label}</text>
               ))}
-              <motion.path d={areaD} fill="url(#wc-grad)" initial={{ opacity:0 }} whileInView={{ opacity:1 }} viewport={{ once:true }} transition={{ duration:1, delay:0.4 }} />
-              <motion.path d={pathD} fill="none" stroke={C.sage} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
+              <motion.path d={areaD} fill="rgba(0,229,255,0.07)" initial={{ opacity:0 }} whileInView={{ opacity:1 }} viewport={{ once:true }} transition={{ duration:1, delay:0.4 }} />
+              <motion.path d={pathD} fill="none" stroke={CYAN} strokeWidth={2.5} strokeLinecap="square" strokeLinejoin="miter"
                 initial={{ pathLength:0 }} whileInView={{ pathLength:1 }} viewport={{ once:true }} transition={{ duration:1.6, ease:[0.16,1,0.3,1], delay:0.3 }} />
               {pts.map((p,i) => (
                 <motion.g key={i} initial={{ scale:0,opacity:0 }} whileInView={{ scale:1,opacity:1 }} viewport={{ once:true }}
                   transition={{ delay:0.5+i*0.14 }} style={{ transformOrigin:`${p.x}px ${p.y}px` }}>
-                  <circle cx={p.x} cy={p.y} r={5} fill="#fff" stroke={C.sage} strokeWidth={2.5} />
-                  <text x={p.x} y={p.y-10} fontSize={10} fill={C.sage} textAnchor="middle" fontWeight={700}>{weeks[i].val}</text>
+                  <rect x={p.x-4} y={p.y-4} width={8} height={8} fill="#0A0A0A" stroke={CYAN} strokeWidth={2} />
+                  <text x={p.x} y={p.y-10} fontSize={10} fill={CYAN} textAnchor="middle" fontWeight={700} fontFamily="var(--font-mono-b)">{weeks[i].val}</text>
                 </motion.g>
               ))}
             </svg>
 
-            <div style={{ marginTop:24, paddingTop:20, borderTop:`1px solid ${C.border}`, display:"flex", alignItems:"center", gap:12 }}>
-              <span style={{ fontSize:"2rem", fontWeight:900, color:C.sage, letterSpacing:"-0.03em" }}>−13 años</span>
-              <span style={{ fontSize:"0.9rem", color:C.muted, fontWeight:300 }}>de Edad de Movimiento en 20 semanas</span>
+            <div className="mt-6 flex items-end gap-3 border-t border-white/[0.14] pt-5">
+              <span className="brut-display text-4xl leading-none text-cyan">−13 años</span>
+              <span className="brut-mono text-[0.72rem] font-bold uppercase tracking-[0.06em] text-chalk/45">de Edad de Movimiento en 20 semanas</span>
             </div>
           </motion.div>
         </div>

@@ -1,7 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE", dark:"#080B0F", dark2:"#111821", cream2:"rgba(248,246,242,0.08)" };
+const CYAN = "#00E5FF";
 
 const detections = [
   { label:"Postura",    sub:"Alineación cervical",      score:82, icon:"⊕" },
@@ -13,86 +13,103 @@ const detections = [
 
 export function ComputerVision() {
   return (
-    <section style={{ backgroundColor:C.dark, position:"relative", overflow:"hidden" }} className="py-52 px-8">
-      <div style={{ position:"absolute", inset:0, backgroundImage:"linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px)", backgroundSize:"56px 56px", pointerEvents:"none" }} />
+    <section className="brut-sec brut-concrete relative overflow-hidden bg-concrete px-8 py-52 text-chalk">
+      <div className="brut-grid absolute inset-0 opacity-60" aria-hidden />
 
-      <div style={{ maxWidth:1152, margin:"0 auto", position:"relative" }}>
+      {/* Número de sección gigante contorneado de fondo */}
+      <div className="brut-display brut-outline-text pointer-events-none absolute -left-6 top-16 select-none text-[18rem] leading-none opacity-50 max-lg:hidden" aria-hidden>
+        10
+      </div>
+
+      <div className="relative mx-auto max-w-6xl">
 
         {/* Centered header */}
-        <div style={{ textAlign:"center", marginBottom:104 }}>
-          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
-            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
-            <span style={{ width:24, height:1, background:C.sage }} />Visión por computadora<span style={{ width:24, height:1, background:C.sage }} />
-          </motion.div>
-          <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
-            style={{ fontSize:"clamp(2.8rem,5vw,4.5rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:28 }}>
+        <div className="mb-24 text-center">
+          <motion.p initial={{ opacity:0, y:16 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }}
+            className="brut-label mb-6">
+            [SEC_10 // VISION_POR_COMPUTADORA]
+          </motion.p>
+          <motion.h2 initial={{ opacity:0, y:24 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
+            className="brut-display mb-7 text-[clamp(2.6rem,6vw,4.6rem)] text-chalk">
             Lo que la IA ve en tu cuerpo.
           </motion.h2>
-          <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.2 }}
-            style={{ fontSize:"1.1rem", color:C.muted, lineHeight:1.7, fontWeight:300, maxWidth:480, margin:"0 auto" }}>
+          <motion.p initial={{ opacity:0, y:16 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} transition={{ delay:0.2 }}
+            className="mx-auto max-w-md text-base leading-7 text-chalk/60 md:text-lg">
             En cada evaluación, el sistema analiza más de 30 variables biomecánicas simultáneamente. Sin contacto. Sin sensores. Solo tu webcam.
           </motion.p>
         </div>
 
         {/* 2-col: body scan + detections */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:64, alignItems:"start" }}>
+        <div className="grid items-start gap-10 lg:grid-cols-2">
 
           {/* Body scan card */}
-          <motion.div initial={{ opacity:0,x:-24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }}
-            style={{ background:C.dark2, border:"1px solid rgba(255,255,255,0.08)", borderRadius:24, overflow:"hidden", position:"relative" }}>
-            <div style={{ position:"absolute", inset:0, background:"radial-gradient(ellipse at 50% 30%, rgba(122,143,116,0.12) 0%, transparent 70%)", pointerEvents:"none" }} />
-            <svg viewBox="0 0 300 400" style={{ width:"100%", maxHeight:360 }} aria-hidden>
-              {/* Silhouette */}
-              <ellipse cx="150" cy="45" rx="28" ry="32" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" />
-              <path d="M 115 75 L 95 130 L 85 190" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M 185 75 L 205 130 L 215 190" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M 115 75 L 185 75 L 190 160 L 150 175 L 110 160 Z" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" />
-              <path d="M 120 175 L 115 260 L 110 330" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M 180 175 L 185 260 L 190 330" fill="none" stroke="rgba(122,143,116,0.35)" strokeWidth="1.5" strokeLinecap="round" />
-              {/* Landmark dots */}
-              {[[150,45],[150,80],[115,78],[185,78],[85,128],[215,128],[150,175],[120,175],[180,175],[115,258],[185,258],[110,328],[190,328]].map(([cx,cy],i) => (
-                <motion.circle key={i} cx={cx} cy={cy} r="4" fill="#7A8F74"
-                  initial={{ scale:0,opacity:0 }} animate={{ scale:1,opacity:0.9 }}
-                  transition={{ delay:0.05*i, duration:0.3 }} />
+          <motion.div initial={{ opacity:0, x:-24 }} whileInView={{ opacity:1, x:0 }} viewport={{ once:true }}
+            className="brut-panel-raised relative overflow-hidden">
+            <div className="flex items-center justify-between border-b border-white/[0.14] bg-black/40 px-4 py-3">
+              <span className="brut-mono text-[0.68rem] font-bold uppercase tracking-[0.1em] text-chalk/50">
+                body_scan.exe
+              </span>
+              <span className="brut-mono flex items-center gap-2 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-cyan">
+                <motion.span animate={{ opacity:[1, 0.15, 1] }} transition={{ duration:1.2, repeat:Infinity }} className="h-2 w-2 bg-cyan" />
+                33_landmarks
+              </span>
+            </div>
+
+            <div className="relative bg-black">
+              <div className="absolute inset-0 opacity-40" style={{ backgroundImage:"linear-gradient(rgba(0,229,255,.06) 1px, transparent 1px)", backgroundSize:"100% 22px" }} aria-hidden />
+              <svg viewBox="0 0 300 400" className="relative w-full max-h-[360px]" aria-hidden>
+                {/* Silhouette */}
+                <ellipse cx="150" cy="45" rx="28" ry="32" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" />
+                <path d="M 115 75 L 95 130 L 85 190" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" strokeLinecap="square" />
+                <path d="M 185 75 L 205 130 L 215 190" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" strokeLinecap="square" />
+                <path d="M 115 75 L 185 75 L 190 160 L 150 175 L 110 160 Z" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" />
+                <path d="M 120 175 L 115 260 L 110 330" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" strokeLinecap="square" />
+                <path d="M 180 175 L 185 260 L 190 330" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" strokeLinecap="square" />
+                {/* Landmark squares */}
+                {[[150,45],[150,80],[115,78],[185,78],[85,128],[215,128],[150,175],[120,175],[180,175],[115,258],[185,258],[110,328],[190,328]].map(([cx,cy],i) => (
+                  <motion.rect key={i} x={cx-3.2} y={cy-3.2} width={6.4} height={6.4} fill={CYAN}
+                    initial={{ scale:0, opacity:0 }} animate={{ scale:1, opacity:0.9 }}
+                    transition={{ delay:0.05*i, duration:0.3 }} className="brut-glow" />
+                ))}
+                {/* Scan beam */}
+                <motion.rect x="60" width="180" height="2" fill={CYAN} fillOpacity="0.6"
+                  initial={{ y:30 }} animate={{ y:[30,350,30], opacity:[0,0.6,0] }}
+                  transition={{ duration:3.5, repeat:Infinity, ease:"linear", delay:1 }} />
+              </svg>
+              {/* Floating badges */}
+              {[
+                { cls:"right-4 top-4", label:"postura", val:"82%" },
+                { cls:"bottom-20 left-4", label:"rom", val:"118°" },
+              ].map((b,i) => (
+                <motion.div key={b.label} initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:1.2+i*0.3 }}
+                  className={`absolute ${b.cls} border border-white/[0.14] bg-black/80 px-3.5 py-2`}>
+                  <p className="brut-mono text-[0.62rem] font-bold uppercase tracking-[0.08em] text-chalk/40">{b.label}</p>
+                  <p className="brut-display text-lg text-cyan">{b.val}</p>
+                </motion.div>
               ))}
-              {/* Scan beam */}
-              <motion.rect x="60" width="180" height="2" fill="#7A8F74" fillOpacity="0.5"
-                initial={{ y:30 }} animate={{ y:[30,350,30], opacity:[0,0.5,0] }}
-                transition={{ duration:3.5, repeat:Infinity, ease:"linear", delay:1 }} />
-            </svg>
-            {/* Floating badges */}
-            {[
-              { pos:"16px 16px auto auto", label:"Postura", val:"82%" },
-              { pos:"auto auto 80px 16px", label:"ROM",     val:"118°" },
-            ].map((b,i) => (
-              <motion.div key={i} initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:1.2+i*0.3 }}
-                style={{ position:"absolute", top:b.pos.split(" ")[0]!=="auto"?b.pos.split(" ")[0]:undefined, right:b.pos.split(" ")[1]!=="auto"?b.pos.split(" ")[1]:undefined, bottom:b.pos.split(" ")[2]!=="auto"?b.pos.split(" ")[2]:undefined, left:b.pos.split(" ")[3]!=="auto"?b.pos.split(" ")[3]:undefined, background:"rgba(14,17,23,0.9)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"8px 14px" }}>
-                <p style={{ color:C.muted, fontSize:"0.7rem" }}>{b.label}</p>
-                <p style={{ color:"#F8F6F2", fontWeight:700, fontSize:"0.9rem" }}>{b.val}</p>
-              </motion.div>
-            ))}
+            </div>
           </motion.div>
 
           {/* Detection bars */}
-          <motion.div initial={{ opacity:0,x:24 }} whileInView={{ opacity:1,x:0 }} viewport={{ once:true }} transition={{ delay:0.15 }}
-            style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          <motion.div initial={{ opacity:0, x:24 }} whileInView={{ opacity:1, x:0 }} viewport={{ once:true }} transition={{ delay:0.15 }}
+            className="flex flex-col gap-3">
             {detections.map((d,i) => (
-              <motion.div key={d.label} initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1+i*0.08 }}
-                style={{ background:C.dark2, border:"1px solid rgba(255,255,255,0.07)", borderRadius:16, padding:"28px 32px" }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                    <span style={{ fontSize:"1.2rem", color:C.sage }}>{d.icon}</span>
+              <motion.div key={d.label} initial={{ opacity:0, y:16 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} transition={{ delay:0.1+i*0.08 }}
+                className="border border-white/[0.14] bg-white/[0.03] p-6 transition-colors duration-150 hover:border-cyan">
+                <div className="mb-3 flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl text-cyan" aria-hidden>{d.icon}</span>
                     <div>
-                      <p style={{ color:"#F8F6F2", fontWeight:600, fontSize:"0.95rem" }}>{d.label}</p>
-                      <p style={{ color:C.muted, fontSize:"0.78rem", marginTop:2 }}>{d.sub}</p>
+                      <p className="brut-mono text-sm font-bold uppercase tracking-[0.04em] text-chalk">{d.label}</p>
+                      <p className="mt-0.5 text-[0.78rem] text-chalk/50">{d.sub}</p>
                     </div>
                   </div>
-                  <span style={{ color:C.sage, fontWeight:700, fontSize:"1rem" }}>{d.score}</span>
+                  <span className="brut-display text-2xl leading-none text-cyan">{d.score}</span>
                 </div>
-                <div style={{ height:5, background:"rgba(255,255,255,0.07)", borderRadius:3, overflow:"hidden" }}>
+                <div className="h-1.5 bg-white/10">
                   <motion.div initial={{ width:0 }} whileInView={{ width:`${d.score}%` }} viewport={{ once:true }}
                     transition={{ duration:0.9, ease:[0.16,1,0.3,1] }}
-                    style={{ height:"100%", background:C.sage, borderRadius:3 }} />
+                    className="h-full bg-cyan" />
                 </div>
               </motion.div>
             ))}

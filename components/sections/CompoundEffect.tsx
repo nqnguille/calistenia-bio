@@ -1,8 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = { cream:"#F8F6F2", ink:"#151716", ink2:"#343A36", sage:"#7A8F74", muted:"#8E9188", border:"#DED9CE", dark:"#080B0F", dark2:"#111821" };
-
 const milestones = [
   { time:"1 semana",  pct:4,  label:"Primeros cambios perceptibles" },
   { time:"1 mes",     pct:14, label:"Patrones de movimiento mejorados" },
@@ -13,57 +11,60 @@ const milestones = [
 
 export function CompoundEffect() {
   return (
-    <section style={{ backgroundColor:C.cream, borderTop:`1px solid ${C.border}` }} className="py-52 px-8">
-      <div style={{ maxWidth:1152, margin:"0 auto" }}>
+    <section className="brut-sec brut-concrete relative overflow-hidden bg-void px-8 py-52 text-chalk">
+      <div className="brut-grid absolute inset-0 opacity-50" aria-hidden />
+
+      <div className="relative mx-auto max-w-6xl">
 
         {/* Centered header */}
-        <div style={{ textAlign:"center", marginBottom:112 }}>
-          <motion.div initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
-            style={{ display:"inline-flex", alignItems:"center", gap:16, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage, marginBottom:28 }}>
-            <span style={{ width:24, height:1, background:C.sage }} />El efecto compuesto<span style={{ width:24, height:1, background:C.sage }} />
-          </motion.div>
+        <div className="mb-24 text-center">
+          <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
+            className="brut-label mb-6">
+            [SEC_07 // EL_EFECTO_COMPUESTO]
+          </motion.p>
           <motion.h2 initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.1 }}
-            style={{ fontSize:"clamp(2.8rem,5vw,4.5rem)", fontWeight:900, color:C.ink, lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:28 }}>
+            className="brut-display mb-7 text-[clamp(2.6rem,6vw,4.6rem)] text-chalk">
             Pequeñas mejoras hoy.<br/>
-            <span style={{ color:C.muted, fontWeight:300 }}>Grandes cambios mañana.</span>
+            <span className="text-cyan">Grandes cambios mañana.</span>
           </motion.h2>
           <motion.p initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:0.2 }}
-            style={{ fontSize:"1.1rem", color:C.ink2, lineHeight:1.7, fontWeight:300, maxWidth:480, margin:"0 auto" }}>
+            className="mx-auto max-w-[480px] text-lg leading-7 text-chalk/70">
             El movimiento consistente no suma — multiplica. Cada semana construye sobre la anterior generando un efecto compuesto en tu biología.
           </motion.p>
         </div>
 
         {/* Timeline bars */}
-        <div style={{ maxWidth:720, margin:"0 auto", display:"flex", flexDirection:"column", gap:28, marginBottom:112 }}>
+        <div className="mx-auto mb-28 flex max-w-[720px] flex-col gap-5">
           {milestones.map((m,i) => (
             <motion.div key={m.time} initial={{ opacity:0,y:16 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }} transition={{ delay:i*0.08 }}
-              style={{ display:"flex", alignItems:"center", gap:28 }}>
-              <div style={{ width:88, textAlign:"right", flexShrink:0 }}>
-                <span style={{ fontSize:"0.85rem", fontWeight:600, color:C.ink2 }}>{m.time}</span>
+              className="flex items-center gap-6">
+              <div className="w-[88px] shrink-0 text-right">
+                <span className="brut-mono text-[0.78rem] font-bold uppercase tracking-[0.04em] text-chalk/70">{m.time}</span>
               </div>
-              <div style={{ flex:1, height:40, background:C.border, borderRadius:8, overflow:"hidden" }}>
+              <div className="h-10 flex-1 overflow-hidden border border-white/[0.14] bg-white/[0.05]">
                 <motion.div initial={{ width:0 }} whileInView={{ width:`${m.pct}%` }} viewport={{ once:true }}
                   transition={{ duration:1, delay:0.2+i*0.08, ease:[0.16,1,0.3,1] }}
-                  style={{ height:"100%", background:`linear-gradient(90deg,${C.sage},#8A9E87)`, borderRadius:8, display:"flex", alignItems:"center", paddingLeft:14, minWidth:40 }}>
-                  {m.pct > 8 && <span style={{ color:"#fff", fontSize:"0.8rem", fontWeight:700, whiteSpace:"nowrap" }}>+{m.pct}%</span>}
+                  className="flex h-full min-w-10 items-center bg-cyan pl-3.5">
+                  {m.pct > 8 && <span className="brut-mono whitespace-nowrap text-[0.78rem] font-bold text-black">+{m.pct}%</span>}
                 </motion.div>
               </div>
-              <div style={{ width:180, flexShrink:0, display:"none" }} className="md:block">
-                <span style={{ fontSize:"0.85rem", color:C.muted }}>{m.label}</span>
+              <div className="hidden w-[180px] shrink-0 md:block">
+                <span className="brut-mono text-[0.68rem] uppercase tracking-[0.04em] text-chalk/45">{m.label}</span>
               </div>
             </motion.div>
           ))}
         </div>
 
-        {/* Dark quote */}
+        {/* Panel cita */}
         <motion.div initial={{ opacity:0,y:24 }} whileInView={{ opacity:1,y:0 }} viewport={{ once:true }}
-          style={{ background:C.dark, borderRadius:24, padding:"56px 64px", textAlign:"center" }}>
-          <p style={{ fontSize:"0.7rem", fontWeight:700, color:C.sage, letterSpacing:"0.2em", textTransform:"uppercase", marginBottom:28 }}>La premisa</p>
-          <p style={{ fontSize:"clamp(1.4rem,2.5vw,2rem)", fontWeight:600, color:"#F8F6F2", lineHeight:1.4, maxWidth:600, margin:"0 auto" }}>
+          className="brut-panel-raised relative overflow-hidden px-8 py-14 text-center md:px-16">
+          <div className="brut-hazard absolute left-0 right-0 top-0 h-1.5 opacity-70" aria-hidden />
+          <p className="brut-label mb-7">[la_premisa]</p>
+          <p className="brut-display mx-auto max-w-[640px] text-[clamp(1.6rem,3.2vw,2.6rem)] leading-tight text-chalk">
             "El envejecimiento físico no es lineal. Con el estímulo correcto,{" "}
-            <span style={{ color:C.sage }}>se puede revertir.</span>"
+            <span className="text-cyan">se puede revertir.</span>"
           </p>
-          <p style={{ fontSize:"0.8rem", color:"rgba(136,136,128,0.8)", marginTop:20 }}>— Principio de plasticidad biomecánica</p>
+          <p className="brut-mono mt-5 text-[0.72rem] font-bold uppercase tracking-[0.08em] text-chalk/40">— Principio de plasticidad biomecánica</p>
         </motion.div>
       </div>
     </section>
