@@ -18,10 +18,13 @@ import { GoogleLogin } from "@/components/shared/GoogleLogin";
 import type { AuthUser } from "@/lib/authConfig";
 
 const C = {
-  cream: "#F8F6F2", ink: "#151716", ink2: "#343A36",
-  sage: "#7A8F74", muted: "#8E9188", border: "#DED9CE",
-  dark: "#080B0F", dark2: "#111821", red: "#ef4444",
+  cream: "#EDEDED", ink: "#0A0A0A", ink2: "#1A1A1A",
+  sage: "#00E5FF", muted: "#8A8A8A", border: "rgba(255,255,255,0.14)",
+  dark: "#0A0A0A", dark2: "#1A1A1A", red: "#FF5A5A",
 };
+
+const F_DISPLAY = "var(--font-display)";
+const F_MONO = "var(--font-mono-b)";
 
 const EVAL_BUILD = "v14 · sesión guiada";
 
@@ -204,7 +207,7 @@ function ProgressDots({ current, total }: { current: number; total: number }) {
     <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
       {Array.from({ length: total }).map((_, i) => (
         <div key={i} style={{
-          width: i === current ? 20 : 6, height: 6, borderRadius: 3,
+          width: i === current ? 20 : 6, height: 6, borderRadius:0,
           background: i <= current ? C.sage : "rgba(255,255,255,0.2)",
           transition: "all 0.3s",
         }} />
@@ -220,28 +223,28 @@ function StepHook({ onNext }: { onNext: () => void }) {
       style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 24px", gap: 32 }}>
 
       <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.1 }}
-        style={{ display:"inline-flex", alignItems:"center", gap:10, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage }}>
+        style={{ display:"inline-flex", alignItems:"center", gap:10, fontFamily:F_MONO, fontSize:"0.7rem", fontWeight:700, letterSpacing:"0.2em", textTransform:"uppercase", color:C.sage }}>
         <span style={{ width:20, height:1, background:C.sage }} />CALISTENIA.bio<span style={{ width:20, height:1, background:C.sage }} />
       </motion.div>
 
       <motion.h1 initial={{ opacity:0, y:32 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.2, ease:[0.16,1,0.3,1] }}
-        style={{ fontSize:"clamp(2.2rem,5vw,3.8rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em", maxWidth:600 }}>
+        style={{ fontFamily:F_DISPLAY, textTransform:"uppercase", fontSize:"clamp(2.5rem,5.6vw,4.3rem)", fontWeight:400, color:"#EDEDED", lineHeight:0.92, letterSpacing:"0.01em", maxWidth:640 }}>
         ¿Cuántos años tiene<br/>
-        <span style={{ background:"linear-gradient(135deg,#7A8F74,#AFC3A5)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" }}>
+        <span style={{ color:"#00E5FF" }}>
           realmente tu cuerpo?
         </span>
       </motion.h1>
 
       <motion.p initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.35 }}
-        style={{ fontSize:"1.1rem", color:"rgba(248,246,242,0.6)", lineHeight:1.7, fontWeight:300, maxWidth:460 }}>
+        style={{ fontSize:"1.1rem", color:"rgba(237,237,237,0.6)", lineHeight:1.7, fontWeight:300, maxWidth:460 }}>
         3 pruebas de equilibrio y fuerza, comparadas con normas científicas publicadas por edad y sexo. ~6 minutos, con tu cámara.
       </motion.p>
 
       <motion.button initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.5 }}
         onClick={onNext}
-        whileHover={{ scale:1.04, boxShadow:"0 20px 50px rgba(122,143,116,0.4)" }}
-        whileTap={{ scale:0.97 }}
-        style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1.1rem", padding:"18px 44px", borderRadius:999, border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:12 }}>
+        whileHover={{ x:-2, y:-2 }}
+        whileTap={{ x:2, y:2 }}
+        style={{ background:C.sage, color:"#000", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:700, fontSize:"1rem", padding:"18px 44px", borderRadius:0, border:"none", cursor:"pointer", display:"flex", alignItems:"center", gap:12, boxShadow:"5px 5px 0 rgba(255,255,255,0.18)" }}>
         Descubrirlo — es gratis
         <span style={{ fontSize:"1.2rem" }}>→</span>
       </motion.button>
@@ -249,7 +252,7 @@ function StepHook({ onNext }: { onNext: () => void }) {
       <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.7 }}
         style={{ display:"flex", gap:24, flexWrap:"wrap", justifyContent:"center" }}>
         {["Demo pública gratuita","Sin registro previo","Solo tu cámara","Con fuentes citadas"].map(t => (
-          <span key={t} style={{ display:"flex", alignItems:"center", gap:6, fontSize:"0.8rem", color:"rgba(248,246,242,0.4)", fontWeight:500 }}>
+          <span key={t} style={{ display:"flex", alignItems:"center", gap:6, fontFamily:F_MONO, fontSize:"0.75rem", color:"rgba(237,237,237,0.45)", fontWeight:500 }}>
             <span style={{ color:C.sage }}>✓</span>{t}
           </span>
         ))}
@@ -279,48 +282,48 @@ function StepIntake({ onDone }: { onDone: (age: number, sex: Sex) => void }) {
   return (
     <motion.div key="intake" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 24px", gap: 28 }}>
-      <p style={{ fontSize: "0.7rem", fontWeight: 800, color: C.sage, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+      <p style={{ fontFamily: F_MONO, fontSize: "0.7rem", fontWeight: 800, color: C.sage, letterSpacing: "0.2em", textTransform: "uppercase" }}>
         {sub === "age" ? "Paso 1 de 2" : "Paso 2 de 2"}
       </p>
 
       {sub === "age" ? (
         <>
-          <h2 style={{ fontSize: "clamp(1.9rem,4.4vw,2.8rem)", fontWeight: 900, color: "#F8F6F2", letterSpacing: "-0.03em", maxWidth: 560 }}>
+          <h2 style={{ fontFamily: F_DISPLAY, textTransform: "uppercase", fontSize: "clamp(2rem,4.6vw,3rem)", fontWeight: 400, color: "#EDEDED", letterSpacing: "0.01em", lineHeight: 0.92, maxWidth: 560 }}>
             ¿Cuántos años tenés?
           </h2>
-          <p style={{ color: "rgba(248,246,242,0.55)", fontSize: "0.95rem", maxWidth: 460, fontWeight: 300 }}>
+          <p style={{ color: "rgba(237,237,237,0.55)", fontSize: "0.95rem", maxWidth: 460, fontWeight: 300 }}>
             Tu edad exacta — la uso para comparar tu desempeño con las normas publicadas.
           </p>
           <form onSubmit={(e) => { e.preventDefault(); confirmAge(); }} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, width: "100%", maxWidth: 260 }}>
             <input
               type="number" inputMode="numeric" min={14} max={95} placeholder="Ej: 34"
               value={age} onChange={(e) => setAge(e.target.value)} autoFocus
-              style={{ width: "100%", textAlign: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 16, padding: "20px 12px", color: "#F8F6F2", fontWeight: 900, fontSize: "2.4rem", outline: "none" }}
+              style={{ width: "100%", textAlign: "center", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.32)", borderRadius:0, padding: "20px 12px", color: "#EDEDED", fontFamily: F_DISPLAY, fontWeight: 400, fontSize: "2.4rem", outline: "none" }}
             />
-            <motion.button type="submit" disabled={!ageValid} whileHover={ageValid ? { scale: 1.04 } : undefined} whileTap={ageValid ? { scale: 0.96 } : undefined}
-              style={{ width: "100%", background: ageValid ? C.sage : "rgba(255,255,255,0.1)", color: ageValid ? "#fff" : "rgba(248,246,242,0.35)", fontWeight: 800, fontSize: "1rem", padding: "16px", borderRadius: 999, border: "none", cursor: ageValid ? "pointer" : "not-allowed" }}>
+            <motion.button type="submit" disabled={!ageValid} whileHover={ageValid ? { x: -2, y: -2 } : undefined} whileTap={ageValid ? { x: 2, y: 2 } : undefined}
+              style={{ width: "100%", background: ageValid ? C.sage : "rgba(255,255,255,0.1)", color: ageValid ? "#000" : "rgba(237,237,237,0.35)", fontFamily: F_MONO, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 800, fontSize: "0.95rem", padding: "16px", borderRadius:0, border: "none", cursor: ageValid ? "pointer" : "not-allowed" }}>
               Confirmar →
             </motion.button>
           </form>
         </>
       ) : (
         <>
-          <h2 style={{ fontSize: "clamp(1.9rem,4.4vw,2.8rem)", fontWeight: 900, color: "#F8F6F2", letterSpacing: "-0.03em", maxWidth: 560 }}>
+          <h2 style={{ fontFamily: F_DISPLAY, textTransform: "uppercase", fontSize: "clamp(2rem,4.6vw,3rem)", fontWeight: 400, color: "#EDEDED", letterSpacing: "0.01em", lineHeight: 0.92, maxWidth: 560 }}>
             ¿Cuál es tu sexo?
           </h2>
-          <p style={{ color: "rgba(248,246,242,0.55)", fontSize: "0.95rem", maxWidth: 460, fontWeight: 300 }}>
+          <p style={{ color: "rgba(237,237,237,0.55)", fontSize: "0.95rem", maxWidth: 460, fontWeight: 300 }}>
             Las normas de fuerza (piernas y flexiones) son distintas por sexo. El equilibrio no cambia.
           </p>
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
             {([["F", "Mujer"], ["M", "Hombre"]] as const).map(([val, label]) => (
-              <motion.button key={val} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+              <motion.button key={val} whileHover={{ x: -2, y: -2, borderColor: "#00E5FF" }} whileTap={{ x: 2, y: 2 }}
                 onClick={() => onDone(ageNum, val)}
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 20, padding: "28px 40px", color: "#F8F6F2", fontWeight: 800, fontSize: "1.15rem", cursor: "pointer", minWidth: 160 }}>
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.32)", borderRadius:0, padding: "28px 40px", color: "#EDEDED", fontFamily: F_MONO, textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 800, fontSize: "1.05rem", cursor: "pointer", minWidth: 160 }}>
                 {label}
               </motion.button>
             ))}
           </div>
-          <button onClick={() => setSub("age")} style={{ background: "transparent", border: "none", color: "rgba(248,246,242,0.35)", fontSize: "0.85rem", cursor: "pointer" }}>
+          <button onClick={() => setSub("age")} style={{ background: "transparent", border: "none", color: "rgba(237,237,237,0.35)", fontSize: "0.85rem", cursor: "pointer" }}>
             ← Volver a editar la edad ({ageNum})
           </button>
         </>
@@ -414,27 +417,27 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
           {cameraState === "starting" ? (
             <>
               <motion.div animate={{ rotate:360 }} transition={{ duration:1, repeat:Infinity, ease:"linear" }}
-                style={{ width:46, height:46, border:"3px solid rgba(122,143,116,0.22)", borderTopColor:C.sage, borderRadius:"50%" }} />
-              <p style={{ color:"rgba(248,246,242,0.72)", fontWeight:700, fontSize:"1.1rem" }}>{camStatus}</p>
+                style={{ width:46, height:46, border:"3px solid rgba(0,229,255,0.22)", borderTopColor:C.sage, borderRadius:0 }} />
+              <p style={{ color:"rgba(237,237,237,0.72)", fontWeight:700, fontSize:"1.1rem" }}>{camStatus}</p>
             </>
           ) : (
             <>
-              <div style={{ width:78, height:78, borderRadius:"50%", background:"rgba(122,143,116,0.15)", border:`2px solid rgba(122,143,116,0.4)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2rem" }}>
+              <div style={{ width:78, height:78, borderRadius:0, background:"rgba(0,229,255,0.15)", border:`2px solid rgba(0,229,255,0.4)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"2rem" }}>
                 {cameraState === "error" ? "🚫" : "📷"}
               </div>
-              <h2 style={{ fontSize:"clamp(1.9rem,4vw,3rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.04em" }}>
+              <h2 style={{ fontFamily:F_DISPLAY, textTransform:"uppercase", fontSize:"clamp(2rem,4.4vw,3.3rem)", fontWeight:400, color:"#EDEDED", lineHeight:0.92, letterSpacing:"0.01em" }}>
                 {cameraState === "error" ? "No pudimos iniciar la cámara" : "Activá tu cámara"}
               </h2>
-              <p style={{ fontSize:"1rem", color:"rgba(248,246,242,0.58)", lineHeight:1.75, fontWeight:300 }}>
+              <p style={{ fontSize:"1rem", color:"rgba(237,237,237,0.58)", lineHeight:1.75, fontWeight:300 }}>
                 {cameraState === "error"
                   ? `${camStatus}. Revisá permisos del navegador y conexión a internet para cargar el modelo.`
                   : "La cámara se prende UNA sola vez y te acompaña todo el journey. Te guío por voz: no vas a tener que tocar nada más."}
               </p>
               <button onClick={startCamera}
-                style={{ background:C.sage, color:"#fff", fontWeight:800, fontSize:"1rem", padding:"16px 40px", borderRadius:999, border:"none", cursor:"pointer" }}>
+                style={{ background:C.sage, color:"#000", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:800, fontSize:"0.95rem", padding:"16px 40px", borderRadius:0, border:"none", cursor:"pointer", boxShadow:"5px 5px 0 rgba(255,255,255,0.18)" }}>
                 {cameraState === "error" ? "Intentar de nuevo" : "Activar cámara →"}
               </button>
-              <p style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.25)" }}>Nada se graba ni se sube. El análisis ocurre en el navegador.</p>
+              <p style={{ fontSize:"0.75rem", color:"rgba(237,237,237,0.25)" }}>Nada se graba ni se sube. El análisis ocurre en el navegador.</p>
             </>
           )}
         </div>
@@ -447,31 +450,31 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
       style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
 
       <div style={{ position:"absolute", top:"calc(env(safe-area-inset-top) + 66px)", left:16, right:16, display:"flex", flexWrap:"wrap", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
-        <div style={{ maxWidth:"min(560px, 58vw)", background:"rgba(8,11,15,0.56)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:999, padding:"10px 16px", display:"flex", alignItems:"center", gap:10, backdropFilter:"blur(16px)" }}>
+        <div style={{ maxWidth:"min(560px, 58vw)", background:"rgba(0,0,0,0.7)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"10px 16px", display:"flex", alignItems:"center", gap:10 }}>
           <motion.div animate={{ opacity:[0.35,1,0.35] }} transition={{ duration:1.25, repeat:Infinity }}
-            style={{ width:9, height:9, borderRadius:"50%", background:detected?"#AFC3A5":"#F0C36A", flexShrink:0 }} />
-          <span style={{ color:"rgba(248,246,242,0.86)", fontWeight:900, fontSize:"0.78rem", letterSpacing:"0.12em", textTransform:"uppercase", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+            style={{ width:9, height:9, borderRadius:0, background:detected?"#00E5FF":"#FFB020", flexShrink:0 }} />
+          <span style={{ color:"rgba(237,237,237,0.86)", fontFamily:F_MONO, fontWeight:700, fontSize:"0.78rem", letterSpacing:"0.12em", textTransform:"uppercase", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
             {detected ? "Cuerpo detectado" : camStatus}
           </span>
         </div>
 
-        <div style={{ minWidth:150, background:"rgba(8,11,15,0.58)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"16px 18px", backdropFilter:"blur(16px)" }}>
-          <p style={{ fontSize:"0.62rem", color:"rgba(248,246,242,0.40)", fontWeight:900, letterSpacing:"0.16em", textTransform:"uppercase", marginBottom:8 }}>Calidad pose</p>
+        <div style={{ minWidth:150, background:"rgba(0,0,0,0.7)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"16px 18px" }}>
+          <p style={{ fontFamily:F_MONO, fontSize:"0.62rem", color:"rgba(237,237,237,0.40)", fontWeight:700, letterSpacing:"0.16em", textTransform:"uppercase", marginBottom:8 }}>Calidad pose</p>
           <div style={{ display:"flex", alignItems:"end", gap:6 }}>
-            <span style={{ color:"#F8F6F2", fontSize:"2.35rem", fontWeight:900, lineHeight:1 }}>{Math.round(quality)}</span>
-            <span style={{ color:"rgba(248,246,242,0.38)", fontSize:"0.85rem", fontWeight:800, marginBottom:4 }}>%</span>
+            <span style={{ color:"#EDEDED", fontFamily:F_DISPLAY, fontSize:"2.5rem", fontWeight:400, lineHeight:1 }}>{Math.round(quality)}</span>
+            <span style={{ color:"rgba(237,237,237,0.38)", fontFamily:F_MONO, fontSize:"0.85rem", fontWeight:700, marginBottom:4 }}>%</span>
           </div>
         </div>
       </div>
 
       {!detected && (
         <div style={{ position:"absolute", left:16, right:16, bottom:"calc(env(safe-area-inset-bottom) + 48px)", display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}>
-          <div style={{ maxWidth:900, background:"rgba(8,11,15,0.68)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"22px 34px", color:"#F8F6F2", fontSize:"clamp(1.3rem,3vw,2.1rem)", fontWeight:700, lineHeight:1.35, letterSpacing:"-0.01em", textAlign:"center", backdropFilter:"blur(16px)" }}>
+          <div style={{ maxWidth:900, background:"rgba(0,0,0,0.7)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"22px 34px", color:"#EDEDED", fontSize:"clamp(1.3rem,3vw,2.1rem)", fontWeight:700, lineHeight:1.35, letterSpacing:"-0.01em", textAlign:"center" }}>
             {partial
               ? "Casi: que entren hombros y cadera en el cuadro"
               : "Ponete a 2-3 metros, de frente y con luz"}
           </div>
-          <div style={{ color:"rgba(248,246,242,0.65)", fontSize:"clamp(1rem,2.2vw,1.4rem)", fontWeight:600, textShadow:"0 4px 20px rgba(0,0,0,0.6)" }}>
+          <div style={{ color:"rgba(237,237,237,0.65)", fontSize:"clamp(1rem,2.2vw,1.4rem)", fontWeight:600, textShadow:"0 4px 20px rgba(0,0,0,0.6)" }}>
             🎤 Si no avanzo solo, decí «listo»
           </div>
         </div>
@@ -482,8 +485,8 @@ function StepCamera({ cameraState, camStatus, startCamera, setPoseHandler, onNex
           <motion.div initial={{ opacity:0, scale:0.8 }} animate={{ opacity:1, scale:1 }}
             style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.6)" }}>
             <p style={{ fontSize:"clamp(3.5rem,9vw,6.5rem)", lineHeight:1 }}>✓</p>
-            <p style={{ color:"#F8F6F2", fontSize:"clamp(1.8rem,4.5vw,3.2rem)", fontWeight:900, letterSpacing:"-0.02em" }}>¡Te veo!</p>
-            <p style={{ color:"rgba(248,246,242,0.75)", fontSize:"clamp(1.1rem,2.4vw,1.6rem)", fontWeight:700, marginTop:8 }}>Quedate quieto un momento…</p>
+            <p style={{ color:"#EDEDED", fontFamily:F_DISPLAY, textTransform:"uppercase", fontSize:"clamp(1.9rem,4.8vw,3.5rem)", fontWeight:400, letterSpacing:"0.01em" }}>¡Te veo!</p>
+            <p style={{ color:"rgba(237,237,237,0.75)", fontSize:"clamp(1.1rem,2.4vw,1.6rem)", fontWeight:700, marginTop:8 }}>Quedate quieto un momento…</p>
           </motion.div>
         </div>
       )}
@@ -699,17 +702,17 @@ function StepMovement({ setPoseHandler, onComplete }: {
 
       {/* Barra superior: qué prueba es + métrica en vivo */}
       <div style={{ position:"absolute", top:"calc(env(safe-area-inset-top) + 66px)", left:16, right:16, display:"flex", flexWrap:"wrap", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
-        <div style={{ background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"14px 22px", backdropFilter:"blur(14px)" }}>
-          <p style={{ color:C.sage, fontWeight:900, letterSpacing:"0.14em", fontSize:"0.72rem", textTransform:"uppercase", marginBottom:6 }}>
+        <div style={{ background:"rgba(0,0,0,0.7)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"14px 22px" }}>
+          <p style={{ color:C.sage, fontFamily:F_MONO, fontWeight:700, letterSpacing:"0.14em", fontSize:"0.72rem", textTransform:"uppercase", marginBottom:6 }}>
             Prueba {currentIdx + 1} de {MOVEMENTS.length}
           </p>
-          <p style={{ color:"#F8F6F2", fontWeight:900, fontSize:"clamp(1.3rem,3vw,2.2rem)", letterSpacing:"-0.02em", lineHeight:1 }}>
+          <p style={{ color:"#EDEDED", fontFamily:F_DISPLAY, textTransform:"uppercase", fontWeight:400, fontSize:"clamp(1.4rem,3.2vw,2.4rem)", letterSpacing:"0.01em", lineHeight:1 }}>
             {current.emoji} {current.title}
           </p>
         </div>
-        <div style={{ background:"rgba(8,11,15,0.62)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:22, padding:"14px 22px", textAlign:"right", backdropFilter:"blur(14px)" }}>
-          <p style={{ color:"rgba(248,246,242,0.4)", fontWeight:900, letterSpacing:"0.14em", fontSize:"0.62rem", textTransform:"uppercase", marginBottom:6 }}>{current.metricLabel}</p>
-          <p style={{ color:"#AFC3A5", fontWeight:900, fontSize:"clamp(2rem,4.5vw,3.4rem)", lineHeight:1 }}>
+        <div style={{ background:"rgba(0,0,0,0.7)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"14px 22px", textAlign:"right" }}>
+          <p style={{ color:"rgba(237,237,237,0.4)", fontFamily:F_MONO, fontWeight:700, letterSpacing:"0.14em", fontSize:"0.62rem", textTransform:"uppercase", marginBottom:6 }}>{current.metricLabel}</p>
+          <p style={{ color:"#00E5FF", fontFamily:F_DISPLAY, fontWeight:400, fontSize:"clamp(2.1rem,4.8vw,3.6rem)", lineHeight:1 }}>
             {phase === "counting" ? metricDisplay : "—"}
           </p>
         </div>
@@ -720,10 +723,10 @@ function StepMovement({ setPoseHandler, onComplete }: {
         <div style={{ position:"absolute", left:0, right:0, top:"50%", transform:"translateY(-50%)", display:"flex", justifyContent:"center", padding:"0 24px" }}>
           <div style={{ textAlign:"center", textShadow:"0 8px 40px rgba(0,0,0,0.75)" }}>
             <p style={{ fontSize:"clamp(3rem,8vw,5.5rem)", lineHeight:1, marginBottom:16 }}>{current.emoji}</p>
-            <p style={{ color:"#F8F6F2", fontSize:"clamp(1.7rem,4.2vw,3.1rem)", fontWeight:900, letterSpacing:"-0.02em", lineHeight:1.25, maxWidth:900, margin:"0 auto" }}>
+            <p style={{ color:"#EDEDED", fontSize:"clamp(1.7rem,4.2vw,3.1rem)", fontWeight:800, letterSpacing:"-0.01em", lineHeight:1.25, maxWidth:900, margin:"0 auto" }}>
               {current.instruction}
             </p>
-            <p style={{ color:"rgba(248,246,242,0.78)", fontSize:"clamp(1.2rem,2.6vw,1.8rem)", fontWeight:700, marginTop:20 }}>
+            <p style={{ color:"rgba(237,237,237,0.78)", fontSize:"clamp(1.2rem,2.6vw,1.8rem)", fontWeight:700, marginTop:20 }}>
               {detected ? "Quedate así — arrancamos en un momento" : "Esperando verte… o decí «listo»"}
             </p>
           </div>
@@ -732,9 +735,9 @@ function StepMovement({ setPoseHandler, onComplete }: {
 
       {/* PREP: cuenta regresiva gigante */}
       {phase === "prep" && (
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(8,11,15,0.28)" }}>
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.28)" }}>
           <motion.p key={prepLeft} initial={{ opacity:0, scale:1.6 }} animate={{ opacity:1, scale:1 }} transition={{ duration:0.35 }}
-            style={{ fontSize:"clamp(9rem,30vw,20rem)", fontWeight:900, color:"#F8F6F2", lineHeight:1, textShadow:"0 10px 60px rgba(0,0,0,0.7)" }}>
+            style={{ fontFamily:F_DISPLAY, fontSize:"clamp(9rem,30vw,20rem)", fontWeight:400, color:"#EDEDED", lineHeight:1, textShadow:"0 10px 60px rgba(0,0,0,0.7)" }}>
             {prepLeft}
           </motion.p>
         </div>
@@ -743,23 +746,23 @@ function StepMovement({ setPoseHandler, onComplete }: {
       {/* COUNTING: métrica gigante centrada */}
       {phase === "counting" && (
         <div style={{ position:"absolute", left:0, right:0, top:"46%", transform:"translateY(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
-          <p style={{ fontSize:"clamp(6rem,20vw,13rem)", fontWeight:900, fontFamily:"monospace", color:"rgba(248,246,242,0.92)", lineHeight:1, textShadow:"0 8px 50px rgba(0,0,0,0.6)" }}>
+          <p style={{ fontSize:"clamp(6rem,20vw,13rem)", fontWeight:400, fontFamily:F_DISPLAY, color:"rgba(237,237,237,0.92)", lineHeight:1, textShadow:"0 8px 50px rgba(0,0,0,0.6)" }}>
             {metricDisplay}
           </p>
-          <p style={{ color:"rgba(248,246,242,0.5)", fontSize:"clamp(1rem,2.2vw,1.4rem)", fontWeight:700 }}>{current.metricLabel}</p>
+          <p style={{ color:"rgba(237,237,237,0.5)", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.1em", fontSize:"clamp(0.9rem,2vw,1.25rem)", fontWeight:700 }}>{current.metricLabel}</p>
         </div>
       )}
 
       {/* Abajo: feedback del trainer + barra + progreso */}
       <div style={{ position:"absolute", left:16, right:16, bottom:"calc(env(safe-area-inset-bottom) + 30px)", display:"flex", flexDirection:"column", alignItems:"center", gap:14 }}>
-        <div style={{ maxWidth:1000, background:"rgba(8,11,15,0.70)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:28, padding:"18px 34px", textAlign:"center", backdropFilter:"blur(16px)" }}>
-          <p style={{ color:"#F8F6F2", fontWeight:800, fontSize:"clamp(1.4rem,3.4vw,2.4rem)", lineHeight:1.3, letterSpacing:"-0.01em" }}>
+        <div style={{ maxWidth:1000, background:"rgba(0,0,0,0.7)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"18px 34px", textAlign:"center" }}>
+          <p style={{ color:"#EDEDED", fontWeight:800, fontSize:"clamp(1.4rem,3.4vw,2.4rem)", lineHeight:1.3, letterSpacing:"-0.01em" }}>
             {phase === "counting" ? feedback : current.hint}
           </p>
         </div>
-        <div style={{ width:"min(560px, 78vw)", height:6, borderRadius:999, background:"rgba(255,255,255,0.14)", overflow:"hidden" }}>
+        <div style={{ width:"min(560px, 78vw)", height:6, borderRadius:0, background:"rgba(255,255,255,0.14)", overflow:"hidden" }}>
           <motion.div animate={{ width: phase === "counting" ? `${progress}%` : "0%" }} transition={{ duration:0.25 }}
-            style={{ height:"100%", borderRadius:999, background: C.sage }} />
+            style={{ height:"100%", borderRadius:0, background: C.sage }} />
         </div>
         <ProgressDots current={currentIdx} total={MOVEMENTS.length} />
       </div>
@@ -793,17 +796,17 @@ function StepCalculating({ results, onDone }: { results: TestResults; onDone: ()
           <motion.div key={i}
             animate={{ scale:[1,1.3,1], opacity:[0.6,0.15,0.6] }}
             transition={{ duration:2, repeat:Infinity, delay:i*0.5, ease:"easeInOut" }}
-            style={{ position:"absolute", inset:0, borderRadius:"50%", border:`2px solid ${C.sage}`, margin: i*(-14) }}
+            style={{ position:"absolute", inset:0, borderRadius:0, border:`2px solid ${C.sage}`, margin: i*(-14) }}
           />
         ))}
       </div>
 
-      <h2 style={{ fontSize:"1.5rem", fontWeight:800, color:"#F8F6F2", letterSpacing:"-0.02em" }}>Comparando con las normas</h2>
+      <h2 style={{ fontFamily:F_DISPLAY, textTransform:"uppercase", fontSize:"1.7rem", fontWeight:400, color:"#EDEDED", letterSpacing:"0.01em" }}>Comparando con las normas</h2>
 
       <div style={{ display:"flex", flexDirection:"column", gap:10, minHeight:120 }}>
         {items.map((line, i) => (
           <motion.p key={line} initial={{ opacity:0, y:10 }} animate={{ opacity: i <= idx ? 1 : 0.15, y:0 }} transition={{ duration:0.3 }}
-            style={{ color: i <= idx ? "#AFC3A5" : "rgba(248,246,242,0.3)", fontSize:"1rem", fontWeight:700 }}>
+            style={{ color: i <= idx ? "#00E5FF" : "rgba(237,237,237,0.3)", fontFamily:F_MONO, fontSize:"0.95rem", fontWeight:700 }}>
             {line}
           </motion.p>
         ))}
@@ -823,7 +826,7 @@ function StepReveal({ maResult, chronoAge, results, onNext }: {
   const diff = age != null ? age - chronoAge : 0;
   const isYounger = diff < 0;
   const isEqual = Math.abs(diff) <= 1;
-  const color = age == null ? C.muted : isYounger ? "#4ade80" : isEqual ? C.sage : C.red;
+  const color = age == null ? C.muted : isYounger ? "#00E5FF" : isEqual ? C.sage : C.red;
 
   useEffect(() => {
     if (age == null) {
@@ -843,14 +846,14 @@ function StepReveal({ maResult, chronoAge, results, onNext }: {
     <motion.div key="reveal" initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
       style={{ position:"absolute", inset:0, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", padding:"84px 24px 40px", gap:24 }}>
 
-      <p style={{ fontSize:"0.75rem", fontWeight:700, color:C.sage, letterSpacing:"0.2em", textTransform:"uppercase" }}>Tu resultado</p>
+      <p style={{ fontFamily:F_MONO, fontSize:"0.75rem", fontWeight:700, color:C.sage, letterSpacing:"0.2em", textTransform:"uppercase" }}>Tu resultado</p>
 
       {age != null ? (
         <>
           <div style={{ textAlign:"center" }}>
-            <p style={{ fontSize:"0.85rem", color:"rgba(248,246,242,0.5)", marginBottom:4, fontWeight:500 }}>Edad de Movimiento</p>
-            <p style={{ fontSize:"clamp(4.5rem,13vw,7rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.9, letterSpacing:"-0.05em", filter:`drop-shadow(0 0 40px ${color}60)` }}>
-              {age}<span style={{ fontSize:"0.35em", color:"rgba(248,246,242,0.4)" }}> ± {ci}</span>
+            <p style={{ fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.12em", fontSize:"0.8rem", color:"rgba(237,237,237,0.5)", marginBottom:4, fontWeight:700 }}>Edad de Movimiento</p>
+            <p style={{ fontFamily:F_DISPLAY, fontSize:"clamp(4.5rem,13vw,7rem)", fontWeight:400, color:"#EDEDED", lineHeight:0.9, letterSpacing:"0.01em", filter:`drop-shadow(0 0 40px ${color}60)` }}>
+              {age}<span style={{ fontSize:"0.35em", color:"rgba(237,237,237,0.4)" }}> ± {ci}</span>
             </p>
             <p style={{ fontSize:"0.9rem", color, fontWeight:700, marginTop:8, maxWidth:420 }}>
               {isYounger ? `Rendís como alguien ${Math.abs(diff)} años más joven. 🎉`
@@ -859,20 +862,20 @@ function StepReveal({ maResult, chronoAge, results, onNext }: {
             </p>
           </div>
 
-          <div style={{ display:"flex", gap:32, padding:"18px 30px", background:"rgba(8,11,15,0.5)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:16 }}>
+          <div style={{ display:"flex", gap:32, padding:"18px 30px", background:"rgba(0,0,0,0.7)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0 }}>
             <div style={{ textAlign:"center" }}>
-              <p style={{ fontSize:"1.7rem", fontWeight:900, color:"rgba(248,246,242,0.3)", lineHeight:1 }}>{chronoAge}</p>
-              <p style={{ fontSize:"0.68rem", color:"rgba(248,246,242,0.35)", textTransform:"uppercase", letterSpacing:"0.1em", marginTop:4 }}>Edad real</p>
+              <p style={{ fontFamily:F_DISPLAY, fontSize:"1.9rem", fontWeight:400, color:"rgba(237,237,237,0.3)", lineHeight:1 }}>{chronoAge}</p>
+              <p style={{ fontFamily:F_MONO, fontSize:"0.68rem", color:"rgba(237,237,237,0.35)", textTransform:"uppercase", letterSpacing:"0.1em", marginTop:4 }}>Edad real</p>
             </div>
-            <div style={{ width:1, background:"rgba(255,255,255,0.1)" }} />
+            <div style={{ width:1, background:"rgba(255,255,255,0.14)" }} />
             <div style={{ textAlign:"center" }}>
-              <p style={{ fontSize:"1.7rem", fontWeight:900, color, lineHeight:1 }}>{age}</p>
-              <p style={{ fontSize:"0.68rem", color:"rgba(248,246,242,0.35)", textTransform:"uppercase", letterSpacing:"0.1em", marginTop:4 }}>Edad de mov.</p>
+              <p style={{ fontFamily:F_DISPLAY, fontSize:"1.9rem", fontWeight:400, color, lineHeight:1 }}>{age}</p>
+              <p style={{ fontFamily:F_MONO, fontSize:"0.68rem", color:"rgba(237,237,237,0.35)", textTransform:"uppercase", letterSpacing:"0.1em", marginTop:4 }}>Edad de mov.</p>
             </div>
           </div>
         </>
       ) : (
-        <p style={{ color:"rgba(248,246,242,0.6)", fontSize:"1rem", maxWidth:420, textAlign:"center" }}>
+        <p style={{ color:"rgba(237,237,237,0.6)", fontSize:"1rem", maxWidth:420, textAlign:"center" }}>
           No pudimos calcular tu Edad de Movimiento con suficiente certeza — necesitamos al menos 2 pruebas bien medidas. Mirá el detalle abajo.
         </p>
       )}
@@ -883,34 +886,34 @@ function StepReveal({ maResult, chronoAge, results, onNext }: {
           const v = results[m.id];
           const eq = maResult.breakdown[m.id];
           return (
-            <div key={m.id} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:14, padding:"14px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
+            <div key={m.id} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"14px 18px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:12 }}>
               <div>
-                <p style={{ color:"#F8F6F2", fontWeight:700, fontSize:"0.92rem" }}>{TEST_META[m.id].label}</p>
-                <p style={{ color:"rgba(248,246,242,0.4)", fontSize:"0.72rem" }}>Fuente: {TEST_META[m.id].source}</p>
+                <p style={{ color:"#EDEDED", fontWeight:700, fontSize:"0.92rem" }}>{TEST_META[m.id].label}</p>
+                <p style={{ color:"rgba(237,237,237,0.4)", fontSize:"0.72rem" }}>Fuente: {TEST_META[m.id].source}</p>
               </div>
               <div style={{ textAlign:"right" }}>
-                <p style={{ color:"#AFC3A5", fontWeight:800, fontSize:"1rem" }}>{v != null ? TEST_META[m.id].fmt(v) : "sin datos"}</p>
-                {eq != null && <p style={{ color:"rgba(248,246,242,0.45)", fontSize:"0.72rem" }}>~{Math.round(eq)} años</p>}
+                <p style={{ color:"#00E5FF", fontFamily:F_MONO, fontWeight:700, fontSize:"0.95rem" }}>{v != null ? TEST_META[m.id].fmt(v) : "sin datos"}</p>
+                {eq != null && <p style={{ color:"rgba(237,237,237,0.45)", fontSize:"0.72rem" }}>~{Math.round(eq)} años</p>}
               </div>
             </div>
           );
         })}
       </div>
 
-      <p style={{ fontSize:"0.85rem", color:"rgba(248,246,242,0.4)", lineHeight:1.65, maxWidth:460, textAlign:"center" }}>
+      <p style={{ fontSize:"0.85rem", color:"rgba(237,237,237,0.4)", lineHeight:1.65, maxWidth:460, textAlign:"center" }}>
         Es una estimación de bienestar, no un diagnóstico médico: compara tu desempeño con normas publicadas para tu edad y sexo ({measured.length} de {MOVEMENTS.length} pruebas medidas). Volvé a hacer la evaluación en unas semanas para ver tu progreso en tus propios números.
       </p>
 
       <motion.button initial={{ opacity:0,y:12 }} animate={{ opacity:1,y:0 }}
         onClick={onNext}
-        whileHover={{ scale:1.04, boxShadow:"0 20px 50px rgba(122,143,116,0.4)" }}
-        whileTap={{ scale:0.97 }}
-        style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"16px 40px", borderRadius:999, border:"none", cursor:"pointer" }}>
+        whileHover={{ x:-2, y:-2 }}
+        whileTap={{ x:2, y:2 }}
+        style={{ background:C.sage, color:"#000", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:700, fontSize:"0.95rem", padding:"16px 40px", borderRadius:0, border:"none", cursor:"pointer", boxShadow:"5px 5px 0 rgba(255,255,255,0.18)" }}>
         Ver mi plan del Método FLORA →
       </motion.button>
 
       <button onClick={() => window.location.href = "/"}
-        style={{ background:"transparent", border:"none", color:"rgba(248,246,242,0.3)", fontSize:"0.85rem", cursor:"pointer", fontWeight:500 }}>
+        style={{ background:"transparent", border:"none", color:"rgba(237,237,237,0.3)", fontSize:"0.85rem", cursor:"pointer", fontWeight:500 }}>
         Volver al inicio
       </button>
     </motion.div>
@@ -945,63 +948,63 @@ function StepPlan({ breakdown, movementAge, chronoAge, onNext }: {
       <div style={{ maxWidth:680, margin:"0 auto", display:"flex", flexDirection:"column", gap:18 }}>
 
         <div style={{ textAlign:"center" }}>
-          <p style={{ fontSize:"0.72rem", fontWeight:800, color:C.sage, letterSpacing:"0.2em", textTransform:"uppercase", marginBottom:10 }}>
+          <p style={{ fontFamily:F_MONO, fontSize:"0.72rem", fontWeight:800, color:C.sage, letterSpacing:"0.2em", textTransform:"uppercase", marginBottom:10 }}>
             Método FLORA · Bloque 1
           </p>
-          <h2 style={{ fontSize:"clamp(1.9rem,5vw,2.8rem)", fontWeight:900, color:"#F8F6F2", lineHeight:1, letterSpacing:"-0.03em", marginBottom:12 }}>
+          <h2 style={{ fontFamily:F_DISPLAY, textTransform:"uppercase", fontSize:"clamp(2rem,5.4vw,3rem)", fontWeight:400, color:"#EDEDED", lineHeight:0.95, letterSpacing:"0.01em", marginBottom:12 }}>
             Tu primer bloque de 5 semanas
           </h2>
-          <p style={{ color:"rgba(248,246,242,0.6)", fontSize:"0.95rem", lineHeight:1.65, fontWeight:300, maxWidth:520, margin:"0 auto" }}>
+          <p style={{ color:"rgba(237,237,237,0.6)", fontSize:"0.95rem", lineHeight:1.65, fontWeight:300, maxWidth:520, margin:"0 auto" }}>
             {plan.focoDetalle}
           </p>
         </div>
 
         <div style={{ display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
           {[`Nivel ${plan.nivel}`, `${plan.dias} días/semana`, `Foco: ${plan.foco}`, "45-55 min/sesión"].map((t) => (
-            <span key={t} style={{ background:"rgba(122,143,116,0.16)", border:"1px solid rgba(122,143,116,0.35)", borderRadius:999, padding:"8px 16px", color:"#AFC3A5", fontSize:"0.82rem", fontWeight:700 }}>
+            <span key={t} style={{ background:"rgba(0,229,255,0.10)", border:"1px solid rgba(0,229,255,0.35)", borderRadius:0, padding:"8px 16px", color:"#00E5FF", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.05em", fontSize:"0.72rem", fontWeight:700 }}>
               {t}
             </span>
           ))}
         </div>
 
-        <div style={{ background:"rgba(8,11,15,0.66)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"18px 20px", backdropFilter:"blur(14px)" }}>
-          <p style={{ fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.18em", textTransform:"uppercase", color:C.sage, marginBottom:14 }}>
+        <div style={{ background:"rgba(0,0,0,0.7)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"18px 20px" }}>
+          <p style={{ fontFamily:F_MONO, fontSize:"0.62rem", fontWeight:700, letterSpacing:"0.18em", textTransform:"uppercase", color:C.sage, marginBottom:14 }}>
             Cómo progresa el bloque: 4 semanas subiendo series, 1 de descarga
           </p>
           <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
             {SEMANAS.map((w, i) => (
               <div key={w.s} style={{ display:"grid", gridTemplateColumns:"34px 1fr 82px", gap:12, alignItems:"center" }}>
-                <span style={{ fontSize:"0.75rem", fontWeight:800, color: w.deload ? "#AFC3A5" : "rgba(248,246,242,0.65)" }}>{w.s}</span>
+                <span style={{ fontFamily:F_MONO, fontSize:"0.75rem", fontWeight:700, color: w.deload ? "#00E5FF" : "rgba(237,237,237,0.65)" }}>{w.s}</span>
                 <motion.div initial={{ width:0 }} animate={{ width:`${w.w}%` }} transition={{ duration:0.8, delay:0.2 + i*0.12, ease:"easeOut" }}
-                  style={{ height:9, borderRadius:99, background: w.deload ? "linear-gradient(90deg,#1E3A2B,#7A8F74)" : "linear-gradient(90deg,#AFC3A5,#7A8F74)" }} />
-                <span style={{ fontSize:"0.7rem", color:"rgba(248,246,242,0.45)" }}>{w.l}</span>
+                  style={{ height:9, borderRadius:0, background: w.deload ? "rgba(0,229,255,0.35)" : "#00E5FF" }} />
+                <span style={{ fontFamily:F_MONO, fontSize:"0.68rem", color:"rgba(237,237,237,0.45)" }}>{w.l}</span>
               </div>
             ))}
           </div>
         </div>
 
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          <p style={{ fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.18em", textTransform:"uppercase", color:C.sage, textAlign:"center" }}>
+          <p style={{ fontFamily:F_MONO, fontSize:"0.62rem", fontWeight:700, letterSpacing:"0.18em", textTransform:"uppercase", color:C.sage, textAlign:"center" }}>
             Tu semana 1 — todas las series con 1-2 repeticiones en reserva
           </p>
           {plan.sesiones.map((s, i) => (
             <motion.div key={s.dia} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.15 + i*0.1 }}
-              style={{ background:"rgba(8,11,15,0.66)", border:"1px solid rgba(255,255,255,0.10)", borderRadius:20, padding:"16px 20px", backdropFilter:"blur(14px)" }}>
+              style={{ background:"rgba(0,0,0,0.7)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"16px 20px" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:10 }}>
-                <p style={{ color:"#F8F6F2", fontWeight:900, fontSize:"1.05rem" }}>{s.dia} <span style={{ color:C.sage, fontWeight:700, fontSize:"0.9rem" }}>— {s.titulo}</span></p>
+                <p style={{ color:"#EDEDED", fontFamily:F_DISPLAY, textTransform:"uppercase", fontWeight:400, fontSize:"1.15rem" }}>{s.dia} <span style={{ color:C.sage, fontWeight:400, fontSize:"0.95rem" }}>— {s.titulo}</span></p>
               </div>
               {s.ejercicios.map((e) => (
                 <div key={e.n} style={{ display:"flex", justifyContent:"space-between", gap:12, padding:"7px 0", borderTop:"1px solid rgba(255,255,255,0.07)" }}>
-                  <span style={{ color:"rgba(248,246,242,0.78)", fontSize:"0.9rem", fontWeight:400 }}>{e.n}</span>
-                  <span style={{ color:"#AFC3A5", fontSize:"0.88rem", fontWeight:800, whiteSpace:"nowrap", fontVariantNumeric:"tabular-nums" }}>{e.series}</span>
+                  <span style={{ color:"rgba(237,237,237,0.78)", fontSize:"0.9rem", fontWeight:400 }}>{e.n}</span>
+                  <span style={{ color:"#00E5FF", fontFamily:F_MONO, fontSize:"0.82rem", fontWeight:700, whiteSpace:"nowrap", fontVariantNumeric:"tabular-nums" }}>{e.series}</span>
                 </div>
               ))}
             </motion.div>
           ))}
         </div>
 
-        <div style={{ background:"rgba(30,58,43,0.5)", border:"1px solid rgba(122,143,116,0.3)", borderRadius:20, padding:"16px 20px", backdropFilter:"blur(14px)" }}>
-          <p style={{ fontSize:"0.62rem", fontWeight:900, letterSpacing:"0.18em", textTransform:"uppercase", color:"#AFC3A5", marginBottom:10 }}>
+        <div style={{ background:"rgba(0,0,0,0.7)", border:"1px solid rgba(0,229,255,0.3)", borderRadius:0, padding:"16px 20px" }}>
+          <p style={{ fontFamily:F_MONO, fontSize:"0.62rem", fontWeight:700, letterSpacing:"0.18em", textTransform:"uppercase", color:"#00E5FF", marginBottom:10 }}>
             Las 3 reglas del bloque
           </p>
           {[
@@ -1009,7 +1012,7 @@ function StepPlan({ breakdown, movementAge, chronoAge, onNext }: {
             "¿Día corto? Sesión mínima: 15 minutos con los 2 primeros ejercicios. Cuenta para tu consistencia.",
             "La meta no es la sesión perfecta: es cumplir el 80% del mes. Anotá series, reps y cuánto te costó.",
           ].map((r) => (
-            <p key={r} style={{ color:"rgba(248,246,242,0.72)", fontSize:"0.88rem", lineHeight:1.6, margin:"6px 0", fontWeight:300 }}>
+            <p key={r} style={{ color:"rgba(237,237,237,0.72)", fontSize:"0.88rem", lineHeight:1.6, margin:"6px 0", fontWeight:300 }}>
               <span style={{ color:C.sage, fontWeight:900 }}>· </span>{r}
             </p>
           ))}
@@ -1017,11 +1020,11 @@ function StepPlan({ breakdown, movementAge, chronoAge, onNext }: {
 
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:12, marginTop:6 }}>
           <motion.button onClick={onNext}
-            whileHover={{ scale:1.04 }} whileTap={{ scale:0.97 }}
-            style={{ background:C.sage, color:"#fff", fontWeight:800, fontSize:"1.05rem", padding:"17px 42px", borderRadius:999, border:"none", cursor:"pointer" }}>
+            whileHover={{ x:-2, y:-2 }} whileTap={{ x:2, y:2 }}
+            style={{ background:C.sage, color:"#000", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:800, fontSize:"0.98rem", padding:"17px 42px", borderRadius:0, border:"none", cursor:"pointer", boxShadow:"5px 5px 0 rgba(255,255,255,0.18)" }}>
             Recibir mi plan completo →
           </motion.button>
-          <a href="/metodo/" style={{ color:"rgba(248,246,242,0.4)", fontSize:"0.82rem", fontWeight:600 }}>
+          <a href="/metodo/" style={{ color:"rgba(237,237,237,0.4)", fontSize:"0.82rem", fontWeight:600 }}>
             Conocer el Método FLORA: Fuerza · Longevidad · Orden · Recuperación · Alimentación
           </a>
         </div>
@@ -1095,28 +1098,28 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
         style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:24, textAlign:"center", padding:"0 24px" }}>
         <motion.div animate={{ scale:[1,1.2,1] }} transition={{ duration:0.5 }}
           style={{ fontSize:"4rem" }}>🎉</motion.div>
-        <h2 style={{ fontSize:"1.8rem", fontWeight:900, color:"#F8F6F2", letterSpacing:"-0.02em" }}>¡Listo!</h2>
-        <p style={{ color:"rgba(248,246,242,0.55)", fontSize:"1rem", lineHeight:1.7, maxWidth:380, fontWeight:300 }}>
+        <h2 style={{ fontFamily:F_DISPLAY, textTransform:"uppercase", fontSize:"2rem", fontWeight:400, color:"#EDEDED", letterSpacing:"0.01em" }}>¡Listo!</h2>
+        <p style={{ color:"rgba(237,237,237,0.55)", fontSize:"1rem", lineHeight:1.7, maxWidth:380, fontWeight:300 }}>
           {emailSent
             ? <>Guardamos tu resultado y te lo mandamos a <strong style={{ color:C.sage }}>{email}</strong>.</>
             : "Guardamos tu resultado. Usá el link de abajo para verlo cuando quieras."}
         </p>
         {link && (
           <div style={{ display:"flex", gap:8, width:"min(480px, 92vw)" }}>
-            <div style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 14px", color:"rgba(248,246,242,0.7)", fontSize:"0.82rem", textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            <div style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"12px 14px", color:"rgba(237,237,237,0.7)", fontSize:"0.82rem", textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
               {link}
             </div>
-            <button onClick={handleCopy} style={{ background:C.sage, color:"#fff", fontWeight:700, fontSize:"0.85rem", padding:"0 18px", borderRadius:12, border:"none", cursor:"pointer", whiteSpace:"nowrap" }}>
+            <button onClick={handleCopy} style={{ background:C.sage, color:"#000", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.05em", fontWeight:700, fontSize:"0.78rem", padding:"0 18px", borderRadius:0, border:"none", cursor:"pointer", whiteSpace:"nowrap" }}>
               {copied ? "¡Copiado!" : "Copiar"}
             </button>
           </div>
         )}
         {resultId && (
-          <a href={sesionUrl(resultId)} style={{ background:C.sage, color:"#fff", fontWeight:800, fontSize:"1.05rem", padding:"16px 40px", borderRadius:999, textDecoration:"none" }}>
+          <a href={sesionUrl(resultId)} style={{ background:C.sage, color:"#000", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:800, fontSize:"0.98rem", padding:"16px 40px", borderRadius:0, textDecoration:"none", boxShadow:"5px 5px 0 rgba(255,255,255,0.18)" }}>
             Empezar mi primera sesión →
           </a>
         )}
-        <a href="/" style={{ background:"transparent", color:"rgba(248,246,242,0.4)", fontWeight:600, fontSize:"0.9rem", textDecoration:"none" }}>
+        <a href="/" style={{ background:"transparent", color:"rgba(237,237,237,0.4)", fontWeight:600, fontSize:"0.9rem", textDecoration:"none" }}>
           Explorar CALISTENIA.bio
         </a>
       </motion.div>
@@ -1128,21 +1131,21 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
       style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28, textAlign:"center", padding:"0 24px" }}>
 
       <div style={{ maxWidth:480 }}>
-        <p style={{ fontSize:"0.75rem", color:C.sage, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:8 }}>Ya guardamos tu resultado</p>
-        <h2 style={{ fontSize:"clamp(1.8rem,4vw,2.4rem)", fontWeight:900, color:"#F8F6F2", lineHeight:0.95, letterSpacing:"-0.03em", marginBottom:12 }}>
+        <p style={{ fontFamily:F_MONO, fontSize:"0.75rem", color:C.sage, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", marginBottom:8 }}>Ya guardamos tu resultado</p>
+        <h2 style={{ fontFamily:F_DISPLAY, textTransform:"uppercase", fontSize:"clamp(1.9rem,4.4vw,2.7rem)", fontWeight:400, color:"#EDEDED", lineHeight:0.92, letterSpacing:"0.01em", marginBottom:12 }}>
           {movementAge != null ? <>Tu Edad de Movimiento es <span style={{ color:C.sage }}>{movementAge}</span></> : "Guardado con éxito"}
         </h2>
-        <p style={{ color:"rgba(248,246,242,0.5)", fontSize:"0.95rem", lineHeight:1.65, fontWeight:300 }}>
+        <p style={{ color:"rgba(237,237,237,0.5)", fontSize:"0.95rem", lineHeight:1.65, fontWeight:300 }}>
           Dejanos tu email (opcional) para recibir tu plan completo, o copiá el link de abajo para volver a verlo.
         </p>
       </div>
 
       {link && (
         <div style={{ display:"flex", gap:8, width:"min(480px, 92vw)" }}>
-          <div style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 14px", color:"rgba(248,246,242,0.7)", fontSize:"0.8rem", textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+          <div style={{ flex:1, background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.14)", borderRadius:0, padding:"12px 14px", color:"rgba(237,237,237,0.7)", fontSize:"0.8rem", textAlign:"left", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
             {link}
           </div>
-          <button onClick={handleCopy} style={{ background:"rgba(122,143,116,0.2)", color:C.sage, fontWeight:700, fontSize:"0.85rem", padding:"0 18px", borderRadius:12, border:`1px solid ${C.sage}55`, cursor:"pointer", whiteSpace:"nowrap" }}>
+          <button onClick={handleCopy} style={{ background:"transparent", color:"#EDEDED", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.05em", fontWeight:700, fontSize:"0.78rem", padding:"0 18px", borderRadius:0, border:"1px solid rgba(255,255,255,0.32)", cursor:"pointer", whiteSpace:"nowrap" }}>
             {copied ? "¡Copiado!" : "Copiar link"}
           </button>
         </div>
@@ -1153,15 +1156,15 @@ function StepSave({ movementAge, chronoAge, results, resultId }: { movementAge: 
       ) : (
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
           <GoogleLogin evalId={resultId} onLogin={(u) => setAuthUser(u)} />
-          <p style={{ color:"rgba(248,246,242,0.3)", fontSize:"0.72rem" }}>Creá tu cuenta y retomá tu plan desde cualquier dispositivo</p>
+          <p style={{ color:"rgba(237,237,237,0.3)", fontSize:"0.72rem" }}>Creá tu cuenta y retomá tu plan desde cualquier dispositivo</p>
         </div>
       )}
 
       <form onSubmit={handleSubmit} style={{ width:"min(480px, 92vw)", display:"flex", flexDirection:"column", gap:12 }}>
         <input type="email" placeholder="tu@email.com (opcional)" value={email} onChange={e => setEmail(e.target.value)}
-          style={{ width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"14px 18px", color:"#F8F6F2", fontSize:"1rem", outline:"none" }} />
-        <motion.button type="submit" disabled={saving} whileHover={{ scale:1.03 }} whileTap={{ scale:0.97 }}
-          style={{ width:"100%", background:C.sage, color:"#fff", fontWeight:700, fontSize:"1rem", padding:"16px", borderRadius:12, border:"none", cursor:"pointer", opacity: saving ? 0.7 : 1 }}>
+          style={{ width:"100%", background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.32)", borderRadius:0, padding:"14px 18px", color:"#EDEDED", fontFamily:F_MONO, fontSize:"0.95rem", outline:"none" }} />
+        <motion.button type="submit" disabled={saving} whileHover={{ x:-2, y:-2 }} whileTap={{ x:2, y:2 }}
+          style={{ width:"100%", background:C.sage, color:"#000", fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.06em", fontWeight:700, fontSize:"0.95rem", padding:"16px", borderRadius:0, border:"none", cursor:"pointer", opacity: saving ? 0.7 : 1 }}>
           {saving ? "Guardando…" : "Continuar →"}
         </motion.button>
       </form>
@@ -1291,17 +1294,17 @@ export function OnboardingFlow() {
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", transform:"scaleX(-1)", display:"block" }} />
         <canvas ref={canvasRef}
           style={{ position:"absolute", inset:0, width:"100%", height:"100%", transform:"scaleX(-1)", pointerEvents:"none" }} />
-        <div style={{ position:"absolute", inset:0, pointerEvents:"none", background:"radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.10) 48%, rgba(8,11,15,0.72) 100%)" }} />
+        <div style={{ position:"absolute", inset:0, pointerEvents:"none", background:"radial-gradient(circle at 50% 45%, transparent 0%, rgba(0,0,0,0.10) 48%, rgba(0,0,0,0.72) 100%)" }} />
       </div>
 
       {/* Top bar */}
       <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:10, padding:"calc(env(safe-area-inset-top) + 12px) 24px 12px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <a href="/" style={{ fontWeight:900, fontSize:"1.1rem", letterSpacing:"-0.03em", color:"#F8F6F2", textDecoration:"none" }}>
+        <a href="/" style={{ fontFamily:F_DISPLAY, fontWeight:400, fontSize:"1.15rem", letterSpacing:"0.02em", color:"#EDEDED", textDecoration:"none" }}>
           CALISTENIA<span style={{ color:C.sage }}>.bio</span>
         </a>
         {step !== "hook" && step !== "intake" && step !== "reveal" && step !== "save" && (
-          <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:"0.78rem", color:"rgba(248,246,242,0.35)", fontWeight:500 }}>
-            <div style={{ width:6, height:6, borderRadius:"50%", background:C.sage }} />
+          <div style={{ display:"flex", alignItems:"center", gap:8, fontFamily:F_MONO, textTransform:"uppercase", letterSpacing:"0.08em", fontSize:"0.72rem", color:"rgba(237,237,237,0.4)", fontWeight:700 }}>
+            <div style={{ width:6, height:6, borderRadius:0, background:C.sage }} />
             {step === "camera" ? "Cámara"
               : step === "movement" ? "Evaluación"
               : step === "calculating" ? "Analizando"
@@ -1309,7 +1312,7 @@ export function OnboardingFlow() {
           </div>
         )}
         {step === "hook" && (
-          <div style={{ fontSize:"0.75rem", color:"rgba(248,246,242,0.25)", fontWeight:500 }}>
+          <div style={{ fontFamily:F_MONO, fontSize:"0.68rem", color:"rgba(237,237,237,0.35)", fontWeight:500 }}>
             Demo gratuita · ~6 minutos · Sin registro
           </div>
         )}
@@ -1346,7 +1349,7 @@ export function OnboardingFlow() {
 
       {/* HUD de diagnóstico + monitor de eventos (solo dev) */}
       {IS_DEV && cameraState === "on" && (
-        <div style={{ position:"absolute", left:16, bottom:10, zIndex:30, color:"rgba(248,246,242,0.38)", fontSize:"0.68rem", fontFamily:"monospace", pointerEvents:"none" }}>
+        <div style={{ position:"absolute", left:16, bottom:10, zIndex:30, color:"rgba(237,237,237,0.38)", fontSize:"0.68rem", fontFamily:"monospace", pointerEvents:"none" }}>
           {hud}
         </div>
       )}

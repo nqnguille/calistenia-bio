@@ -25,8 +25,8 @@ import {
 } from "@/lib/planRuntime";
 
 const C = {
-  sage: "#7A8F74", sage2: "#AFC3A5", muted: "#8E9188",
-  dark: "#080B0F", red: "#ef4444",
+  sage: "#00E5FF", sage2: "#00E5FF", muted: "#8A8A8A",
+  dark: "#0A0A0A", red: "#FF5A5A",
 };
 
 const SESSION_BUILD = "sesión v1";
@@ -390,14 +390,14 @@ export function SesionGuiada() {
 
   const overlay =
     view === "loading" ? (
-      <Shell><p style={{ color: "rgba(248,246,242,0.5)" }}>Preparando tu sesión…</p></Shell>
+      <Shell><p style={{ color: "rgba(237,237,237,0.5)", fontFamily: "var(--font-mono-b)", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.12em" }}>Preparando tu sesión…</p></Shell>
     ) : view === "notfound" || view === "noplan" ? (
       <Shell>
         <p style={{ fontSize: "2.5rem" }}>🔍</p>
-        <h1 style={{ color: "#F8F6F2", fontSize: "1.6rem", fontWeight: 900 }}>
+        <h1 style={{ color: "#EDEDED", fontSize: "2rem", fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "0.01em" }}>
           {view === "noplan" ? "Todavía no tenés un plan" : "No encontramos tu plan"}
         </h1>
-        <p style={{ color: "rgba(248,246,242,0.5)", maxWidth: 400, textAlign: "center" }}>
+        <p style={{ color: "rgba(237,237,237,0.5)", maxWidth: 400, textAlign: "center" }}>
           Hacé la evaluación de 6 minutos y salís con tu plan del Método FLORA listo para entrenar.
         </p>
         <a href="/evaluacion/" style={btnStyle}>Hacer la evaluación →</a>
@@ -405,18 +405,18 @@ export function SesionGuiada() {
     ) : view === "blockdone" ? (
       <Shell>
         <p style={{ fontSize: "2.5rem" }}>🏁</p>
-        <h1 style={{ color: "#F8F6F2", fontSize: "1.7rem", fontWeight: 900, textAlign: "center" }}>¡Terminaste el Bloque 1!</h1>
-        <p style={{ color: "rgba(248,246,242,0.55)", maxWidth: 420, textAlign: "center", lineHeight: 1.7 }}>
+        <h1 style={{ color: "#EDEDED", fontSize: "2.1rem", fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "0.01em", textAlign: "center" }}>¡Terminaste el Bloque 1!</h1>
+        <p style={{ color: "rgba(237,237,237,0.55)", maxWidth: 420, textAlign: "center", lineHeight: 1.7 }}>
           Cinco semanas completas. Ahora toca medir el progreso: repetí la evaluación y armamos tu Bloque 2 con tus números nuevos — no a ciegas.
         </p>
         <a href="/evaluacion/" style={btnStyle}>Re-evaluarme y armar el Bloque 2 →</a>
       </Shell>
     ) : view === "resumen" && session ? (
       <Shell wide>
-        <p style={{ fontSize: "0.72rem", fontWeight: 800, color: C.sage, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+        <p style={{ fontSize: "0.72rem", fontWeight: 700, color: C.sage, letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: "var(--font-mono-b)" }}>
           Sesión {session.sessionNumber} · Semana {session.week} de 5{session.isDeload ? " · DESCARGA" : ""}
         </p>
-        <h1 style={{ color: "#F8F6F2", fontSize: "clamp(1.8rem,4.5vw,2.6rem)", fontWeight: 900, letterSpacing: "-0.03em", textAlign: "center" }}>
+        <h1 style={{ color: "#EDEDED", fontSize: "clamp(2rem,5vw,3rem)", fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "0.01em", textAlign: "center" }}>
           {session.dia} — {session.titulo}
         </h1>
         {session.isDeload && (
@@ -426,9 +426,9 @@ export function SesionGuiada() {
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "min(520px, 92vw)" }}>
           {session.ejercicios.map((e, i) => (
-            <div key={e.nombre} style={{ display: "flex", justifyContent: "space-between", gap: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "13px 16px" }}>
-              <span style={{ color: "rgba(248,246,242,0.85)", fontSize: "0.92rem" }}>{i + 1}. {e.nombre}</span>
-              <span style={{ color: "#AFC3A5", fontWeight: 800, fontSize: "0.88rem", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+            <div key={e.nombre} style={{ display: "flex", justifyContent: "space-between", gap: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 0, padding: "13px 16px" }}>
+              <span style={{ color: "rgba(237,237,237,0.85)", fontSize: "0.92rem" }}>{i + 1}. {e.nombre}</span>
+              <span style={{ color: "#00E5FF", fontWeight: 700, fontSize: "0.88rem", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontFamily: "var(--font-mono-b)" }}>
                 {e.setsHoy} × {e.presc.repMin}{e.presc.repMax !== e.presc.repMin ? `-${e.presc.repMax}` : ""}{e.presc.isTime ? " s" : ""}
               </span>
             </div>
@@ -436,39 +436,39 @@ export function SesionGuiada() {
         </div>
         {coaches.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-            <p style={{ fontSize: "0.68rem", fontWeight: 800, color: C.sage, letterSpacing: "0.16em", textTransform: "uppercase" }}>¿Quién te entrena hoy?</p>
+            <p style={{ fontSize: "0.68rem", fontWeight: 700, color: C.sage, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "var(--font-mono-b)" }}>¿Quién te entrena hoy?</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
               {coaches.map((c) => (
                 <button key={c.id} onClick={() => pickCoach(c.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 14px", borderRadius: 999, cursor: "pointer", fontSize: "0.84rem", fontWeight: 700,
-                    background: coachSel === c.id ? "rgba(122,143,116,0.3)" : "rgba(255,255,255,0.06)",
-                    border: `1px solid ${coachSel === c.id ? C.sage : "rgba(255,255,255,0.12)"}`,
-                    color: coachSel === c.id ? C.sage2 : "rgba(248,246,242,0.75)" }}>
+                  style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 14px", borderRadius: 0, cursor: "pointer", fontSize: "0.8rem", fontWeight: 700, fontFamily: "var(--font-mono-b)", textTransform: "uppercase", letterSpacing: "0.04em",
+                    background: coachSel === c.id ? "rgba(0,229,255,0.14)" : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${coachSel === c.id ? C.sage : "rgba(255,255,255,0.32)"}`,
+                    color: coachSel === c.id ? C.sage2 : "rgba(237,237,237,0.75)" }}>
                   <span>{c.emoji}</span>{c.nombre}
                 </button>
               ))}
             </div>
-            <p style={{ fontSize: "0.72rem", color: "rgba(248,246,242,0.35)" }}>Tocá uno y escuchalo — misma inteligencia, tu estilo</p>
+            <p style={{ fontSize: "0.72rem", color: "rgba(237,237,237,0.4)" }}>Tocá uno y escuchalo — misma inteligencia, tu estilo</p>
           </div>
         )}
-        <p style={{ color: "rgba(248,246,242,0.45)", fontSize: "0.85rem", textAlign: "center", maxWidth: 440, lineHeight: 1.6 }}>
+        <p style={{ color: "rgba(237,237,237,0.45)", fontSize: "0.85rem", textAlign: "center", maxWidth: 440, lineHeight: 1.6 }}>
           Todo por voz: yo cuento tus repeticiones, cronometro tus descansos y registro la sesión. Decí «listo» para cerrar cada serie y «saltar» si un ejercicio no va.
         </p>
         {authUser ? (
-          <p style={{ display: "flex", alignItems: "center", gap: 8, color: C.sage2, fontSize: "0.82rem", fontWeight: 600 }}>
+          <p style={{ display: "flex", alignItems: "center", gap: 8, color: C.sage2, fontSize: "0.78rem", fontWeight: 600, fontFamily: "var(--font-mono-b)" }}>
             ✓ Progreso guardado en tu cuenta ({authUser.email})
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             <GoogleLogin evalId={idRef.current} onLogin={(u) => setAuthUser(u)} />
-            <p style={{ color: "rgba(248,246,242,0.35)", fontSize: "0.72rem" }}>Guardá tu progreso y retomalo desde cualquier dispositivo</p>
+            <p style={{ color: "rgba(237,237,237,0.4)", fontSize: "0.72rem" }}>Guardá tu progreso y retomalo desde cualquier dispositivo</p>
           </div>
         )}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
           <button onClick={() => startTraining(false)} style={btnStyle}>
             {cameraState === "starting" ? "Activando cámara…" : "Empezar la sesión →"}
           </button>
-          <button onClick={() => startTraining(true)} style={{ ...btnStyle, background: "rgba(122,143,116,0.18)", color: C.sage2, border: `1px solid ${C.sage}55` }}>
+          <button onClick={() => startTraining(true)} style={{ ...btnStyle, background: "transparent", color: "#EDEDED", border: "1px solid rgba(255,255,255,0.32)" }}>
             Sesión mínima (15′)
           </button>
         </div>
@@ -479,20 +479,20 @@ export function SesionGuiada() {
     ) : view === "fin" && session ? (
       <Shell>
         <motion.p animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 0.5 }} style={{ fontSize: "3.5rem" }}>💪</motion.p>
-        <h1 style={{ color: "#F8F6F2", fontSize: "1.8rem", fontWeight: 900, textAlign: "center" }}>¡Sesión completa!</h1>
-        <div style={{ display: "flex", gap: 28, padding: "18px 30px", background: "rgba(8,11,15,0.5)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16 }}>
+        <h1 style={{ color: "#EDEDED", fontSize: "2.2rem", fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "0.01em", textAlign: "center" }}>¡Sesión completa!</h1>
+        <div style={{ display: "flex", gap: 28, padding: "18px 30px", background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 0 }}>
           {[
             { n: String(logRef.current.filter((e) => !e.skipped).length), l: "ejercicios" },
             { n: String(logRef.current.reduce((a, e) => a + e.series.length, 0)), l: "series" },
             { n: `S${session.week}`, l: "semana" },
           ].map((s) => (
             <div key={s.l} style={{ textAlign: "center" }}>
-              <p style={{ fontSize: "1.7rem", fontWeight: 900, color: "#AFC3A5", lineHeight: 1 }}>{s.n}</p>
-              <p style={{ fontSize: "0.68rem", color: "rgba(248,246,242,0.4)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>{s.l}</p>
+              <p style={{ fontSize: "2.2rem", color: "#00E5FF", lineHeight: 1, fontFamily: "var(--font-display)" }}>{s.n}</p>
+              <p style={{ fontSize: "0.68rem", color: "rgba(237,237,237,0.4)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, fontFamily: "var(--font-mono-b)" }}>{s.l}</p>
             </div>
           ))}
         </div>
-        <p style={{ color: "rgba(248,246,242,0.5)", fontSize: "0.9rem", textAlign: "center", maxWidth: 400, lineHeight: 1.65 }}>
+        <p style={{ color: "rgba(237,237,237,0.5)", fontSize: "0.9rem", textAlign: "center", maxWidth: 400, lineHeight: 1.65 }}>
           {saving === "saving" ? "Guardando tu sesión…"
             : saving === "ok" ? "Sesión registrada. La próxima vez que entres, te toca la siguiente del plan — la consistencia es lo que manda."
             : saving === "error" ? "No pudimos guardar en el servidor (queda registrada en este dispositivo). Reintentá desde tu link."
@@ -513,23 +513,23 @@ export function SesionGuiada() {
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)", display: "block" }} />
         <canvas ref={canvasRef}
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "scaleX(-1)", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 50% 45%, transparent 0%, rgba(8,11,15,0.10) 48%, rgba(8,11,15,0.72) 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(circle at 50% 45%, transparent 0%, rgba(10,10,10,0.10) 48%, rgba(10,10,10,0.72) 100%)" }} />
       </div>
 
       {/* Barra superior */}
       {view === "training" && session && ex && (
         <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 14px)", left: 16, right: 16, display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: 10, zIndex: 10 }}>
-          <div style={{ background: "rgba(8,11,15,0.62)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: "14px 22px", backdropFilter: "blur(14px)" }}>
-            <p style={{ color: C.sage, fontWeight: 900, letterSpacing: "0.14em", fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6 }}>
+          <div style={{ background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 0, padding: "14px 22px" }}>
+            <p style={{ color: C.sage, fontWeight: 700, letterSpacing: "0.14em", fontSize: "0.72rem", textTransform: "uppercase", marginBottom: 6, fontFamily: "var(--font-mono-b)" }}>
               {session.dia} · Ejercicio {exIdx + 1}/{session.ejercicios.length} · Serie {serieNum}/{ex.setsHoy}
             </p>
-            <p style={{ color: "#F8F6F2", fontWeight: 900, fontSize: "clamp(1.2rem,2.8vw,2rem)", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+            <p style={{ color: "#EDEDED", fontSize: "clamp(1.3rem,3vw,2.2rem)", textTransform: "uppercase", letterSpacing: "0.01em", lineHeight: 1.1, fontFamily: "var(--font-display)" }}>
               {ex.nombre}
             </p>
           </div>
-          <div style={{ background: "rgba(8,11,15,0.62)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 22, padding: "14px 22px", textAlign: "right", backdropFilter: "blur(14px)" }}>
-            <p style={{ color: "rgba(248,246,242,0.4)", fontWeight: 900, letterSpacing: "0.14em", fontSize: "0.62rem", textTransform: "uppercase", marginBottom: 6 }}>objetivo {target}</p>
-            <p style={{ color: "#AFC3A5", fontWeight: 900, fontSize: "clamp(2rem,4.5vw,3.4rem)", lineHeight: 1 }}>
+          <div style={{ background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 0, padding: "14px 22px", textAlign: "right" }}>
+            <p style={{ color: "rgba(237,237,237,0.45)", fontWeight: 700, letterSpacing: "0.14em", fontSize: "0.62rem", textTransform: "uppercase", marginBottom: 6, fontFamily: "var(--font-mono-b)" }}>objetivo {target}</p>
+            <p style={{ color: "#00E5FF", fontSize: "clamp(2rem,4.5vw,3.4rem)", lineHeight: 1, fontFamily: "var(--font-display)" }}>
               {phase === "serie" ? metricDisplay : "—"}
             </p>
           </div>
@@ -541,10 +541,10 @@ export function SesionGuiada() {
         <AnimatePresence mode="wait">
           {phase === "serie" && ex && ex.measure.kind !== "manual" && (
             <motion.div key="metric" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: "center" }}>
-              <p style={{ fontSize: "clamp(7rem,26vw,17rem)", fontWeight: 900, fontFamily: "monospace", color: "rgba(248,246,242,0.92)", lineHeight: 1, textShadow: "0 8px 50px rgba(0,0,0,0.6)" }}>
+              <p style={{ fontSize: "clamp(7rem,26vw,17rem)", fontFamily: "var(--font-display)", color: "rgba(237,237,237,0.94)", lineHeight: 1, textShadow: "0 8px 50px rgba(0,0,0,0.6)" }}>
                 {metricDisplay}
               </p>
-              <p style={{ color: "rgba(248,246,242,0.55)", fontSize: "clamp(1rem,2.4vw,1.5rem)", fontWeight: 700 }}>
+              <p style={{ color: "rgba(237,237,237,0.6)", fontSize: "clamp(1rem,2.4vw,1.5rem)", fontWeight: 700, fontFamily: "var(--font-mono-b)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {ex.measure.kind === "hold" ? "segundos" : "repeticiones"} · decí «listo» al terminar
               </p>
             </motion.div>
@@ -552,23 +552,23 @@ export function SesionGuiada() {
           {phase === "serie" && ex && ex.measure.kind === "manual" && (
             <motion.div key="manual" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: "center", padding: "0 24px" }}>
               <p style={{ fontSize: "clamp(2.5rem,7vw,4.5rem)", lineHeight: 1.1, marginBottom: 14 }}>🏃</p>
-              <p style={{ color: "#F8F6F2", fontSize: "clamp(1.5rem,3.6vw,2.4rem)", fontWeight: 900, maxWidth: 700, textShadow: "0 8px 40px rgba(0,0,0,0.7)" }}>
+              <p style={{ color: "#EDEDED", fontSize: "clamp(1.5rem,3.6vw,2.4rem)", fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "0.01em", maxWidth: 700, textShadow: "0 8px 40px rgba(0,0,0,0.7)" }}>
                 A tu ritmo — decí «listo» al terminar la serie
               </p>
             </motion.div>
           )}
           {phase === "rest" && (
             <motion.div key="rest" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: "center" }}>
-              <p style={{ color: C.sage2, fontSize: "clamp(1.1rem,2.6vw,1.6rem)", fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8 }}>Descanso</p>
-              <p style={{ fontSize: "clamp(6rem,22vw,14rem)", fontWeight: 900, fontFamily: "monospace", color: "rgba(248,246,242,0.92)", lineHeight: 1, textShadow: "0 8px 50px rgba(0,0,0,0.6)" }}>
+              <p style={{ color: C.sage2, fontSize: "clamp(1.1rem,2.6vw,1.6rem)", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 8, fontFamily: "var(--font-mono-b)" }}>Descanso</p>
+              <p style={{ fontSize: "clamp(6rem,22vw,14rem)", fontFamily: "var(--font-display)", color: "rgba(237,237,237,0.94)", lineHeight: 1, textShadow: "0 8px 50px rgba(0,0,0,0.6)" }}>
                 {restLeft}
               </p>
-              <p style={{ color: "rgba(248,246,242,0.5)", fontSize: "clamp(0.95rem,2.2vw,1.3rem)", fontWeight: 700 }}>decí «listo» para arrancar antes</p>
+              <p style={{ color: "rgba(237,237,237,0.55)", fontSize: "clamp(0.95rem,2.2vw,1.3rem)", fontWeight: 700, fontFamily: "var(--font-mono-b)", textTransform: "uppercase", letterSpacing: "0.06em" }}>decí «listo» para arrancar antes</p>
             </motion.div>
           )}
           {phase === "exIntro" && ex && (
             <motion.div key="intro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ textAlign: "center", padding: "0 24px" }}>
-              <p style={{ color: "#F8F6F2", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontWeight: 900, maxWidth: 800, lineHeight: 1.25, textShadow: "0 8px 40px rgba(0,0,0,0.7)" }}>
+              <p style={{ color: "#EDEDED", fontSize: "clamp(1.6rem,4vw,2.8rem)", fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "0.01em", maxWidth: 800, lineHeight: 1.25, textShadow: "0 8px 40px rgba(0,0,0,0.7)" }}>
                 {instructionFor(ex.nombre)}
               </p>
             </motion.div>
@@ -578,27 +578,27 @@ export function SesionGuiada() {
 
       {/* RIR chips (interactivo) */}
       {phase === "rir" && (
-        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, zIndex: 20, background: "rgba(8,11,15,0.55)" }}>
-          <p style={{ color: "#F8F6F2", fontSize: "clamp(1.4rem,3.4vw,2.2rem)", fontWeight: 900, textAlign: "center", padding: "0 24px" }}>
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, zIndex: 20, background: "rgba(0,0,0,0.7)" }}>
+          <p style={{ color: "#EDEDED", fontSize: "clamp(1.5rem,3.6vw,2.4rem)", fontFamily: "var(--font-display)", textTransform: "uppercase", letterSpacing: "0.01em", textAlign: "center", padding: "0 24px" }}>
             ¿Cuántas repeticiones te quedaban en el tanque?
           </p>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
             {[0, 1, 2, 3, 4].map((r) => (
               <button key={r} onClick={() => advanceExercise(r)}
-                style={{ width: 74, height: 74, borderRadius: 20, background: r >= 1 && r <= 2 ? "rgba(122,143,116,0.35)" : "rgba(255,255,255,0.08)", border: `1px solid ${r >= 1 && r <= 2 ? C.sage : "rgba(255,255,255,0.15)"}`, color: "#F8F6F2", fontWeight: 900, fontSize: "1.5rem", cursor: "pointer" }}>
+                style={{ width: 74, height: 74, borderRadius: 0, background: r >= 1 && r <= 2 ? "rgba(0,229,255,0.16)" : "rgba(255,255,255,0.05)", border: `1px solid ${r >= 1 && r <= 2 ? C.sage : "rgba(255,255,255,0.32)"}`, color: "#EDEDED", fontSize: "1.9rem", fontFamily: "var(--font-display)", cursor: "pointer" }}>
                 {r === 4 ? "4+" : r}
               </button>
             ))}
           </div>
-          <p style={{ color: "rgba(248,246,242,0.45)", fontSize: "0.85rem" }}>1-2 es el punto ideal del método · decí «listo» para saltear</p>
+          <p style={{ color: "rgba(237,237,237,0.5)", fontSize: "0.8rem", fontFamily: "var(--font-mono-b)", textTransform: "uppercase", letterSpacing: "0.06em" }}>1-2 es el punto ideal del método · decí «listo» para saltear</p>
         </div>
       )}
 
       {/* Feedback inferior */}
       {view === "training" && phase !== "rir" && (
         <div style={{ position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 20px)", display: "flex", justifyContent: "center", zIndex: 10, pointerEvents: "none" }}>
-          <div style={{ maxWidth: 900, background: "rgba(8,11,15,0.68)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 24, padding: "14px 28px", textAlign: "center", backdropFilter: "blur(16px)" }}>
-            <p style={{ color: "rgba(248,246,242,0.8)", fontWeight: 700, fontSize: "clamp(0.95rem,2.2vw,1.3rem)" }}>
+          <div style={{ maxWidth: 900, background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 0, padding: "14px 28px", textAlign: "center" }}>
+            <p style={{ color: "rgba(237,237,237,0.8)", fontWeight: 700, fontSize: "clamp(0.95rem,2.2vw,1.3rem)", fontFamily: "var(--font-mono-b)" }}>
               {feedback || (detected ? "🎤 «listo» cierra la serie · «saltar» saltea el ejercicio" : "Ubicate donde te vea entera la cámara")}
             </p>
           </div>
@@ -609,7 +609,7 @@ export function SesionGuiada() {
       {overlay}
 
       {IS_DEV && cameraState === "on" && (
-        <div style={{ position: "absolute", left: 16, bottom: 8, zIndex: 30, color: "rgba(248,246,242,0.38)", fontSize: "0.68rem", fontFamily: "monospace", pointerEvents: "none" }}>
+        <div style={{ position: "absolute", left: 16, bottom: 8, zIndex: 30, color: "rgba(237,237,237,0.4)", fontSize: "0.68rem", fontFamily: "var(--font-mono-b)", pointerEvents: "none" }}>
           {hud}
         </div>
       )}
@@ -619,18 +619,19 @@ export function SesionGuiada() {
 }
 
 const btnStyle: React.CSSProperties = {
-  background: "#7A8F74", color: "#fff", fontWeight: 800, fontSize: "1rem",
-  padding: "16px 36px", borderRadius: 999, border: "none", cursor: "pointer", textDecoration: "none",
+  background: "#00E5FF", color: "#0A0A0A", fontWeight: 700, fontSize: "0.95rem",
+  fontFamily: "var(--font-mono-b)", textTransform: "uppercase", letterSpacing: "0.08em",
+  padding: "16px 36px", borderRadius: 0, border: "none", cursor: "pointer", textDecoration: "none",
 };
 
 // Overlay de vista completa por ENCIMA del feed siempre-montado (zIndex 40):
 // tapa el video mientras no se entrena, sin desmontar los refs de cámara.
 function Shell({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 40, overflowY: "auto", background: "#080B0F", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: wide ? "60px 20px" : "0 24px" }}>
-      <a href="/" style={{ position: "fixed", top: 18, left: 24, display: "flex", alignItems: "center", gap: 8, fontWeight: 900, fontSize: "1.05rem", letterSpacing: "-0.03em", color: "#F8F6F2", textDecoration: "none" }}>
-        CALISTENIA<span style={{ color: "#7A8F74" }}>.bio</span>
-        <span style={{ fontSize: "0.55rem", fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7A8F74", border: "1px solid rgba(122,143,116,0.45)", borderRadius: 999, padding: "3px 8px" }}>Demo gratis</span>
+    <div style={{ position: "absolute", inset: 0, zIndex: 40, overflowY: "auto", background: "#0A0A0A", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: wide ? "60px 20px" : "0 24px" }}>
+      <a href="/" style={{ position: "fixed", top: 18, left: 24, display: "flex", alignItems: "center", gap: 8, fontSize: "1.15rem", letterSpacing: "0.02em", color: "#EDEDED", textDecoration: "none", fontFamily: "var(--font-display)", textTransform: "uppercase" }}>
+        CALISTENIA<span style={{ color: "#00E5FF" }}>.bio</span>
+        <span style={{ fontSize: "0.55rem", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#00E5FF", border: "1px solid rgba(0,229,255,0.45)", borderRadius: 0, padding: "3px 8px", fontFamily: "var(--font-mono-b)" }}>Demo gratis</span>
       </a>
       {children}
     </div>

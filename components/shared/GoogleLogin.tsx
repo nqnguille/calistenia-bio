@@ -85,7 +85,7 @@ export function GoogleLogin({ evalId, onLogin }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
       <div ref={divRef} />
-      {error && <p style={{ color: "#F17464", fontSize: "0.8rem" }}>{error}</p>}
+      {error && <p style={{ color: "#FF5A5A", fontSize: "0.8rem", fontFamily: "var(--font-mono-b)" }}>{error}</p>}
     </div>
   );
 }

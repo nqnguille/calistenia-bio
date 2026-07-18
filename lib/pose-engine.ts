@@ -174,8 +174,8 @@ export function drawPose(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms
   if (!lms) return;
 
   const good = quality >= 68;
-  const color = good ? "#AFC3A5" : quality >= 48 ? "#F0C36A" : "#F17464";
-  const dim = good ? "rgba(175,195,165,0.28)" : "rgba(241,116,100,0.25)";
+  const color = good ? "#00E5FF" : quality >= 48 ? "#FFB020" : "#FF5A5A";
+  const dim = good ? "rgba(0,229,255,0.28)" : "rgba(255,90,90,0.25)";
   const toCanvas = coverMapper(canvas, video);
   const u = clamp(Math.max(canvas.width, canvas.height) / 1400, 0.6, 2.4);
 

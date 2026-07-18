@@ -1,20 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
 
-const C = {
-  cream: "#F8F6F2",
-  cream2: "#F1EEE8",
-  ink: "#151716",
-  ink2: "#343A36",
-  border: "#DED9CE",
-  sage: "#7A8F74",
-  sage2: "#AFC3A5",
-  muted: "#8E9188",
-  forest: "#1E3A2B",
-  petrol: "#203040",
-  clay: "#B0673F",
-};
-
 const reveal = {
   initial: { opacity: 0, y: 32 },
   whileInView: { opacity: 1, y: 0 },
@@ -78,67 +64,68 @@ export function CulturaCalistenia() {
   return (
     <>
       {/* ───────────────────────── Hero ───────────────────────── */}
-      <section style={{ background: C.petrol, paddingTop: 176, paddingBottom: 112 }} className="px-8">
-        <div style={{ maxWidth: 1152, margin: "0 auto", textAlign: "center" }}>
-          <motion.p {...reveal} className="section-label" style={{ justifyContent: "center", width: "100%" }}>
+      <section className="brut-sec brut-concrete relative overflow-hidden bg-void px-8 pb-28 pt-44 text-chalk">
+        <div className="brut-grid absolute inset-0 opacity-60" aria-hidden />
+        <div
+          className="brut-display brut-outline-text pointer-events-none absolute -right-10 top-16 select-none text-[22rem] leading-none opacity-60 max-lg:hidden"
+          aria-hidden
+        >
+          NYC
+        </div>
+
+        <div className="relative mx-auto max-w-6xl text-center">
+          <motion.p {...reveal} className="brut-label mb-5 justify-center">
+            [CULT_01 // ORIGEN]
+          </motion.p>
+          <motion.p
+            {...reveal}
+            transition={{ ...reveal.transition, delay: 0.04 }}
+            className="brut-mono text-[0.72rem] font-bold uppercase tracking-[0.14em] text-chalk/50"
+          >
             De los parques de Nueva York a las barras de acá
           </motion.p>
           <motion.h1
             {...reveal}
             transition={{ ...reveal.transition, delay: 0.08 }}
-            style={{
-              fontSize: "clamp(2.6rem,6.4vw,5.2rem)",
-              fontWeight: 900,
-              color: C.cream,
-              lineHeight: 0.98,
-              letterSpacing: "-0.03em",
-              margin: "28px 0 20px",
-              maxWidth: 900,
-              marginLeft: "auto",
-              marginRight: "auto",
-            }}
+            className="brut-display mx-auto mb-5 mt-7 max-w-[900px] text-[clamp(3rem,7.5vw,6.4rem)]"
           >
-            La cultura de la calistenia
+            La cultura de la <span className="text-cyan">calistenia</span>
           </motion.h1>
           <motion.p
             {...reveal}
             transition={{ ...reveal.transition, delay: 0.16 }}
-            style={{
-              fontSize: "1.1rem",
-              color: "rgba(248,246,242,0.62)",
-              lineHeight: 1.75,
-              fontWeight: 300,
-              maxWidth: 620,
-              margin: "0 auto",
-            }}
+            className="mx-auto max-w-[620px] border-l-2 border-cyan pl-4 text-left text-[1.1rem] leading-[1.75] text-chalk/70"
           >
             No es una tendencia de gimnasio: es un movimiento con treinta años de historia, nacido en parques
             públicos y sostenido por gente que entrena gratis, a la vista de todos. Esto es lo que hay documentado
             — con fuente citada en cada dato.
           </motion.p>
         </div>
+
+        <div className="brut-hazard absolute bottom-0 left-0 right-0 h-[3px] opacity-40" aria-hidden />
       </section>
 
       {/* ───────────────────────── Timeline ───────────────────────── */}
-      <section style={{ backgroundColor: C.cream, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <motion.p {...reveal} className="section-tag">La historia</motion.p>
+      <section className="brut-sec brut-concrete relative overflow-hidden bg-concrete py-52 px-8 text-chalk">
+        <div
+          className="brut-display brut-outline-text pointer-events-none absolute -left-6 top-10 select-none text-[20rem] leading-none opacity-50 max-lg:hidden"
+          aria-hidden
+        >
+          30
+        </div>
+
+        <div className="relative mx-auto max-w-[900px]">
+          <motion.p {...reveal} className="brut-label mb-6">
+            [CULT_02 // LA_HISTORIA]
+          </motion.p>
           <motion.h2
             {...reveal}
-            style={{
-              fontSize: "clamp(2.1rem,4.4vw,3.4rem)",
-              fontWeight: 900,
-              color: C.ink,
-              lineHeight: 1.05,
-              letterSpacing: "-0.03em",
-              margin: "24px 0 56px",
-              maxWidth: 700,
-            }}
+            className="brut-display mb-14 max-w-[700px] text-[clamp(2.6rem,6vw,4.6rem)]"
           >
             Treinta años, de una barra en Harlem a un mundial en Riga.
           </motion.h2>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          <div className="flex flex-col">
             {TIMELINE.map((item, i) => (
               <motion.div
                 key={item.era}
@@ -146,24 +133,20 @@ export function CulturaCalistenia() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: i * 0.05, ease: "easeOut" }}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "120px 1fr",
-                  gap: 28,
-                  padding: "26px 0",
-                  borderTop: i === 0 ? "none" : `1px solid ${C.border}`,
-                }}
+                className={`grid gap-7 py-[26px] md:grid-cols-[140px_1fr] ${i === 0 ? "" : "border-t border-white/[0.14]"}`}
               >
                 <div>
-                  <p style={{ color: C.sage, fontWeight: 900, fontSize: "0.92rem", letterSpacing: "-0.01em" }}>{item.era}</p>
-                  <p style={{ color: C.muted, fontSize: "0.78rem", fontWeight: 600, marginTop: 2 }}>{item.lugar}</p>
+                  <p className="brut-display text-2xl text-cyan">{item.era}</p>
+                  <p className="brut-mono mt-1 text-[0.68rem] font-bold uppercase tracking-[0.08em] text-chalk/45">
+                    {item.lugar}
+                  </p>
                 </div>
-                <p style={{ color: C.ink2, fontSize: "1rem", lineHeight: 1.75, fontWeight: 300, margin: 0 }}>{item.texto}</p>
+                <p className="m-0 text-base leading-[1.75] text-chalk/70">{item.texto}</p>
               </motion.div>
             ))}
           </div>
 
-          <motion.p {...reveal} style={{ fontSize: "0.8rem", color: C.muted, marginTop: 32, lineHeight: 1.6 }}>
+          <motion.p {...reveal} className="brut-mono mt-8 text-[0.7rem] leading-[1.6] text-chalk/40">
             Fuentes: Rolling Stone (2024), Wikipedia/estudios académicos sobre Hannibal for King (Mueller 2016;
             François &amp; Robène 2020), CrossFit Journal sobre Bartendaz, y las páginas oficiales de WSWCF.
           </motion.p>
@@ -171,25 +154,19 @@ export function CulturaCalistenia() {
       </section>
 
       {/* ───────────────────────── Códigos ───────────────────────── */}
-      <section style={{ backgroundColor: C.cream2, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
-        <div style={{ maxWidth: 1152, margin: "0 auto" }}>
-          <motion.p {...reveal} className="section-tag">Los códigos</motion.p>
+      <section className="brut-sec brut-concrete relative bg-void py-52 px-8 text-chalk">
+        <div className="relative mx-auto max-w-6xl">
+          <motion.p {...reveal} className="brut-label mb-6">
+            [CULT_03 // LOS_CODIGOS]
+          </motion.p>
           <motion.h2
             {...reveal}
-            style={{
-              fontSize: "clamp(2.1rem,4.4vw,3.4rem)",
-              fontWeight: 900,
-              color: C.ink,
-              lineHeight: 1.05,
-              letterSpacing: "-0.03em",
-              margin: "24px 0 56px",
-              maxWidth: 760,
-            }}
+            className="brut-display mb-14 max-w-[760px] text-[clamp(2.6rem,6vw,4.6rem)]"
           >
             Lo que no cambió en treinta años.
           </motion.h2>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 20 }}>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {CODIGOS.map((c, i) => (
               <motion.div
                 key={c.t}
@@ -197,11 +174,13 @@ export function CulturaCalistenia() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: i * 0.08, ease: "easeOut" }}
-                className="soft-card"
-                style={{ borderRadius: 24, padding: 30 }}
+                className="group border border-white/[0.14] bg-white/[0.03] p-7 transition-colors hover:border-cyan"
               >
-                <h3 style={{ fontSize: "1.1rem", fontWeight: 800, color: C.ink, letterSpacing: "-0.015em", margin: "0 0 10px" }}>{c.t}</h3>
-                <p style={{ fontSize: "0.93rem", color: C.ink2, lineHeight: 1.7, fontWeight: 300, margin: 0 }}>{c.d}</p>
+                <p className="brut-mono mb-4 text-[0.62rem] font-bold text-cyan" aria-hidden>
+                  0{i + 1}_
+                </p>
+                <h3 className="brut-display mb-3 text-xl text-chalk">{c.t}</h3>
+                <p className="m-0 text-[0.93rem] leading-[1.7] text-chalk/65">{c.d}</p>
               </motion.div>
             ))}
           </div>
@@ -209,71 +188,49 @@ export function CulturaCalistenia() {
       </section>
 
       {/* ───────────────────────── Argentina ───────────────────────── */}
-      <section style={{ backgroundColor: C.cream, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
-        <div style={{ maxWidth: 1152, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 64, alignItems: "start" }}>
+      <section className="brut-sec brut-concrete relative bg-concrete py-52 px-8 text-chalk">
+        <div className="relative mx-auto max-w-6xl">
+          <div className="grid items-start gap-16 lg:grid-cols-2">
             <div>
-              <motion.p {...reveal} className="section-tag">La escena local</motion.p>
-              <motion.h2
-                {...reveal}
-                style={{
-                  fontSize: "clamp(2.1rem,4.4vw,3.2rem)",
-                  fontWeight: 900,
-                  color: C.ink,
-                  lineHeight: 1.05,
-                  letterSpacing: "-0.03em",
-                  margin: "24px 0 24px",
-                }}
-              >
+              <motion.p {...reveal} className="brut-label mb-6">
+                [CULT_04 // LA_ESCENA_LOCAL]
+              </motion.p>
+              <motion.h2 {...reveal} className="brut-display mb-6 text-[clamp(2.6rem,6vw,4.6rem)]">
                 También pasa acá.
               </motion.h2>
-              <motion.p {...reveal} style={{ fontSize: "1.02rem", color: C.ink2, lineHeight: 1.8, fontWeight: 300, marginBottom: 18 }}>
-                <strong style={{ fontWeight: 700 }}>Pablo Urruty</strong>, presidente de la Federación Internacional
+              <motion.p {...reveal} className="mb-[18px] text-[1.02rem] leading-[1.8] text-chalk/70">
+                <strong className="font-bold text-chalk">Pablo Urruty</strong>, presidente de la Federación Internacional
                 de Calistenia y Street Workout (ICSWF) y fundador de la Fundación Calistenia Argentina en 2012,
                 es el nombre detrás de la formalización del deporte en el país.{" "}
-                <strong style={{ fontWeight: 700 }}>Carlos Saona</strong>, campeón sudamericano, entrena tres veces
+                <strong className="font-bold text-chalk">Carlos Saona</strong>, campeón sudamericano, entrena tres veces
                 por semana en el circuito de Plaza República de Haití, en Buenos Aires.
               </motion.p>
-              <motion.p {...reveal} style={{ fontSize: "1.02rem", color: C.ink2, lineHeight: 1.8, fontWeight: 300 }}>
+              <motion.p {...reveal} className="text-[1.02rem] leading-[1.8] text-chalk/70">
                 Y la escena no termina en Buenos Aires: la plataforma comunitaria Calisthenics Parks tiene{" "}
-                <strong style={{ fontWeight: 700 }}>7 puntos de entrenamiento registrados en la región de Neuquén</strong>,
+                <strong className="font-bold text-chalk">7 puntos de entrenamiento registrados en la región de Neuquén</strong>,
                 incluido un circuito sobre Avenida Coronel Olascoaga, en la capital.
               </motion.p>
             </div>
 
-            <motion.div
-              {...reveal}
-              style={{ background: C.forest, borderRadius: 28, padding: "clamp(32px,5vw,52px)" }}
-            >
-              <p style={{ fontSize: "0.7rem", fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", color: C.sage2, marginBottom: 20 }}>
-                Sumamos lo que falta
-              </p>
-              <p style={{ color: C.cream, fontSize: "1.15rem", fontWeight: 700, lineHeight: 1.4, marginBottom: 16 }}>
+            <motion.div {...reveal} className="brut-panel-raised relative p-[clamp(32px,5vw,52px)]">
+              <span className="brut-mono absolute left-2 top-1 text-xs text-cyan/60" aria-hidden>+</span>
+              <span className="brut-mono absolute bottom-1 right-2 text-xs text-cyan/60" aria-hidden>+</span>
+              <p className="brut-label mb-5">[sumamos_lo_que_falta]</p>
+              <p className="brut-display mb-4 text-2xl leading-tight text-chalk">
                 Todavía no encontramos crews con nombre propio ni la jerga real de la escena neuquina.
               </p>
-              <p style={{ color: "rgba(248,246,242,0.65)", fontSize: "0.94rem", lineHeight: 1.75, fontWeight: 300, marginBottom: 24 }}>
+              <p className="mb-6 text-[0.94rem] leading-[1.75] text-chalk/65">
                 Preferimos decir esto antes que inventarlo. Si entrenás en las barras de Neuquén, Cipolletti o
                 alrededores — o conocés a quien lo hace — queremos escuchar esa historia y contarla bien, con tu
                 nombre y tu barra.
               </p>
-              <a
-                href="/#faq"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                  color: C.sage2,
-                  fontWeight: 800,
-                  fontSize: "0.92rem",
-                  textDecoration: "none",
-                }}
-              >
+              <a href="/#faq" className="brut-btn-ghost px-6 py-3 text-xs">
                 Contanos tu historia →
               </a>
             </motion.div>
           </div>
 
-          <motion.p {...reveal} style={{ fontSize: "0.8rem", color: C.muted, marginTop: 40, lineHeight: 1.6 }}>
+          <motion.p {...reveal} className="brut-mono mt-10 text-[0.7rem] leading-[1.6] text-chalk/40">
             Fuentes: Gobierno de la Ciudad de Buenos Aires, ICSWF, Fundación Calistenia Argentina, Calisthenics
             Parks (directorio comunitario de puntos de entrenamiento).
           </motion.p>
@@ -281,50 +238,25 @@ export function CulturaCalistenia() {
       </section>
 
       {/* ───────────────────────── CTA final ───────────────────────── */}
-      <section style={{ backgroundColor: C.cream2, borderTop: `1px solid ${C.border}` }} className="py-52 px-8">
-        <div style={{ maxWidth: 1152, margin: "0 auto" }}>
+      <section className="brut-sec brut-concrete relative overflow-hidden bg-void py-52 px-8 text-chalk">
+        <div className="brut-grid absolute inset-0 opacity-50" aria-hidden />
+        <div className="relative mx-auto max-w-6xl">
           <motion.div
             {...reveal}
-            style={{ background: C.forest, borderRadius: 28, padding: "clamp(56px,8vw,96px) clamp(28px,6vw,80px)", textAlign: "center" }}
+            className="brut-panel-raised relative overflow-hidden px-[clamp(28px,6vw,80px)] py-[clamp(56px,8vw,96px)] text-center"
           >
-            <p style={{ fontSize: "0.7rem", fontWeight: 800, letterSpacing: "0.2em", textTransform: "uppercase", color: C.sage2, marginBottom: 24 }}>
-              La cultura, con tu cuerpo
-            </p>
-            <h2
-              style={{
-                fontSize: "clamp(2rem,4.6vw,3.6rem)",
-                fontWeight: 900,
-                color: C.cream,
-                lineHeight: 1,
-                letterSpacing: "-0.03em",
-                margin: "0 0 20px",
-              }}
-            >
+            <div className="brut-hazard absolute left-0 right-0 top-0 h-[3px] opacity-50" aria-hidden />
+            <p className="brut-label mb-6 justify-center">[CULT_05 // LA_CULTURA_CON_TU_CUERPO]</p>
+            <h2 className="brut-display mx-auto mb-5 max-w-[820px] text-[clamp(2.6rem,6vw,4.6rem)]">
               Treinta años de historia, tu primera dominada.
             </h2>
-            <p style={{ fontSize: "1.02rem", color: "rgba(248,246,242,0.65)", lineHeight: 1.7, fontWeight: 300, maxWidth: 540, margin: "0 auto 44px" }}>
+            <p className="mx-auto mb-11 max-w-[540px] text-[1.02rem] leading-[1.7] text-chalk/65">
               El Método FLORA toma la ciencia del entrenamiento y la aplica con tu propio peso — la misma
               herramienta que usa esta cultura hace tres décadas.
             </p>
-            <motion.a
-              href="/metodo/"
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.97 }}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 16,
-                background: C.cream,
-                color: C.ink,
-                fontWeight: 700,
-                fontSize: "1rem",
-                padding: "16px 36px",
-                borderRadius: 999,
-                cursor: "pointer",
-              }}
-            >
-              Conocer el Método FLORA <span style={{ color: C.sage }}>→</span>
-            </motion.a>
+            <a href="/metodo/" className="brut-btn px-9 py-4 text-sm">
+              Conocer el Método FLORA →
+            </a>
           </motion.div>
         </div>
       </section>

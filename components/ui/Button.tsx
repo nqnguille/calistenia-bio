@@ -1,5 +1,4 @@
 "use client";
-import { motion } from "framer-motion";
 
 interface ButtonProps {
   children: React.ReactNode;
@@ -10,29 +9,26 @@ interface ButtonProps {
 }
 
 export function Button({ children, variant = "primary", size = "md", className = "", onClick }: ButtonProps) {
-  const base = "inline-flex items-center justify-center font-semibold tracking-tight transition-all cursor-pointer select-none rounded-full";
+  const base = "cursor-pointer select-none";
 
   const variants = {
-    primary: "bg-ink text-cream hover:bg-ink2",
-    ghost:   "bg-transparent text-ink border border-border hover:bg-cream2",
-    outline: "bg-transparent text-cream border border-white/20 hover:bg-white/10",
+    primary: "brut-btn",
+    ghost:   "brut-btn-ghost",
+    outline: "brut-btn-ghost",
   };
 
   const sizes = {
-    sm: "px-5 py-2.5 text-sm gap-2",
-    md: "px-7 py-3.5 text-base gap-2.5",
-    lg: "px-9 py-5 text-lg gap-3",
+    sm: "px-5 py-2.5 text-xs",
+    md: "px-7 py-3.5 text-sm",
+    lg: "px-9 py-5 text-base",
   };
 
   return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.15 }}
+    <button
       onClick={onClick}
       className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
     >
       {children}
-    </motion.button>
+    </button>
   );
 }

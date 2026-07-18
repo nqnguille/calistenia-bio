@@ -26,84 +26,23 @@
 }
 
 @layer utilities {
-  .section-tag,
-  .section-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 14px;
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: #7A8F74;
-  }
-  .section-tag::before,
-  .section-label::before,
-  .section-label::after {
-    content: "";
-    display: block;
-    width: 28px;
-    height: 1px;
-    background: currentColor;
-    opacity: 0.75;
-    flex-shrink: 0;
-  }
-  .section-tag::after { display: none; }
+  
+  
+  
 
-  .grad-text {
-    background: linear-gradient(135deg, #789173 0%, #b9c9ad 55%, #f1eee8 115%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .grad-text-dark {
-    background: linear-gradient(135deg, #151716 0%, #52624e 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .grad-text-light {
-    background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.62) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+  
+  
+  
 
-  .bio-grid {
-    background-image:
-      linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
-    background-size: 72px 72px;
-    mask-image: radial-gradient(ellipse 72% 58% at 50% 20%, #000 0%, transparent 74%);
-  }
+  
 
-  .grain {
-    background-image:
-      radial-gradient(circle at 20% 30%, rgba(255,255,255,0.06) 0 1px, transparent 1px),
-      radial-gradient(circle at 80% 10%, rgba(255,255,255,0.05) 0 1px, transparent 1px),
-      radial-gradient(circle at 40% 80%, rgba(255,255,255,0.045) 0 1px, transparent 1px);
-    background-size: 19px 19px, 23px 23px, 29px 29px;
-    opacity: 0.35;
-    mix-blend-mode: soft-light;
-  }
+  
 
-  .glass-panel {
-    background: linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035));
-    border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: 0 30px 100px rgba(0,0,0,0.34);
-    backdrop-filter: blur(22px);
-  }
+  
 
-  .soft-card {
-    background: linear-gradient(145deg, rgba(255,255,255,0.92), rgba(248,246,242,0.72));
-    border: 1px solid rgba(222,217,206,0.9);
-    box-shadow: 0 24px 70px rgba(27,27,27,0.075);
-  }
+  
 
-  .scan-line {
-    background: linear-gradient(90deg, transparent, rgba(175,195,165,0.95), transparent);
-    filter: drop-shadow(0 0 18px rgba(175,195,165,0.72));
-  }
+  
 
   /* ── Sistema brutalista (landing) ── */
 
@@ -228,10 +167,8 @@ html { scroll-behavior: smooth; min-height: 100%; overscroll-behavior-y: none; }
 
 body {
   min-height: 100%;
-  background:
-    radial-gradient(circle at 50% -12%, rgba(122,143,116,0.16), transparent 36rem),
-    linear-gradient(180deg, #F8F6F2 0%, #F1EEE8 45%, #F8F6F2 100%);
-  color: #151716;
+  background: #0A0A0A;
+  color: #EDEDED;
   font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: geometricPrecision;
@@ -250,26 +187,16 @@ main > section[class*="py-52"] {
 /* Las secciones brutalistas de la landing anulan los radiales sage heredados */
 main > section.brut-sec::before { background: none !important; }
 
-main > section:not(:first-child)::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  background:
-    radial-gradient(circle at 12% 14%, rgba(122,143,116,0.08), transparent 26rem),
-    radial-gradient(circle at 88% 72%, rgba(122,143,116,0.06), transparent 24rem);
-}
-
 h1, h2, h3 { text-wrap: balance; }
 p { text-wrap: pretty; }
 a { text-decoration: none; }
 button, a { -webkit-tap-highlight-color: transparent; }
 
-::selection { background: rgba(122,143,116,0.26); }
-::-webkit-scrollbar { width: 7px; }
-::-webkit-scrollbar-track { background: #F1EEE8; }
-::-webkit-scrollbar-thumb { background: #B8B3A8; border-radius: 99px; border: 2px solid #F1EEE8; }
+::selection { background: rgba(0,229,255,0.32); color: #fff; }
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0A0A0A; }
+::-webkit-scrollbar-thumb { background: #333; border: 1px solid #0A0A0A; }
+::-webkit-scrollbar-thumb:hover { background: #00E5FF; }
 
 @keyframes float-slow {
   0%, 100% { transform: translate3d(0,0,0) rotate(0deg); }
