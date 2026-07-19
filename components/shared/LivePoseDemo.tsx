@@ -64,9 +64,16 @@ export function LivePoseDemo() {
       }
     };
 
-    const loop = async () => {
+    // Detección limitada a ~12fps: la inferencia de MediaPipe bloquea el hilo
+    // principal, así que si se corre en cada frame el video se ve a tirones.
+    // Espaciándola, el <video> (decodificado por GPU) fluye parejo y el
+    // esqueleto igual se ve en vivo.
+    let lastSend = 0;
+    const SEND_EVERY = 80;
+    const loop = async (t: number) => {
       if (stopped) return;
-      if (!busy && pose && video.readyState >= 2 && !video.paused) {
+      if (!busy && pose && video.readyState >= 2 && !video.paused && t - lastSend >= SEND_EVERY) {
+        lastSend = t;
         busy = true;
         resizeCanvas(canvas);
         try { await pose.send({ image: video }); } catch { /* frame no listo */ }
@@ -82,16 +89,17 @@ export function LivePoseDemo() {
         await loadMediaPipe();
         if (stopped || !window.Pose) return;
         pose = new window.Pose({ locateFile: (f: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${f}` });
-        const isMobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+        // Demo (no evaluación clínica): modelo lite = mucho más liviano en el
+        // hilo principal → video fluido. La precisión fina no hace falta acá.
         pose.setOptions({
-          modelComplexity: isMobile ? 1 : 2,
+          modelComplexity: 0,
           smoothLandmarks: true,
           enableSegmentation: false,
           minDetectionConfidence: 0.4,
           minTrackingConfidence: 0.4,
         });
         pose.onResults(onResults);
-        loop();
+        raf = requestAnimationFrame(loop);
       } catch {
         setFailed(true);
       }
