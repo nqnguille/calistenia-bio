@@ -1,0 +1,42 @@
+{
+  "start": {
+    "file": "start.mp3",
+    "text": "Vamos con sentadillas. Cuando estés, empezá."
+  },
+  "rep": {
+    "file": "rep.mp3",
+    "text": "Bien, seguí con control."
+  },
+  "depth_ok": {
+    "file": "depth_ok.mp3",
+    "text": "Buena profundidad."
+  },
+  "depth_low": {
+    "file": "depth_low.mp3",
+    "text": "Bajá un poco más."
+  },
+  "posture": {
+    "file": "posture.mp3",
+    "text": "Pecho arriba, espalda larga."
+  },
+  "breathe": {
+    "file": "breathe.mp3",
+    "text": "Respirá, sin apurar."
+  },
+  "rhythm": {
+    "file": "rhythm.mp3",
+    "text": "Ese ritmo, sostenelo."
+  },
+  "five": {
+    "file": "five.mp3",
+    "text": "Van cinco. Vas bien."
+  },
+  "ten": {
+    "file": "ten.mp3",
+    "text": "Diez. Cerramos la serie."
+  },
+  "onemore": {
+    "file": "onemore.mp3",
+    "text": "Eso. Una más."
+  }
+}

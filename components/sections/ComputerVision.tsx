@@ -101,7 +101,7 @@ export function ComputerVision() {
           </motion.h2>
           <motion.p initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.16 }}
             className="mt-6 max-w-xl text-base leading-7 text-chalk/65 md:text-lg">
-            Esto está pasando <span className="text-cyan">ahora mismo</span> en tu navegador: el mismo motor de la evaluación analiza más de 30 puntos del cuerpo, sin sensores, solo con la cámara.
+Esto está pasando <span className="text-cyan">ahora mismo</span> en tu navegador: el mismo motor de la evaluación te lee más de 30 puntos del cuerpo y, mientras entrenás, un coach te cuenta las repeticiones, te corrige y te alienta. Sin sensores, solo con la cámara.
           </motion.p>
         </div>
 
@@ -110,7 +110,7 @@ export function ComputerVision() {
           <motion.div initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
             <LivePoseDemo />
             <p className="brut-mono mt-3 text-[0.62rem] uppercase tracking-[0.06em] text-chalk/35">
-              detección real · mismo motor que la evaluación · corriendo en tu navegador
+              te detecta, te cuenta y te corrige en vivo · activá <span className="text-cyan">🔊 voz</span> para escuchar al coach
             </p>
           </motion.div>
 

@@ -3,26 +3,84 @@
 // BlazePose) que la app real, pero sobre un video de stock en loop. El
 // esqueleto cian se dibuja encima del cuerpo real y las métricas (ROM de
 // rodilla, postura, confianza, conteo de sentadillas) se calculan de verdad,
-// cuadro a cuadro. Carga perezosa: el modelo solo se baja cuando la sección
-// entra en viewport. Si MediaPipe no está disponible, queda el video real solo.
+// cuadro a cuadro. Además el coach (El Zen) reacciona a esos eventos reales:
+// cuenta reps, corrige profundidad/postura y alienta, con texto animado y voz
+// opcional (toggle, porque el navegador bloquea el audio hasta un clic).
+// Carga perezosa: el modelo solo se baja cuando la sección entra en viewport.
 import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { loadMediaPipe, drawPose, poseQuality, angle, LM, resizeCanvas, type Landmark } from "@/lib/pose-engine";
 
 type Live = { knee: number; postura: number; conf: number; reps: number; ready: boolean };
+type Cue = { slug: string; text: string; t: number };
+
+// Frases del coach El Zen (clips en /audio/coach-demo/<slug>.mp3).
+const CUES: Record<string, string> = {
+  start:     "Vamos con sentadillas. Cuando estés, empezá.",
+  rep:       "Bien, seguí con control.",
+  depth_ok:  "Buena profundidad.",
+  depth_low: "Bajá un poco más.",
+  posture:   "Pecho arriba, espalda larga.",
+  breathe:   "Respirá, sin apurar.",
+  rhythm:    "Ese ritmo, sostenelo.",
+  five:      "Van cinco. Vas bien.",
+  ten:       "Diez. Cerramos la serie.",
+  onemore:   "Eso. Una más.",
+};
 
 export function LivePoseDemo() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [live, setLive] = useState<Live>({ knee: 0, postura: 0, conf: 0, reps: 0, ready: false });
+  const [cue, setCue] = useState<Cue | null>(null);
+  const [voiceOn, setVoiceOn] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  // Estado del contador de sentadillas y throttle de re-render.
+  // Estado del contador y del motor de coaching.
   const phaseRef = useRef<"up" | "down">("up");
   const repsRef = useRef(0);
   const lastPushRef = useRef(0);
+  const minKneeRef = useRef(180);
+  const lastCueRef = useRef(0);
+  const lastRepRef = useRef(0);
+  const cueRef = useRef<Cue | null>(null);
+  const voiceOnRef = useRef(false);
+  const audioRef = useRef<Record<string, HTMLAudioElement>>({});
+
+  const playCue = (slug: string) => {
+    const a = audioRef.current[slug];
+    if (a) { try { a.currentTime = 0; a.play().catch(() => {}); } catch {} }
+  };
+
+  const fireCue = (slug: string, priority = false) => {
+    const now = performance.now();
+    if (now - lastCueRef.current < (priority ? 1200 : 2600)) return;
+    lastCueRef.current = now;
+    const c = { slug, text: CUES[slug], t: now };
+    cueRef.current = c;
+    setCue(c);
+    if (voiceOnRef.current) playCue(slug);
+  };
+
+  const toggleVoice = () => {
+    const next = !voiceOnRef.current;
+    voiceOnRef.current = next;
+    setVoiceOn(next);
+    // El clic es el gesto que habilita el audio: reproducimos el cue actual.
+    if (next) playCue(cueRef.current?.slug ?? "start");
+  };
 
   useEffect(() => {
+    // Precarga de los clips del coach.
+    audioRef.current = Object.fromEntries(
+      Object.keys(CUES).map((slug) => {
+        const a = new Audio(`/audio/coach-demo/${slug}.mp3`);
+        a.preload = "auto";
+        return [slug, a];
+      })
+    );
+
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -37,6 +95,7 @@ export function LivePoseDemo() {
     let busy = false;
     let raf = 0;
     let started = false;
+    let firstCue = false;
 
     const onResults = (results: { poseLandmarks?: Landmark[] }) => {
       if (stopped) return;
@@ -51,13 +110,38 @@ export function LivePoseDemo() {
       const tilt = Math.atan2(Math.abs(ls.y - rs.y), Math.abs(ls.x - rs.x) + 1e-4) * (180 / Math.PI);
       const postura = Math.max(0, Math.round(100 - tilt * 4));
 
-      // Conteo de sentadillas por cruce de umbral de flexión de rodilla.
+      const now = performance.now();
+      if (!firstCue && q > 30) { firstCue = true; lastRepRef.current = now; fireCue("start"); }
+
+      // Conteo de sentadillas + coaching por evento real.
       if (knee > 0) {
-        if (phaseRef.current === "up" && knee < 100) phaseRef.current = "down";
-        else if (phaseRef.current === "down" && knee > 155) { phaseRef.current = "up"; repsRef.current += 1; }
+        if (phaseRef.current === "up" && knee < 100) {
+          phaseRef.current = "down";
+          minKneeRef.current = knee;
+        } else if (phaseRef.current === "down") {
+          minKneeRef.current = Math.min(minKneeRef.current, knee);
+          if (knee > 155) {
+            phaseRef.current = "up";
+            repsRef.current += 1;
+            lastRepRef.current = now;
+            const reps = repsRef.current;
+            const deep = minKneeRef.current;
+            // Prioridad: hitos > corrección de profundidad > aliento.
+            if (reps === 5) fireCue("five", true);
+            else if (reps === 10) fireCue("ten", true);
+            else if (deep > 108) fireCue("depth_low", true);
+            else if (deep < 92) fireCue("depth_ok");
+            else fireCue(reps % 2 ? "rep" : "onemore");
+            minKneeRef.current = 180;
+          }
+        }
       }
 
-      const now = performance.now();
+      // Corrección de postura si el torso se inclina sostenidamente.
+      if (postura < 66 && phaseRef.current === "up") fireCue("posture");
+      // Respiración si hay pausa entre repeticiones.
+      else if (now - lastRepRef.current > 4800) { fireCue("breathe"); lastRepRef.current = now - 2000; }
+
       if (now - lastPushRef.current > 140) {
         lastPushRef.current = now;
         setLive({ knee, postura, conf: q, reps: repsRef.current, ready: true });
@@ -66,8 +150,6 @@ export function LivePoseDemo() {
 
     // Detección limitada a ~12fps: la inferencia de MediaPipe bloquea el hilo
     // principal, así que si se corre en cada frame el video se ve a tirones.
-    // Espaciándola, el <video> (decodificado por GPU) fluye parejo y el
-    // esqueleto igual se ve en vivo.
     let lastSend = 0;
     const SEND_EVERY = 80;
     const loop = async (t: number) => {
@@ -89,8 +171,8 @@ export function LivePoseDemo() {
         await loadMediaPipe();
         if (stopped || !window.Pose) return;
         pose = new window.Pose({ locateFile: (f: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${f}` });
-        // Demo (no evaluación clínica): modelo lite = mucho más liviano en el
-        // hilo principal → video fluido. La precisión fina no hace falta acá.
+        // Demo (no evaluación clínica): modelo lite = más liviano en el hilo
+        // principal → video fluido. La precisión fina no hace falta acá.
         pose.setOptions({
           modelComplexity: 0,
           smoothLandmarks: true,
@@ -105,7 +187,6 @@ export function LivePoseDemo() {
       }
     };
 
-    // Carga perezosa: arranca cuando entra en viewport; pausa al salir.
     const io = new IntersectionObserver(([e]) => {
       if (e.isIntersecting) { video.play().catch(() => {}); boot(); }
       else { video.pause(); }
@@ -122,15 +203,24 @@ export function LivePoseDemo() {
 
   return (
     <div ref={wrapRef} className="brut-panel-raised relative overflow-hidden">
-      {/* Header tipo terminal */}
+      {/* Header tipo terminal + toggle de voz */}
       <div className="flex items-center justify-between border-b border-white/[0.14] bg-black/50 px-4 py-3">
         <span className="brut-mono text-[0.68rem] font-bold uppercase tracking-[0.1em] text-chalk/50">
           pose_engine.live
         </span>
-        <span className="brut-mono flex items-center gap-2 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-cyan">
-          <span className="h-2 w-2 animate-pulse bg-cyan" />
-          {live.ready ? "detectando" : "cargando…"}
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleVoice}
+            className={`brut-mono flex items-center gap-1.5 border px-2.5 py-1 text-[0.6rem] font-bold uppercase tracking-[0.08em] transition-colors ${voiceOn ? "border-cyan bg-cyan/10 text-cyan" : "border-white/25 text-chalk/55 hover:border-cyan/60"}`}
+            aria-pressed={voiceOn}
+          >
+            {voiceOn ? "🔊 voz" : "🔇 voz"}
+          </button>
+          <span className="brut-mono flex items-center gap-2 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-cyan">
+            <span className="h-2 w-2 animate-pulse bg-cyan" />
+            {live.ready ? "detectando" : "cargando…"}
+          </span>
+        </div>
       </div>
 
       {/* Feed real + esqueleto */}
@@ -152,14 +242,11 @@ export function LivePoseDemo() {
           <source src="/hero/posedemo-v3.mp4" type="video/mp4" />
         </video>
 
-        {/* Scanlines + viñeta sobre el feed */}
         <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: "linear-gradient(rgba(0,229,255,.08) 1px, transparent 1px)", backgroundSize: "100% 3px" }} aria-hidden />
         <div className="pointer-events-none absolute inset-0" style={{ boxShadow: "inset 0 0 120px rgba(0,0,0,0.7)" }} aria-hidden />
 
-        {/* Esqueleto real dibujado por MediaPipe */}
         <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden />
 
-        {/* Esquinas técnicas */}
         {["left-2 top-2 border-l-2 border-t-2", "right-2 top-2 border-r-2 border-t-2", "left-2 bottom-2 border-l-2 border-b-2", "right-2 bottom-2 border-r-2 border-b-2"].map((c) => (
           <span key={c} className={`pointer-events-none absolute ${c} h-5 w-5 border-cyan/70`} aria-hidden />
         ))}
@@ -180,6 +267,33 @@ export function LivePoseDemo() {
           </div>
           <span className="brut-display text-sm text-cyan">{live.ready ? `${live.conf}` : "—"}</span>
         </div>
+      </div>
+
+      {/* Barra del coach: reacciona a la detección real */}
+      <div className="flex min-h-[68px] items-center gap-3 border-t border-white/[0.14] bg-black/55 px-4 py-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center border border-cyan/40 bg-cyan/10 text-lg" aria-hidden>🌿</span>
+        <div className="min-w-0 flex-1">
+          <p className="brut-mono text-[0.56rem] font-bold uppercase tracking-[0.1em] text-chalk/40">El Zen · coach</p>
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={cue?.t ?? "idle"}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25 }}
+              className="brut-mono truncate text-sm text-cyan"
+            >
+              {cue ? cue.text : "esperando el primer movimiento…"}
+            </motion.p>
+          </AnimatePresence>
+        </div>
+        {voiceOn && cue && (
+          <div className="flex items-end gap-0.5" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <motion.span key={i} className="w-0.5 bg-cyan" animate={{ height: [4, 12, 4] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.12 }} />
+            ))}
+          </div>
+        )}
       </div>
 
       {failed && (
