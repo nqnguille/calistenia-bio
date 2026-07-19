@@ -5,9 +5,72 @@
 // cuerpo, sin desfase posible. Las lecturas (ángulo, velocidad, simetría,
 // confianza) se calculan de los landmarks reales.
 import { useEffect, useRef, useState } from "react";
-import { loadMediaPipe, drawPose, poseQuality, angle, LM, resizeCanvas, type Landmark } from "@/lib/pose-engine";
+import { loadMediaPipe, drawPose, poseQuality, angle, LM, resizeCanvas, coverMapper, clamp, visOk, type Landmark } from "@/lib/pose-engine";
 
 type R = { ang: number; vel: number; sym: number; conf: number; ready: boolean };
+
+// Marcadores extra sobre las articulaciones, dibujados en el MISMO canvas que
+// el esqueleto → escalan y se alinean con el cuerpo. Arco de ángulo + grado +
+// bracket de tracking en cada rodilla, e IDs de landmark en las piernas.
+function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landmark[]) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const map = coverMapper(canvas, video);
+  const u = clamp(Math.max(canvas.width, canvas.height) / 1400, 0.6, 2.4);
+  ctx.save();
+  ctx.strokeStyle = "#00E5FF";
+  ctx.fillStyle = "#00E5FF";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  const legs = [
+    { h: LM.L_HIP, k: LM.L_KNEE, a: LM.L_ANKLE },
+    { h: LM.R_HIP, k: LM.R_KNEE, a: LM.R_ANKLE },
+  ];
+  for (const leg of legs) {
+    const H = lms[leg.h], K = lms[leg.k], A = lms[leg.a];
+    if (!visOk(H, 0.3) || !visOk(K, 0.3) || !visOk(A, 0.3)) continue;
+    const hp = map(H), kp = map(K), ap = map(A);
+    const ang = Math.round(angle(H, K, A));
+
+    // arco del ángulo entre fémur y tibia
+    const a1 = Math.atan2(hp.y - kp.y, hp.x - kp.x);
+    const a2 = Math.atan2(ap.y - kp.y, ap.x - kp.x);
+    let d = a2 - a1;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 2 * u;
+    ctx.beginPath();
+    ctx.arc(kp.x, kp.y, 22 * u, a1, a1 + d, d < 0);
+    ctx.stroke();
+
+    // bracket de tracking alrededor de la rodilla
+    const b = 30 * u, len = 9 * u;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 1.6 * u;
+    for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+      ctx.beginPath();
+      ctx.moveTo(kp.x + sx * b, kp.y + sy * b - sy * len);
+      ctx.lineTo(kp.x + sx * b, kp.y + sy * b);
+      ctx.lineTo(kp.x + sx * b - sx * len, kp.y + sy * b);
+      ctx.stroke();
+    }
+
+    // grado del ángulo
+    ctx.globalAlpha = 1;
+    ctx.font = `bold ${13 * u}px monospace`;
+    ctx.fillText(`${ang}°`, kp.x + 34 * u, kp.y - 3 * u);
+
+    // IDs de landmark
+    ctx.globalAlpha = 0.7;
+    ctx.font = `${9 * u}px monospace`;
+    ctx.fillText(String(leg.h), hp.x + 4 * u, hp.y - 5 * u);
+    ctx.fillText(String(leg.k), kp.x + 4 * u, kp.y + 12 * u);
+    ctx.fillText(String(leg.a), ap.x + 4 * u, ap.y - 5 * u);
+  }
+  ctx.restore();
+}
 
 export function ZoomReader() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -34,6 +97,7 @@ export function ZoomReader() {
       const q = poseQuality(lms);
       drawPose(canvas, video, lms, q);
       if (!lms) return;
+      drawMarkers(canvas, video, lms);
       const aL = angle(lms[LM.L_HIP], lms[LM.L_KNEE], lms[LM.L_ANKLE]);
       const aR = angle(lms[LM.R_HIP], lms[LM.R_KNEE], lms[LM.R_ANKLE]);
       const now = performance.now();

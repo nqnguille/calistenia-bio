@@ -157,7 +157,7 @@ export function resizeCanvas(canvas: HTMLCanvasElement) {
   }
 }
 
-function coverMapper(canvas: HTMLCanvasElement, video: HTMLVideoElement) {
+export function coverMapper(canvas: HTMLCanvasElement, video: HTMLVideoElement) {
   const vw = video.videoWidth || 1280;
   const vh = video.videoHeight || 720;
   const scale = Math.max(canvas.width / vw, canvas.height / vh);
