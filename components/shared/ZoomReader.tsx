@@ -1,17 +1,15 @@
 "use client";
-// Mega-zoom REAL: corre MediaPipe sobre el video y dibuja el esqueleto con
-// drawPose (mismo motor). El video y el canvas del esqueleto viven en el mismo
-// contenedor y se ESCALAN juntos con CSS → el esqueleto queda siempre pegado al
-// cuerpo, sin desfase posible. Las lecturas (ángulo, velocidad, simetría,
-// confianza) se calculan de los landmarks reales.
+// Mega-zoom SIN lag: la detección se pre-calculó offline con el modelo pesado
+// (scripts extraen 33 landmarks por cuadro → posedemo-pose.json). Acá solo se
+// leen esos landmarks sincronizados al cuadro exacto del video
+// (requestVideoFrameCallback) y se dibujan. Sincronía perfecta, 60fps, cero CPU.
 import { useEffect, useRef, useState } from "react";
-import { loadMediaPipe, drawPose, poseQuality, angle, LM, resizeCanvas, coverMapper, clamp, visOk, type Landmark } from "@/lib/pose-engine";
+import { drawPose, poseQuality, angle, LM, coverMapper, clamp, visOk, type Landmark } from "@/lib/pose-engine";
 
 type R = { ang: number; vel: number; sym: number; conf: number; ready: boolean };
+type PoseData = { fps: number; count: number; frames: (number[][] | null)[] };
 
-// Marcadores extra sobre las articulaciones, dibujados en el MISMO canvas que
-// el esqueleto → escalan y se alinean con el cuerpo. Arco de ángulo + grado +
-// bracket de tracking en cada rodilla, e IDs de landmark en las piernas.
+// Marcadores extra sobre las articulaciones, en el mismo canvas que el esqueleto.
 function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landmark[]) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -22,7 +20,6 @@ function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: La
   ctx.fillStyle = "#00E5FF";
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-
   const legs = [
     { h: LM.L_HIP, k: LM.L_KNEE, a: LM.L_ANKLE },
     { h: LM.R_HIP, k: LM.R_KNEE, a: LM.R_ANKLE },
@@ -32,8 +29,6 @@ function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: La
     if (!visOk(H, 0.3) || !visOk(K, 0.3) || !visOk(A, 0.3)) continue;
     const hp = map(H), kp = map(K), ap = map(A);
     const ang = Math.round(angle(H, K, A));
-
-    // arco del ángulo entre fémur y tibia
     const a1 = Math.atan2(hp.y - kp.y, hp.x - kp.x);
     const a2 = Math.atan2(ap.y - kp.y, ap.x - kp.x);
     let d = a2 - a1;
@@ -44,8 +39,6 @@ function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: La
     ctx.beginPath();
     ctx.arc(kp.x, kp.y, 22 * u, a1, a1 + d, d < 0);
     ctx.stroke();
-
-    // bracket de tracking alrededor de la rodilla
     const b = 30 * u, len = 9 * u;
     ctx.globalAlpha = 0.85;
     ctx.lineWidth = 1.6 * u;
@@ -56,13 +49,9 @@ function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: La
       ctx.lineTo(kp.x + sx * b - sx * len, kp.y + sy * b);
       ctx.stroke();
     }
-
-    // grado del ángulo
     ctx.globalAlpha = 1;
     ctx.font = `bold ${13 * u}px monospace`;
     ctx.fillText(`${ang}°`, kp.x + 34 * u, kp.y - 3 * u);
-
-    // IDs de landmark
     ctx.globalAlpha = 0.7;
     ctx.font = `${9 * u}px monospace`;
     ctx.fillText(String(leg.h), hp.x + 4 * u, hp.y - 5 * u);
@@ -72,100 +61,67 @@ function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: La
   ctx.restore();
 }
 
+const toLms = (f: number[][] | null): Landmark[] | null =>
+  f ? f.map((a) => ({ x: a[0], y: a[1], z: a[2], visibility: a[3] })) : null;
+
 export function ZoomReader() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [r, setR] = useState<R>({ ang: 0, vel: 0, sym: 0, conf: 0, ready: false });
   const [failed, setFailed] = useState(false);
-  const prevRef = useRef({ ang: 0, t: 0 });
-  const pushRef = useRef(0);
 
   useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const video = videoRef.current, canvas = canvasRef.current, wrap = wrapRef.current;
     if (!video || !canvas || !wrap) return;
     video.play().catch(() => {});
-    if (reduce) return;
 
-    let pose: InstanceType<NonNullable<typeof window.Pose>> | null = null;
-    let stopped = false, started = false;
-    let rafR = 0, timer = 0;
-    // target = últimos landmarks detectados; cur = versión interpolada que se
-    // dibuja cada frame. Al mover el video un poco más lento, la detección
-    // "alcanza" el movimiento y el desfase se vuelve imperceptible.
-    let target: Landmark[] | null = null;
-    let cur: Landmark[] | null = null;
-    let q = 80;
-    const PLAYBACK = 0.62;
+    let data: PoseData | null = null;
+    let stopped = false, rvfc = 0, rafId = 0;
+    let prevAng = 0, prevT = 0, lastPush = 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vAny = video as any;
+    const hasRVFC = typeof vAny.requestVideoFrameCallback === "function";
 
-    const onResults = (res: { poseLandmarks?: Landmark[] }) => {
-      if (stopped) return;
-      const lms = res.poseLandmarks ?? null;
-      if (!lms) { target = null; return; }
-      target = lms;
-      q = poseQuality(lms);
+    fetch("/hero/posedemo-pose.json").then((res) => res.json()).then((d: PoseData) => { data = d; }).catch(() => setFailed(true));
+
+    const draw = (mediaTime: number) => {
+      if (!data) return;
+      const idx = Math.min(data.count - 1, Math.max(0, Math.round(mediaTime * data.fps)));
+      const lms = toLms(data.frames[idx]);
+      const q = poseQuality(lms);
+      drawPose(canvas, video, lms, q);
+      if (!lms) return;
+      drawMarkers(canvas, video, lms);
       const aL = angle(lms[LM.L_HIP], lms[LM.L_KNEE], lms[LM.L_ANKLE]);
       const aR = angle(lms[LM.R_HIP], lms[LM.R_KNEE], lms[LM.R_ANKLE]);
       const now = performance.now();
-      const dt = (now - prevRef.current.t) / 1000;
-      // velocidad ajustada por el playback para reflejar el ritmo real del cuerpo
-      const vel = dt > 0 && dt < 1 ? (Math.abs(aL - prevRef.current.ang) / dt) / PLAYBACK : 0;
-      prevRef.current = { ang: aL, t: now };
-      if (now - pushRef.current > 100) {
-        pushRef.current = now;
-        setR({ ang: Math.round(aL), vel: Math.min(240, Math.round(vel)), sym: Math.max(0, Math.round(100 - Math.abs(aL - aR))), conf: q, ready: true });
+      const dt = (now - prevT) / 1000;
+      const vel = dt > 0 && dt < 0.4 ? Math.abs(aL - prevAng) / dt : 0;
+      prevAng = aL; prevT = now;
+      if (now - lastPush > 90) {
+        lastPush = now;
+        setR({ ang: Math.round(aL), vel: Math.min(280, Math.round(vel)), sym: Math.max(0, Math.round(100 - Math.abs(aL - aR))), conf: q, ready: true });
       }
     };
 
-    // Render desacoplado a 60fps con interpolación → esqueleto fluido y sin steps.
-    const render = () => {
-      if (stopped) return;
-      if (target) {
-        if (!cur || cur.length !== target.length) cur = target.map((p) => ({ ...p }));
-        const k = 0.5;
-        for (let i = 0; i < target.length; i++) {
-          const t = target[i], c = cur[i];
-          c.x += (t.x - c.x) * k;
-          c.y += (t.y - c.y) * k;
-          if (c.z != null && t.z != null) c.z += (t.z - c.z) * k;
-          c.visibility = t.visibility;
-        }
-        drawPose(canvas, video, cur, q);
-        drawMarkers(canvas, video, cur);
-      }
-      rafR = requestAnimationFrame(render);
-    };
-
-    // Detección en su propio ritmo, sin bloquear el render.
-    const detect = async () => {
-      if (stopped) return;
-      if (pose && video.readyState >= 2 && !video.paused) {
-        try { await pose.send({ image: video }); } catch {}
-      }
-      if (!stopped) timer = window.setTimeout(detect, 55);
-    };
-
-    const boot = async () => {
-      if (started || stopped) return;
-      started = true;
-      try {
-        await loadMediaPipe();
-        if (stopped || !window.Pose) return;
-        pose = new window.Pose({ locateFile: (f: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${f}` });
-        pose.setOptions({ modelComplexity: 0, smoothLandmarks: true, enableSegmentation: false, minDetectionConfidence: 0.4, minTrackingConfidence: 0.4 });
-        pose.onResults(onResults);
-        detect();
-        rafR = requestAnimationFrame(render);
-      } catch { setFailed(true); }
-    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const onFrame = (_now: number, meta: any) => { if (stopped) return; draw(meta.mediaTime); rvfc = vAny.requestVideoFrameCallback(onFrame); };
+    const onRaf = () => { if (stopped) return; draw(video.currentTime); rafId = requestAnimationFrame(onRaf); };
+    const startDraw = () => { if (hasRVFC) rvfc = vAny.requestVideoFrameCallback(onFrame); else rafId = requestAnimationFrame(onRaf); };
 
     const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { video.play().catch(() => {}); video.playbackRate = PLAYBACK; boot(); }
+      if (e.isIntersecting) { video.play().catch(() => {}); startDraw(); }
       else video.pause();
     }, { threshold: 0.15 });
     io.observe(wrap);
-    return () => { stopped = true; cancelAnimationFrame(rafR); clearTimeout(timer); io.disconnect(); try { pose?.close(); } catch {} };
+
+    return () => {
+      stopped = true;
+      if (hasRVFC && vAny.cancelVideoFrameCallback) vAny.cancelVideoFrameCallback(rvfc);
+      cancelAnimationFrame(rafId);
+      io.disconnect();
+    };
   }, []);
 
   return (
@@ -178,14 +134,13 @@ export function ZoomReader() {
       </div>
 
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-black">
-        {/* video + esqueleto escalados JUNTOS → siempre alineados */}
         <div className="absolute inset-0" style={{ transform: "scale(2)", transformOrigin: "50% 74%" }}>
           <video
             ref={videoRef}
             className="absolute inset-0 h-full w-full object-cover"
             style={{ filter: "contrast(1.05) saturate(0.82) brightness(0.88)" }}
             src="/hero/posedemo-v3.mp4" poster="/hero/posedemo-v3_poster.jpg"
-            muted loop playsInline autoPlay preload="metadata" aria-hidden
+            muted loop playsInline autoPlay preload="auto" aria-hidden
           >
             <source src="/hero/posedemo-v3.webm" type="video/webm" />
             <source src="/hero/posedemo-v3.mp4" type="video/mp4" />
@@ -230,7 +185,7 @@ export function ZoomReader() {
 
       {failed && (
         <p className="brut-mono border-t border-white/[0.14] bg-black/50 px-4 py-2 text-[0.6rem] uppercase tracking-[0.06em] text-chalk/40">
-          análisis en vivo no disponible en este dispositivo · mostrando feed real
+          análisis no disponible · mostrando feed real
         </p>
       )}
     </div>
