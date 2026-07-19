@@ -47,6 +47,10 @@ export function ReadingMethod() {
             <p className="brut-mono mt-5 text-[0.62rem] uppercase leading-5 tracking-[0.06em] text-chalk/35">
               todo desde el navegador · sin sensores · sin ropa especial · solo tu cámara
             </p>
+            <p className="mt-4 flex items-start gap-2.5 border-l-2 border-cyan bg-white/[0.02] py-2.5 pl-4 text-[0.82rem] leading-6 text-chalk/55">
+              <span className="brut-mono mt-0.5 shrink-0 text-cyan">ℹ</span>
+              <span>Los ángulos se calculan sobre la pose <span className="text-chalk/80">3D</span> que estima el modelo, así el ángulo de la cámara casi no influye. Y en la evaluación real medimos sobre todo <span className="text-chalk/80">repeticiones, tiempos y umbrales</span> —lo más confiable con una sola cámara— y te guiamos a la mejor posición para cada test.</span>
+            </p>
           </div>
         </div>
       </div>

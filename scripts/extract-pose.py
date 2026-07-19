@@ -25,7 +25,7 @@ landmarker = vision.PoseLandmarker.create_from_options(opts)
 
 cap = cv2.VideoCapture(video_path)
 fps = cap.get(cv2.CAP_PROP_FPS)
-frames, det, i = [], 0, 0
+frames, wframes, det, i = [], [], 0, 0
 while True:
     ok, img = cap.read()
     if not ok:
@@ -34,13 +34,18 @@ while True:
     res = landmarker.detect_for_video(mp_img, int(i * 1000.0 / fps))
     if res.pose_landmarks:
         det += 1
+        # 2D (plano de imagen, para dibujar) + world (3D en metros, robusto al
+        # ángulo de cámara, para MEDIR ángulos sin distorsión de perspectiva).
         frames.append([[round(l.x, 4), round(l.y, 4), round(l.z, 3), round(l.visibility, 3)]
                        for l in res.pose_landmarks[0]])
+        w = res.pose_world_landmarks[0] if res.pose_world_landmarks else None
+        wframes.append([[round(l.x, 3), round(l.y, 3), round(l.z, 3)] for l in w] if w else None)
     else:
         frames.append(None)
+        wframes.append(None)
     i += 1
 cap.release()
 landmarker.close()
-json.dump({"fps": round(fps, 3), "count": len(frames), "frames": frames},
+json.dump({"fps": round(fps, 3), "count": len(frames), "frames": frames, "world": wframes},
           open(out_path, "w"), separators=(",", ":"))
 print(f"fps={fps} frames={len(frames)} detectados={det} · {os.path.getsize(out_path)//1024} KB")

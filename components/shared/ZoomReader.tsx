@@ -7,10 +7,22 @@ import { useEffect, useRef, useState } from "react";
 import { drawPose, poseQuality, angle, LM, coverMapper, clamp, visOk, type Landmark } from "@/lib/pose-engine";
 
 type R = { ang: number; vel: number; sym: number; conf: number; ready: boolean };
-type PoseData = { fps: number; count: number; frames: (number[][] | null)[] };
+type PoseData = { fps: number; count: number; frames: (number[][] | null)[]; world: (number[][] | null)[] };
+
+// Ángulo en 3D (world landmarks, en metros): robusto al ángulo de la cámara.
+// Un ángulo 2D sobre una toma oblicua queda distorsionado por la perspectiva;
+// el 3D estimado por el modelo corrige esa distorsión.
+function angle3D(a: number[], b: number[], c: number[]) {
+  const ab = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const cb = [c[0] - b[0], c[1] - b[1], c[2] - b[2]];
+  const dot = ab[0] * cb[0] + ab[1] * cb[1] + ab[2] * cb[2];
+  const mag = Math.hypot(...ab) * Math.hypot(...cb);
+  if (!mag) return 0;
+  return (Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180) / Math.PI;
+}
 
 // Marcadores extra sobre las articulaciones, en el mismo canvas que el esqueleto.
-function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landmark[]) {
+function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: Landmark[], angs: number[]) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const map = coverMapper(canvas, video);
@@ -24,11 +36,11 @@ function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: La
     { h: LM.L_HIP, k: LM.L_KNEE, a: LM.L_ANKLE },
     { h: LM.R_HIP, k: LM.R_KNEE, a: LM.R_ANKLE },
   ];
-  for (const leg of legs) {
+  legs.forEach((leg, li) => {
     const H = lms[leg.h], K = lms[leg.k], A = lms[leg.a];
-    if (!visOk(H, 0.3) || !visOk(K, 0.3) || !visOk(A, 0.3)) continue;
+    if (!visOk(H, 0.3) || !visOk(K, 0.3) || !visOk(A, 0.3)) return;
     const hp = map(H), kp = map(K), ap = map(A);
-    const ang = Math.round(angle(H, K, A));
+    const ang = Math.round(angs[li] ?? angle(H, K, A));
     const a1 = Math.atan2(hp.y - kp.y, hp.x - kp.x);
     const a2 = Math.atan2(ap.y - kp.y, ap.x - kp.x);
     let d = a2 - a1;
@@ -57,7 +69,7 @@ function drawMarkers(canvas: HTMLCanvasElement, video: HTMLVideoElement, lms: La
     ctx.fillText(String(leg.h), hp.x + 4 * u, hp.y - 5 * u);
     ctx.fillText(String(leg.k), kp.x + 4 * u, kp.y + 12 * u);
     ctx.fillText(String(leg.a), ap.x + 4 * u, ap.y - 5 * u);
-  }
+  });
   ctx.restore();
 }
 
@@ -92,9 +104,11 @@ export function ZoomReader() {
       const q = poseQuality(lms);
       drawPose(canvas, video, lms, q);
       if (!lms) return;
-      drawMarkers(canvas, video, lms);
-      const aL = angle(lms[LM.L_HIP], lms[LM.L_KNEE], lms[LM.L_ANKLE]);
-      const aR = angle(lms[LM.R_HIP], lms[LM.R_KNEE], lms[LM.R_ANKLE]);
+      // Ángulos desde 3D (robusto a la cámara); fallback a 2D si faltara.
+      const w = data.world[idx];
+      const aL = w ? angle3D(w[LM.L_HIP], w[LM.L_KNEE], w[LM.L_ANKLE]) : angle(lms[LM.L_HIP], lms[LM.L_KNEE], lms[LM.L_ANKLE]);
+      const aR = w ? angle3D(w[LM.R_HIP], w[LM.R_KNEE], w[LM.R_ANKLE]) : angle(lms[LM.R_HIP], lms[LM.R_KNEE], lms[LM.R_ANKLE]);
+      drawMarkers(canvas, video, lms, [aL, aR]);
       const now = performance.now();
       const dt = (now - prevT) / 1000;
       const vel = dt > 0 && dt < 0.4 ? Math.abs(aL - prevAng) / dt : 0;
