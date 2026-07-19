@@ -9,12 +9,6 @@ const caps = [
   { icon: "⊗", n: "05", title: "Coordinación", desc: "La sincronía entre tu sistema nervioso y tu cuerpo. El primero en deteriorarse." },
 ];
 
-const stats = [
-  { num: "0", desc: "de estas 5 dimensiones aparece en tu historia clínica" },
-  { num: "100%", desc: "son mejorables con el estímulo y la frecuencia correctos" },
-  { num: "5min", desc: "es lo que tarda nuestra evaluación completa con IA" },
-];
-
 export function Problem() {
   return (
     <section className="brut-sec brut-concrete relative overflow-hidden border-t border-white/[0.14] bg-void px-8 py-52 text-chalk">
@@ -54,7 +48,7 @@ export function Problem() {
         </div>
 
         {/* Cards */}
-        <div className="mb-28 grid gap-0 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-0 sm:grid-cols-2 lg:grid-cols-5">
           {caps.map((c, i) => (
             <motion.div
               key={c.n}
@@ -73,23 +67,6 @@ export function Problem() {
             </motion.div>
           ))}
         </div>
-
-        <div className="brut-hazard mb-10 h-[1.5px] w-full opacity-50" aria-hidden />
-
-        {/* Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="brut-panel-raised grid overflow-hidden md:grid-cols-3"
-        >
-          {stats.map((s, i) => (
-            <div key={s.num} className={`px-8 py-11 text-center ${i > 0 ? "border-t border-white/[0.14] md:border-l md:border-t-0" : ""}`}>
-              <p className="brut-display mb-3 text-[clamp(3rem,5vw,4.5rem)] leading-none text-cyan">{s.num}</p>
-              <p className="text-base leading-7 text-chalk/60">{s.desc}</p>
-            </div>
-          ))}
-        </motion.div>
       </div>
     </section>
   );
