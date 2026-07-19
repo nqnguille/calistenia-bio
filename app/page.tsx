@@ -23,6 +23,7 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
+        <ComputerVision />
         <Experience />
         <Problem />
         <AIEngine />
@@ -31,7 +32,6 @@ export default function Home() {
         <CompoundEffect />
         <Adherence />
         <AICoaches />
-        <ComputerVision />
         <Longevity />
         <RealWorldEvidence />
         <Dashboard />

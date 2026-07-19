@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 const links = [
+  { label: "Demo", href: "/#demo" },
   { label: "Método", href: "/metodo/" },
   { label: "Cultura", href: "/cultura/" },
   { label: "Producto", href: "/#producto" },
