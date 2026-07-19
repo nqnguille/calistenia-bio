@@ -89,42 +89,61 @@ export function ZoomReader() {
     if (reduce) return;
 
     let pose: InstanceType<NonNullable<typeof window.Pose>> | null = null;
-    let stopped = false, busy = false, raf = 0, started = false;
+    let stopped = false, started = false;
+    let rafR = 0, timer = 0;
+    // target = últimos landmarks detectados; cur = versión interpolada que se
+    // dibuja cada frame. Al mover el video un poco más lento, la detección
+    // "alcanza" el movimiento y el desfase se vuelve imperceptible.
+    let target: Landmark[] | null = null;
+    let cur: Landmark[] | null = null;
+    let q = 80;
+    const PLAYBACK = 0.62;
 
     const onResults = (res: { poseLandmarks?: Landmark[] }) => {
       if (stopped) return;
       const lms = res.poseLandmarks ?? null;
-      const q = poseQuality(lms);
-      drawPose(canvas, video, lms, q);
-      if (!lms) return;
-      drawMarkers(canvas, video, lms);
+      if (!lms) { target = null; return; }
+      target = lms;
+      q = poseQuality(lms);
       const aL = angle(lms[LM.L_HIP], lms[LM.L_KNEE], lms[LM.L_ANKLE]);
       const aR = angle(lms[LM.R_HIP], lms[LM.R_KNEE], lms[LM.R_ANKLE]);
       const now = performance.now();
       const dt = (now - prevRef.current.t) / 1000;
-      const vel = dt > 0 && dt < 1 ? Math.abs(aL - prevRef.current.ang) / dt : 0;
+      // velocidad ajustada por el playback para reflejar el ritmo real del cuerpo
+      const vel = dt > 0 && dt < 1 ? (Math.abs(aL - prevRef.current.ang) / dt) / PLAYBACK : 0;
       prevRef.current = { ang: aL, t: now };
-      if (now - pushRef.current > 110) {
+      if (now - pushRef.current > 100) {
         pushRef.current = now;
-        setR({
-          ang: Math.round(aL),
-          vel: Math.min(220, Math.round(vel)),
-          sym: Math.max(0, Math.round(100 - Math.abs(aL - aR))),
-          conf: q,
-          ready: true,
-        });
+        setR({ ang: Math.round(aL), vel: Math.min(240, Math.round(vel)), sym: Math.max(0, Math.round(100 - Math.abs(aL - aR))), conf: q, ready: true });
       }
     };
 
-    let lastSend = 0;
-    const loop = async (t: number) => {
+    // Render desacoplado a 60fps con interpolación → esqueleto fluido y sin steps.
+    const render = () => {
       if (stopped) return;
-      if (!busy && pose && video.readyState >= 2 && !video.paused && t - lastSend >= 80) {
-        lastSend = t; busy = true; resizeCanvas(canvas);
-        try { await pose.send({ image: video }); } catch {}
-        busy = false;
+      if (target) {
+        if (!cur || cur.length !== target.length) cur = target.map((p) => ({ ...p }));
+        const k = 0.5;
+        for (let i = 0; i < target.length; i++) {
+          const t = target[i], c = cur[i];
+          c.x += (t.x - c.x) * k;
+          c.y += (t.y - c.y) * k;
+          if (c.z != null && t.z != null) c.z += (t.z - c.z) * k;
+          c.visibility = t.visibility;
+        }
+        drawPose(canvas, video, cur, q);
+        drawMarkers(canvas, video, cur);
       }
-      raf = requestAnimationFrame(loop);
+      rafR = requestAnimationFrame(render);
+    };
+
+    // Detección en su propio ritmo, sin bloquear el render.
+    const detect = async () => {
+      if (stopped) return;
+      if (pose && video.readyState >= 2 && !video.paused) {
+        try { await pose.send({ image: video }); } catch {}
+      }
+      if (!stopped) timer = window.setTimeout(detect, 55);
     };
 
     const boot = async () => {
@@ -136,16 +155,17 @@ export function ZoomReader() {
         pose = new window.Pose({ locateFile: (f: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${f}` });
         pose.setOptions({ modelComplexity: 0, smoothLandmarks: true, enableSegmentation: false, minDetectionConfidence: 0.4, minTrackingConfidence: 0.4 });
         pose.onResults(onResults);
-        raf = requestAnimationFrame(loop);
+        detect();
+        rafR = requestAnimationFrame(render);
       } catch { setFailed(true); }
     };
 
     const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { video.play().catch(() => {}); boot(); }
+      if (e.isIntersecting) { video.play().catch(() => {}); video.playbackRate = PLAYBACK; boot(); }
       else video.pause();
     }, { threshold: 0.15 });
     io.observe(wrap);
-    return () => { stopped = true; cancelAnimationFrame(raf); io.disconnect(); try { pose?.close(); } catch {} };
+    return () => { stopped = true; cancelAnimationFrame(rafR); clearTimeout(timer); io.disconnect(); try { pose?.close(); } catch {} };
   }, []);
 
   return (
