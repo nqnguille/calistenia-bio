@@ -1,7 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-
-const CYAN = "#00E5FF";
+import { LivePoseDemo } from "@/components/shared/LivePoseDemo";
 
 const detections = [
   { label:"Postura",    sub:"Alineación cervical",      score:82, icon:"⊕" },
@@ -42,52 +41,12 @@ export function ComputerVision() {
         {/* 2-col: body scan + detections */}
         <div className="grid items-start gap-10 lg:grid-cols-2">
 
-          {/* Body scan card */}
-          <motion.div initial={{ opacity:0, x:-24 }} whileInView={{ opacity:1, x:0 }} viewport={{ once:true }}
-            className="brut-panel-raised relative overflow-hidden">
-            <div className="flex items-center justify-between border-b border-white/[0.14] bg-black/40 px-4 py-3">
-              <span className="brut-mono text-[0.68rem] font-bold uppercase tracking-[0.1em] text-chalk/50">
-                body_scan.exe
-              </span>
-              <span className="brut-mono flex items-center gap-2 text-[0.68rem] font-bold uppercase tracking-[0.1em] text-cyan">
-                <motion.span animate={{ opacity:[1, 0.15, 1] }} transition={{ duration:1.2, repeat:Infinity }} className="h-2 w-2 bg-cyan" />
-                33_landmarks
-              </span>
-            </div>
-
-            <div className="relative bg-black">
-              <div className="absolute inset-0 opacity-40" style={{ backgroundImage:"linear-gradient(rgba(0,229,255,.06) 1px, transparent 1px)", backgroundSize:"100% 22px" }} aria-hidden />
-              <svg viewBox="0 0 300 400" className="relative w-full max-h-[360px]" aria-hidden>
-                {/* Silhouette */}
-                <ellipse cx="150" cy="45" rx="28" ry="32" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" />
-                <path d="M 115 75 L 95 130 L 85 190" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" strokeLinecap="square" />
-                <path d="M 185 75 L 205 130 L 215 190" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" strokeLinecap="square" />
-                <path d="M 115 75 L 185 75 L 190 160 L 150 175 L 110 160 Z" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" />
-                <path d="M 120 175 L 115 260 L 110 330" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" strokeLinecap="square" />
-                <path d="M 180 175 L 185 260 L 190 330" fill="none" stroke="rgba(0,229,255,0.4)" strokeWidth="1.5" strokeLinecap="square" />
-                {/* Landmark squares */}
-                {[[150,45],[150,80],[115,78],[185,78],[85,128],[215,128],[150,175],[120,175],[180,175],[115,258],[185,258],[110,328],[190,328]].map(([cx,cy],i) => (
-                  <motion.rect key={i} x={cx-3.2} y={cy-3.2} width={6.4} height={6.4} fill={CYAN}
-                    initial={{ scale:0, opacity:0 }} animate={{ scale:1, opacity:0.9 }}
-                    transition={{ delay:0.05*i, duration:0.3 }} className="brut-glow" />
-                ))}
-                {/* Scan beam */}
-                <motion.rect x="60" width="180" height="2" fill={CYAN} fillOpacity="0.6"
-                  initial={{ y:30 }} animate={{ y:[30,350,30], opacity:[0,0.6,0] }}
-                  transition={{ duration:3.5, repeat:Infinity, ease:"linear", delay:1 }} />
-              </svg>
-              {/* Floating badges */}
-              {[
-                { cls:"right-4 top-4", label:"postura", val:"82%" },
-                { cls:"bottom-20 left-4", label:"rom", val:"118°" },
-              ].map((b,i) => (
-                <motion.div key={b.label} initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:1.2+i*0.3 }}
-                  className={`absolute ${b.cls} border border-white/[0.14] bg-black/80 px-3.5 py-2`}>
-                  <p className="brut-mono text-[0.62rem] font-bold uppercase tracking-[0.08em] text-chalk/40">{b.label}</p>
-                  <p className="brut-display text-lg text-cyan">{b.val}</p>
-                </motion.div>
-              ))}
-            </div>
+          {/* Detección en vivo REAL: MediaPipe sobre video, esqueleto + métricas */}
+          <motion.div initial={{ opacity:0, x:-24 }} whileInView={{ opacity:1, x:0 }} viewport={{ once:true }}>
+            <LivePoseDemo />
+            <p className="brut-mono mt-3 text-[0.62rem] uppercase tracking-[0.06em] text-chalk/35">
+              detección real · mismo motor que la evaluación · corriendo en tu navegador
+            </p>
           </motion.div>
 
           {/* Detection bars */}
