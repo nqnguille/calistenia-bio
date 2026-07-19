@@ -139,8 +139,8 @@ export function LivePoseDemo() {
           ref={videoRef}
           className="absolute inset-0 h-full w-full object-cover"
           style={{ filter: "contrast(1.06) saturate(0.82) brightness(0.9)" }}
-          src="/hero/posedemo-v2.mp4"
-          poster="/hero/posedemo-v2_poster.jpg"
+          src="/hero/posedemo-v3.mp4"
+          poster="/hero/posedemo-v3_poster.jpg"
           muted
           loop
           playsInline
@@ -148,8 +148,8 @@ export function LivePoseDemo() {
           preload="metadata"
           aria-hidden
         >
-          <source src="/hero/posedemo-v2.webm" type="video/webm" />
-          <source src="/hero/posedemo-v2.mp4" type="video/mp4" />
+          <source src="/hero/posedemo-v3.webm" type="video/webm" />
+          <source src="/hero/posedemo-v3.mp4" type="video/mp4" />
         </video>
 
         {/* Scanlines + viñeta sobre el feed */}
