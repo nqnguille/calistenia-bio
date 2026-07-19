@@ -5,6 +5,7 @@ import { Experience } from "@/components/sections/Experience";
 import { AIEngine } from "@/components/sections/AIEngine";
 import { MovementAge } from "@/components/sections/MovementAge";
 import { EvidenceScience } from "@/components/sections/EvidenceScience";
+import { ReadingMethod } from "@/components/sections/ReadingMethod";
 import { WeeklyCheckpoints } from "@/components/sections/WeeklyCheckpoints";
 import { CompoundEffect } from "@/components/sections/CompoundEffect";
 import { Adherence } from "@/components/sections/Adherence";
@@ -25,6 +26,7 @@ export default function Home() {
       <main>
         <Hero />
         <ComputerVision />
+        <ReadingMethod />
         <Experience />
         <Problem />
         <AIEngine />
