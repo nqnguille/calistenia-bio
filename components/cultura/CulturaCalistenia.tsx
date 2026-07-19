@@ -1,5 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
+import { ShaderHero } from "@/components/shared/ShaderHero";
 
 const reveal = {
   initial: { opacity: 0, y: 32 },
@@ -63,46 +64,55 @@ const CODIGOS = [
 export function CulturaCalistenia() {
   return (
     <>
-      {/* ───────────────────────── Hero ───────────────────────── */}
-      <section className="brut-sec brut-concrete relative overflow-hidden bg-void px-8 pb-28 pt-44 text-chalk">
-        <div className="brut-grid absolute inset-0 opacity-60" aria-hidden />
-        <div
-          className="brut-display brut-outline-text pointer-events-none absolute -right-10 top-16 select-none text-[22rem] leading-none opacity-60 max-lg:hidden"
-          aria-hidden
+      {/* ───────────────────────── Hero WebGL ───────────────────────── */}
+      <section id="cultura-hero" className="brut-sec relative">
+        <ShaderHero
+          imageSrc="/hero/cultura.jpg"
+          fallbackSrc="/hero/cultura_duo.jpg"
+          minH="72vh"
+          darken={0.5}
         >
-          NYC
-        </div>
+          <div className="mx-auto flex min-h-[72vh] max-w-5xl flex-col justify-center px-5 pb-16 pt-32 md:px-6 md:pt-36">
+            <motion.p
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="brut-label mb-5 flex items-center gap-3"
+            >
+              <span className="inline-block h-2 w-2 bg-cyan brut-glow" />
+              [CULT_00 // CULTURA]
+            </motion.p>
 
-        <div className="relative mx-auto max-w-6xl text-center">
-          <motion.p {...reveal} className="brut-label mb-5 justify-center">
-            [CULT_01 // ORIGEN]
-          </motion.p>
-          <motion.p
-            {...reveal}
-            transition={{ ...reveal.transition, delay: 0.04 }}
-            className="brut-mono text-[0.72rem] font-bold uppercase tracking-[0.14em] text-chalk/50"
-          >
-            De los parques de Nueva York a las barras de acá
-          </motion.p>
-          <motion.h1
-            {...reveal}
-            transition={{ ...reveal.transition, delay: 0.08 }}
-            className="brut-display mx-auto mb-5 mt-7 max-w-[900px] text-[clamp(3rem,7.5vw,6.4rem)]"
-          >
-            La cultura de la <span className="text-cyan">calistenia</span>
-          </motion.h1>
-          <motion.p
-            {...reveal}
-            transition={{ ...reveal.transition, delay: 0.16 }}
-            className="mx-auto max-w-[620px] border-l-2 border-cyan pl-4 text-left text-[1.1rem] leading-[1.75] text-chalk/70"
-          >
-            No es una tendencia de gimnasio: es un movimiento con treinta años de historia, nacido en parques
-            públicos y sostenido por gente que entrena gratis, a la vista de todos. Esto es lo que hay documentado
-            — con fuente citada en cada dato.
-          </motion.p>
-        </div>
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.06 }}
+              className="brut-mono mb-4 text-[0.72rem] font-bold uppercase tracking-[0.14em] text-chalk/60"
+            >
+              De los parques de Nueva York a las barras de acá
+            </motion.p>
 
-        <div className="brut-hazard absolute bottom-0 left-0 right-0 h-[3px] opacity-40" aria-hidden />
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+              className="brut-display max-w-[900px] text-[clamp(3rem,8vw,7rem)] drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]"
+            >
+              La cultura de la <span className="text-cyan brut-glow">calistenia</span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.26 }}
+              className="mt-7 max-w-xl border-l-2 border-cyan bg-black/30 py-1 pl-4 text-base leading-[1.7] text-chalk/85 backdrop-blur-sm md:text-lg"
+            >
+              No es una tendencia de gimnasio: es un movimiento con treinta años de historia, nacido en parques
+              públicos y sostenido por gente que entrena gratis, a la vista de todos. Esto es lo que hay documentado
+              — con fuente citada en cada dato.
+            </motion.p>
+          </div>
+        </ShaderHero>
       </section>
 
       {/* ───────────────────────── Timeline ───────────────────────── */}

@@ -45,6 +45,9 @@ export function Footer() {
           <p>© 2026 CALISTENIA.bio // demo pública gratuita // producto en construcción</p>
           <p>hecho con IA // basado en evidencia // para vivir más joven</p>
         </div>
+        <p className="brut-mono pt-4 text-[0.6rem] uppercase tracking-[0.06em] text-chalk/20">
+          imágenes y video: Pexels // Sport O&apos;Scope · Ketut Subiyanto · Niko Twisty · Instituto Alpha Fitness
+        </p>
       </div>
     </footer>
   );

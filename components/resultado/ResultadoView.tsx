@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { ShaderHero } from "@/components/shared/ShaderHero";
 
 const C = {
   chalk: "#EDEDED", void: "#0A0A0A",
@@ -76,27 +78,76 @@ export function ResultadoView() {
   const color = age == null ? C.cement : diff < 0 ? C.cyan : Math.abs(diff) <= 1 ? C.cyan : C.red;
 
   return (
-    <div style={{ minHeight: "100vh", background: C.void, padding: "60px 20px 80px" }}>
-      <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
-        <a href="/" style={{ fontFamily: DISPLAY, fontWeight: 400, fontSize: "1.2rem", textTransform: "uppercase", letterSpacing: "0.01em", color: C.chalk, textDecoration: "none" }}>
-          CALISTENIA<span style={{ color: C.cyan }}>.bio</span>
-        </a>
+    <>
+      {/* HERO WebGL: muestra la Edad de Movimiento real (mismo dato: `age` / maResult) */}
+      <ShaderHero imageSrc="/hero/resultado.jpg" fallbackSrc="/hero/resultado_duo.jpg" minH="70vh" darken={0.55}>
+        <div className="mx-auto flex min-h-[70vh] max-w-4xl flex-col justify-center px-5 pb-14 pt-28 text-center md:px-6 md:pt-32">
+          <motion.a
+            href="/"
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="brut-display mb-6 self-center text-lg uppercase tracking-[0.01em] text-chalk no-underline"
+          >
+            CALISTENIA<span className="text-cyan">.bio</span>
+          </motion.a>
 
-        <div style={{ textAlign: "center" }}>
-          <p style={{ fontSize: "0.72rem", fontWeight: 700, color: C.cyan, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: MONO }}>[RES_01 // TU_RESULTADO]</p>
+          <motion.p
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05 }}
+            className="brut-label mb-4 flex items-center justify-center gap-3"
+          >
+            <span className="inline-block h-2 w-2 bg-cyan brut-glow" />
+            [RES_00 // TU RESULTADO]
+          </motion.p>
+
           {age != null ? (
             <>
-              <p style={{ fontSize: "clamp(5rem,15vw,8rem)", fontFamily: DISPLAY, fontWeight: 400, color: C.chalk, lineHeight: 0.9, letterSpacing: "0.01em", margin: "12px 0 6px" }}>
-                {age}<span style={{ fontSize: "0.35em", color: "rgba(237,237,237,0.4)", fontFamily: MONO }}> ± {maResult?.ci}</span>
-              </p>
-              <p style={{ color, fontWeight: 700, fontSize: "0.85rem", fontFamily: MONO, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              <motion.p
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+                className="brut-display leading-[0.82] text-[clamp(6rem,22vw,13rem)] text-chalk drop-shadow-[0_4px_44px_rgba(0,0,0,0.75)]"
+              >
+                {age}
+                <span className="brut-mono align-top text-[0.26em] text-chalk/45"> ± {maResult?.ci}</span>
+              </motion.p>
+              <motion.p
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.28 }}
+                className="brut-mono mx-auto mt-5 inline-block border-l-2 border-cyan bg-black/30 py-1 pl-4 text-sm font-bold uppercase tracking-[0.04em] backdrop-blur-sm"
+                style={{ color }}
+              >
                 {diff < 0 ? `${Math.abs(diff)} años más joven que tu edad real (${chronoAge})` : Math.abs(diff) <= 1 ? "Alineado con tu edad real" : `${diff} años por encima de tu edad real (${chronoAge})`}
-              </p>
+              </motion.p>
             </>
           ) : (
-            <p style={{ color: "rgba(237,237,237,0.6)", marginTop: 12 }}>No hubo suficientes datos para calcular una edad esta vez.</p>
+            <>
+              <motion.h1
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+                className="brut-display text-[clamp(2.6rem,7vw,4.5rem)] text-chalk drop-shadow-[0_4px_44px_rgba(0,0,0,0.75)]"
+              >
+                Tu <span className="text-cyan brut-glow">resultado</span>
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.28 }}
+                className="mx-auto mt-5 max-w-md border-l-2 border-cyan bg-black/30 py-1 pl-4 text-left text-chalk/85 backdrop-blur-sm"
+              >
+                No hubo suficientes datos para calcular una edad esta vez.
+              </motion.p>
+            </>
           )}
         </div>
+      </ShaderHero>
+
+    <div style={{ background: C.void, padding: "44px 20px 80px" }}>
+      <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 28 }}>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {TEST_ORDER.filter((id) => results[id] != null).map((id) => (
@@ -147,5 +198,6 @@ export function ResultadoView() {
         </div>
       </div>
     </div>
+    </>
   );
 }

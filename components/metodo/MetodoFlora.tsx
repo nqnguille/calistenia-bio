@@ -1,5 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
+import { ShaderHero } from "@/components/shared/ShaderHero";
 
 const CYAN = "#00E5FF";
 const RED = "#FF5A5A";
@@ -80,8 +81,46 @@ const ZONAS = [
 export function MetodoFlora() {
   return (
     <>
-      {/* ───────────────────────── Hero ───────────────────────── */}
-      <section className="brut-sec brut-concrete relative overflow-hidden bg-void px-8 pb-32 pt-44 text-chalk">
+      {/* ───────────────────────── Hero WebGL ───────────────────────── */}
+      <section id="metodo-hero" className="brut-sec relative">
+        <ShaderHero
+          imageSrc="/hero/metodo.jpg"
+          fallbackSrc="/hero/metodo_duo.jpg"
+          minH="72vh"
+          darken={0.5}
+        >
+          <div className="mx-auto flex min-h-[72vh] max-w-5xl flex-col justify-center px-6 pb-16 pt-32 md:px-8">
+            <motion.p
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="brut-label mb-5 flex items-center gap-3"
+            >
+              <span className="inline-block h-2 w-2 bg-cyan brut-glow" />
+              [FLORA_00 // MÉTODO]
+            </motion.p>
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
+              className="brut-display text-[clamp(3rem,8vw,7rem)] drop-shadow-[0_4px_40px_rgba(0,0,0,0.7)]"
+            >
+              Método <span className="text-cyan brut-glow">FLORA</span>
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.24 }}
+              className="mt-6 max-w-xl border-l-2 border-cyan bg-black/30 py-1 pl-4 text-base leading-7 text-chalk/85 backdrop-blur-sm md:text-lg"
+            >
+              Ciencia simple, aplicada con constancia.
+            </motion.p>
+          </div>
+        </ShaderHero>
+      </section>
+
+      {/* ───────────────────── Intro · pilares (acrónimo) ───────────────────── */}
+      <section className="brut-sec brut-concrete relative overflow-hidden bg-void px-8 pb-32 pt-28 text-chalk">
         <div className="brut-grid absolute inset-0 opacity-70" aria-hidden />
         <div
           className="brut-display brut-outline-text pointer-events-none absolute -right-10 top-16 select-none text-[22rem] leading-none opacity-60 max-lg:hidden"
@@ -94,20 +133,13 @@ export function MetodoFlora() {
           <motion.p {...reveal} className="brut-label mb-6">
             [FLORA_01 // EL_METODO_DETRAS_DE_CALISTENIA]
           </motion.p>
-          <motion.h1
+          <motion.h2
             {...reveal}
             transition={{ ...reveal.transition, delay: 0.08 }}
-            className="brut-display mx-auto mb-4 mt-4 text-[clamp(3.2rem,8vw,7rem)] text-chalk"
-          >
-            Método <span className="text-cyan">FLORA</span>
-          </motion.h1>
-          <motion.p
-            {...reveal}
-            transition={{ ...reveal.transition, delay: 0.16 }}
-            className="brut-mono mb-10 text-[clamp(1.1rem,2.2vw,1.6rem)] font-bold uppercase tracking-[0.04em] text-chalk/80"
+            className="brut-display mx-auto mb-10 mt-4 text-[clamp(2.2rem,5vw,3.8rem)] text-chalk"
           >
             Ciencia simple, aplicada con constancia.
-          </motion.p>
+          </motion.h2>
           <motion.p
             {...reveal}
             transition={{ ...reveal.transition, delay: 0.22 }}
