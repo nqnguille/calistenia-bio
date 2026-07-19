@@ -17,7 +17,7 @@ const stats = [
 
 export function AIEngine() {
   return (
-    <section className="brut-sec brut-concrete relative overflow-hidden border-t border-white/[0.14] bg-concrete px-8 py-52 text-chalk" id="ciencia">
+    <section className="brut-sec brut-concrete relative overflow-hidden border-t border-white/[0.14] bg-concrete px-8 py-52 text-chalk" id="motor">
       <div className="brut-grid absolute inset-0 opacity-60" aria-hidden />
 
       {/* Número de sección gigante contorneado de fondo */}
